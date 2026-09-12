@@ -19,6 +19,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { scan } from '../core/scan.ts'
+import { deriveStones, wantsYou, ERROR_ALARM_MS, WILDWOOD_ID } from '../core/state/stones.ts'
+import { defaultGrove, parseGrove } from '../core/state/schema.ts'
+import { loadGrove } from '../core/state/grove.ts'
+import type { Session } from '../core/harnesses/types.ts'
 
 const HOME = os.homedir()
 
@@ -261,6 +265,210 @@ check(
   'a scan pass is fast enough to poll on',
   result.durationMs < 1000,
   `${result.durationMs}ms`
+)
+
+/* -------------------------------------------------------------------------------------------
+ * Deriving stones from those sessions
+ *
+ * Checked against the real grove first, then against sessions made up on the spot for the cases
+ * this machine happens not to have. `deriveStones` is pure precisely so that second half is
+ * possible — no disk, no clock but the one it is handed.
+ * ---------------------------------------------------------------------------------------- */
+
+const loaded = await loadGrove()
+const derived = deriveStones(result.sessions, loaded.grove)
+
+check(
+  'no two stones share a name',
+  new Set(derived.stones.map((s) => s.name)).size === derived.stones.length,
+  // The failure this catches is two monoliths in the grove you cannot tell apart, which is the
+  // whole reason core/scan.ts bothers to disambiguate colliding project names.
+  (() => {
+    const names = derived.stones.map((s) => s.name)
+    const dupes = [...new Set(names.filter((n, i) => names.indexOf(n) !== i))]
+    return dupes.length ? `duplicated: ${dupes.join(', ')}` : `${names.length} distinct names`
+  })()
+)
+
+check(
+  'no two stones share an id',
+  new Set(derived.stones.map((s) => s.id)).size === derived.stones.length,
+  `${derived.stones.length} stones, ${new Set(derived.stones.map((s) => s.id)).size} distinct ids`
+)
+
+// Nothing may be lost or double-counted on the way from sessions to stones. A session that
+// silently vanishes here is work the grove would never show you.
+const placed = derived.stones.flatMap((stone) => stone.sessions.map((session) => session.id))
+const hiddenCount = derived.hidden.reduce((total, entry) => total + entry.sessionCount, 0)
+check(
+  'every session lands on exactly one stone',
+  placed.length === new Set(placed).size && placed.length + hiddenCount === result.sessions.length,
+  `${result.sessions.length} sessions in, ${placed.length} placed on stones, ${hiddenCount} hidden by grove.json`
+)
+
+check(
+  'the Wildwood is always present',
+  derived.stones.some((stone) => stone.id === WILDWOOD_ID),
+  (() => {
+    const wildwood = derived.stones.find((stone) => stone.id === WILDWOOD_ID)
+    return wildwood
+      ? `holding ${wildwood.sessions.length} session(s)` +
+          (wildwood.wildwoodReasons.length ? `: ${wildwood.wildwoodReasons.join('; ')}` : '')
+      : 'missing'
+  })()
+)
+
+// Deriving twice from the same input must give the same answer. A stone whose name or status
+// depended on iteration order would move around the grove between polls for no reason.
+const again = deriveStones(result.sessions, loaded.grove)
+check(
+  'deriving twice gives the same grove',
+  JSON.stringify(derived) === JSON.stringify(again),
+  'stable across two runs'
+)
+
+/* Synthetic cases. These are the rules most likely to be argued with later, so they are pinned
+ * here with sessions invented for the purpose rather than left to whatever this machine has. */
+
+const NOW = 1_800_000_000_000
+
+function fakeSession(overrides: Partial<Session>): Session {
+  return {
+    id: 'fake:1',
+    harness: 'claude-code',
+    harnessName: 'Claude Code',
+    title: 'A made-up session',
+    preview: '',
+    project: 'demo',
+    projectPath: '/tmp/demo',
+    worktree: '',
+    cwd: '/tmp/demo',
+    gitBranch: '',
+    model: '',
+    effort: '',
+    createdAt: NOW,
+    lastActivityAt: NOW,
+    lastFocusedAt: 0,
+    status: 'idle',
+    statusProvenance: 'inferred',
+    unread: false,
+    unreadProvenance: 'unknown',
+    sizeBytes: 0,
+    archived: false,
+    source: 'cli',
+    canOpen: false,
+    ref: {},
+    ...overrides,
+  }
+}
+
+// An error from last week must not keep a stone lit. A grove with a permanently red stone in it
+// teaches you to ignore red, which costs you the next real one.
+const staleError = fakeSession({
+  id: 'fake:stale',
+  status: 'errored',
+  lastActivityAt: NOW - ERROR_ALARM_MS - 1,
+})
+const staleStone = deriveStones([staleError], defaultGrove(), NOW).stones[0]
+check(
+  'an error older than a day stops setting the stone colour',
+  staleStone?.status === 'idle' && !wantsYou(staleError, NOW),
+  `stone reads "${staleStone?.status}", and the session no longer asks for you — the session itself still reports "errored"`
+)
+
+const freshError = fakeSession({ id: 'fake:fresh', status: 'errored', lastActivityAt: NOW - 60_000 })
+const freshStone = deriveStones([freshError], defaultGrove(), NOW).stones[0]
+check(
+  'an error from a minute ago does set it',
+  freshStone?.status === 'errored' && wantsYou(freshError, NOW),
+  `stone reads "${freshStone?.status}"`
+)
+
+// Waiting outranks errored: one is something you can act on now, the other already happened.
+const mixed = deriveStones(
+  [
+    fakeSession({ id: 'fake:err', status: 'errored', lastActivityAt: NOW - 1000 }),
+    fakeSession({ id: 'fake:wait', status: 'waiting', lastActivityAt: NOW - 2000 }),
+    fakeSession({ id: 'fake:run', status: 'running', lastActivityAt: NOW }),
+  ],
+  defaultGrove(),
+  NOW
+).stones[0]
+check(
+  'a stone shows the most urgent thing on it',
+  mixed?.status === 'waiting',
+  `running + errored + waiting on one stone reads as "${mixed?.status}"`
+)
+
+// A stone is only as trustworthy as the sessions setting its colour.
+const provenance = deriveStones(
+  [
+    fakeSession({ id: 'fake:a', status: 'running', statusProvenance: 'measured' }),
+    fakeSession({ id: 'fake:b', status: 'running', statusProvenance: 'inferred' }),
+  ],
+  defaultGrove(),
+  NOW
+).stones[0]
+check(
+  'a stone takes the weakest provenance of the sessions lighting it',
+  provenance?.statusProvenance === 'inferred',
+  `measured + inferred reads as "${provenance?.statusProvenance}"`
+)
+
+// An explicit grove.json entry has to beat the Grove's own assumption, in both directions —
+// otherwise there is no way to say "no, this scratch folder really is a project to me".
+const scratchPath = `${HOME}/Library/Application Support/Claude/scratch-workspaces/x/y/scratch-1`
+const scratch = fakeSession({ id: 'fake:scratch', projectPath: scratchPath, project: 'scratch-1' })
+const assumed = deriveStones([scratch], defaultGrove(), NOW)
+const overridden = deriveStones(
+  [scratch],
+  { ...defaultGrove(), stones: [{ path: scratchPath, wildwood: false }] },
+  NOW
+)
+check(
+  'grove.json overrides the Wildwood assumption in both directions',
+  assumed.stones.find((s) => s.id === WILDWOOD_ID)?.sessions.length === 1 &&
+    overridden.stones.some((s) => s.path === scratchPath),
+  'a scratch workspace goes to the Wildwood by default, and "wildwood": false gives it a stone'
+)
+
+// Hiding a project must remove it from the grove without losing the session from the totals —
+// hidden and gone are different things, and the interface has to be able to offer it back.
+const hiddenGrove = deriveStones(
+  [fakeSession({ id: 'fake:hide', projectPath: '/tmp/secret', project: 'secret' })],
+  { ...defaultGrove(), stones: [{ path: '/tmp/secret', hidden: true }] },
+  NOW
+)
+check(
+  'a hidden project leaves the grove but is still reported',
+  !hiddenGrove.stones.some((s) => s.path === '/tmp/secret') &&
+    hiddenGrove.hidden.length === 1 &&
+    hiddenGrove.totalSessions === 0,
+  `hidden: ${hiddenGrove.hidden.map((h) => `${h.name} (${h.sessionCount})`).join(', ')}`
+)
+
+/* -------------------------------------------------------------------------------------------
+ * grove.json, which a person edits by hand and will therefore sometimes get wrong
+ * ---------------------------------------------------------------------------------------- */
+
+// Garbage in must not take the app down, and must not be silently swallowed either.
+const nonsense = parseGrove({
+  version: 1,
+  settings: { claudePlan: 'platinum', scanIntervalMs: 5 },
+  stones: [{ path: 'not-absolute' }, { path: '/tmp/ok', runes: [{ id: 'r' }] }],
+  agents: [{ name: 'no id' }],
+})
+check(
+  'a hand-edited grove.json survives being wrong, and says how',
+  nonsense.problems.length === 5 && nonsense.grove.settings.claudePlan === 'pro',
+  `${nonsense.problems.length} problems reported, defaults kept: ` +
+    nonsense.problems.map((p) => p.where).join(', ')
+)
+
+check(
+  'a valid grove.json round-trips through parsing unchanged',
+  JSON.stringify(parseGrove(defaultGrove()).grove) === JSON.stringify(defaultGrove()),
+  'defaults parse back to themselves'
 )
 
 /* -------------------------------------------------------------------------------------------

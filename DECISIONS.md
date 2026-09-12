@@ -212,3 +212,129 @@ hand-read scan look entirely plausible for several minutes before that.
 
 Both counts are asserted in a way that would fail rather than drift: the live Claude process is
 checked by pid, and nothing may report `running` without one.
+
+---
+
+## `grove.json` stores intent, never state
+
+*12 September 2026, session 2*
+
+Runestones are derived fresh from the sessions on disk on every scan. `grove.json` holds only
+what the user has *decided*: that a stone is hidden, that it should be called something else, the
+runes carved on it, the agent definitions in the tree. Normally its `stones` array is empty.
+
+The alternative — writing a stone record the first time a project is seen — was the obvious
+design and is worse in a way that compounds. It creates a second copy of the truth that has to
+be kept in step with the disk, and then every question about a moved, renamed or deleted
+repository becomes a reconciliation problem. bot-crossing's `isArchived` story is the same
+lesson from the other side: state you write about somebody else's data is state you then have to
+defend.
+
+Deriving instead means a new project simply appears, a deleted one simply goes, and there is no
+stale-record class of bug at all. It also keeps the file small enough that the brief's
+requirement — a person can edit it by hand — stays true rather than aspirational.
+
+Wisps are not in the file for the same reason, only stronger: a wisp is one-off work that fades
+when it is done. Persisting one would fill the grove with debris from finished work.
+
+## Scratch workspaces and the home directory go to the Wildwood
+
+*12 September 2026, session 2*
+
+Four Claude desktop scratch workspaces and one session run from `~` were, on this machine, about
+to become five monoliths — one of them named after the home folder, the others called things like
+`scratch-2026-09-03-bc2de4`. They pass the brief's test for permanent scenery, "has a directory
+on disk", and fail the spirit of it completely.
+
+They are real work with no project home, which is precisely what the Wildwood is for. So both
+patterns are assumed into it, and the assumption is beatable in both directions: `"wildwood":
+true` sends a real project there, and `"wildwood": false` insists a scratch folder really is a
+project. The assumption is also *stated* in the interface — the Wildwood says why each resident
+is there — because an assumption you cannot see is indistinguishable from a bug.
+
+The pattern list is deliberately short and deliberately specific. A general rule like "folders
+with a uuid in the name" would eventually swallow somebody's actual repository.
+
+## An error stops being an alarm after a day
+
+*12 September 2026, session 2*
+
+`running` and `waiting` are already bounded by recency inside the adapters, but `errored` is
+sticky: a session that failed last Tuesday still reports `errored` today, because that is
+genuinely what its transcript says. Left alone, one old failure lights a stone red for ever, and
+a grove with a permanent red stone in it teaches you to ignore red — which costs you the next
+real one.
+
+So after `ERROR_ALARM_MS`, a day, an error stops setting the stone's colour. The session still
+reports it; nothing is thrown away and nothing is rewritten. Only the alarm decays.
+
+A day rather than an hour because it has to survive overnight: something that broke while you
+were asleep should still be red when you sit down. This is the number in the project most
+obviously chosen rather than derived, and it should be revisited once the grove is on screen and
+the effect can actually be judged.
+
+## The bridge is push, whole snapshots, and types-only
+
+*12 September 2026, session 2*
+
+Three choices about the seam between node and the interface, all made once so they do not get
+argued per-feature.
+
+**Push, not pull.** The node side scans on its own timer and sends the result; the renderer
+subscribes. A renderer polling on its own interval means two clocks to keep in step and a window
+that is always up to half a poll out of date.
+
+**Whole snapshots, not diffs.** A few tens of kilobytes every few seconds, and in exchange the
+renderer can never drift out of step with the disk: there is no patch to mis-apply and no resync
+path to get wrong. If this ever becomes a real cost, the honest fix is scanning less often, not
+inventing a protocol.
+
+**`bridge.ts` carries types only, no runtime imports.** The renderer needs the shape of a
+snapshot and must never pull in anything that imports `electron`, which is how a renderer bundle
+ends up trying to `require('electron')` in a browser context. And `ipcRenderer` itself is never
+exposed — only named functions — because handing it over exposes every channel in the app,
+including ones added later by somebody who had not thought about it.
+
+## The scan loop belongs to the main process
+
+*12 September 2026, session 2*
+
+Not to a React component, and not to the renderer at all. The Grove is meant to keep watching
+with its window closed, sitting in the menu bar with a tray shard — that is most of the point of
+it. A loop owned by the main process survives the window closing; one owned by a component does
+not, and discovering that in session seven would mean moving it then.
+
+The main process also keeps the latest snapshot and sends it to any window on `did-finish-load`,
+so a window opening just after a scan draws immediately rather than showing an empty grove for a
+full interval.
+
+## Writes to `grove.json` are atomic, and nothing is written unasked
+
+*12 September 2026, session 2*
+
+Write to a temporary file in the same directory, then rename over the original. A rename within
+one filesystem either happens or does not, so a crash or a full disk mid-write cannot leave a
+half-written grove. Truncating the real file and writing into it is how people lose
+configuration, and this is the only file this project writes.
+
+Separately: loading a missing `grove.json` does not create one, and loading a malformed one does
+not rewrite it. The Grove runs on defaults and says what it could not read, per entry, in terms
+the person who typed it can act on. Both alternatives are bad — refusing to start over a stray
+comma costs you the application, and quietly "fixing" the file throws away what you meant.
+
+The renderer is never allowed to name a file for the node side to act on. `revealGroveFile`
+resolves the path on the node side; `openSession` hands its `ref` to the adapter, which
+pattern-checks every id before anything reaches the OS opener.
+
+## The ugly list is not designed, on purpose
+
+*12 September 2026, session 2*
+
+`src/App.tsx` and `src/index.css` exist to prove the chain works on real data and are expected
+to be deleted when the scene arrives. There is exactly enough CSS to make the list legible, and
+one colour — a stone that wants you is findable while scrolling, because that is the premise of
+the whole app.
+
+Styling it further would be work thrown away, and worse: a half-styled debug view is the easiest
+way to start quietly accepting a look nobody chose, which is the one thing the look-development
+spike exists to prevent.

@@ -1,18 +1,165 @@
-/* The only styling that exists yet: a dark ground, so launching the app looks like the
-   beginning of the right thing rather than a blank browser tab. The real palette comes out of
-   the concept art in `src/theme/` during the look-development spike. */
+/* Plumbing, not design.
+ *
+ * Enough to make the session list legible and no more. The real palette comes out of the
+ * concept art in `src/theme/` during the look-development spike, and everything here is
+ * expected to be deleted when the scene replaces the list. Deliberately no layout ambition:
+ * a half-styled debug list is the easiest way to start accepting a look nobody chose. */
+
 :root {
   color-scheme: dark;
+  --ink: #b8c9bd;
+  --dim: #5c6f62;
+  --ground: #050806;
+  --line: #16241a;
+  --live: #4ade80;
+  --wait: #e8c468;
+  --bad: #e06c5f;
 }
 
 body {
   margin: 0;
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background: #050806;
-  color: #4ade80;
-  font: 300 0.75rem/1 ui-monospace, SFMono-Regular, monospace;
+  background: var(--ground);
+  color: var(--ink);
+  font: 400 12px/1.5 ui-monospace, SFMono-Regular, monospace;
+}
+
+main {
+  padding: 2rem 1.5rem 4rem;
+  max-width: 1600px;
+}
+
+h1 {
+  font-size: 0.75rem;
+  font-weight: 400;
   letter-spacing: 0.35em;
   text-transform: uppercase;
+  color: var(--live);
+  margin: 0 0 1.5rem;
+}
+
+h2 {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  margin: 0;
+}
+
+.counts,
+.role {
+  color: var(--dim);
+  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
+  text-transform: none;
+  margin-left: 1rem;
+}
+
+.stone {
+  border-top: 1px solid var(--line);
+  padding: 1rem 0;
+}
+
+/* The one thing worth a colour even here: a stone that wants you should be findable by eye
+   while scrolling, because that is the entire premise of the app. */
+.stone.status-waiting > h2,
+.stone.status-errored > h2 {
+  color: var(--wait);
+}
+.stone.status-running > h2 {
+  color: var(--live);
+}
+
+.path,
+.why {
+  color: var(--dim);
+  margin: 0.25rem 0 0.75rem;
+}
+
+.problem {
+  color: var(--bad);
+  margin: 0.25rem 0;
+}
+
+.harnesses {
+  margin: 0 0 1.5rem;
+}
+.harnesses span {
+  margin-right: 1.5rem;
+}
+.harnesses .on {
+  color: var(--live);
+}
+.harnesses .off {
+  color: var(--dim);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+td {
+  padding: 0.1875rem 0.75rem 0.1875rem 0;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.status {
+  width: 6rem;
+}
+.model,
+.number {
+  color: var(--dim);
+}
+.number {
+  text-align: right;
+  width: 4rem;
+}
+
+/* The title is the only column allowed to be long, so it takes the leftover width and the
+   overflow rather than pushing the numbers off screen. */
+.title {
+  white-space: normal;
+  width: 100%;
+}
+
+.branch {
+  color: var(--dim);
+}
+
+.session.status-running .status {
+  color: var(--live);
+}
+.session.status-waiting .status {
+  color: var(--wait);
+}
+.session.status-errored .status {
+  color: var(--bad);
+}
+.session.status-idle {
+  color: var(--dim);
+}
+
+/* The provenance marker. Faint by design — it should be there when you look for it and
+   invisible when you are not. */
+.mark {
+  color: var(--dim);
+  margin-left: 0.5rem;
+  cursor: help;
+}
+
+button {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  font: inherit;
+  padding: 0.0625rem 0.5rem;
+  cursor: pointer;
+}
+
+button:hover {
+  color: var(--live);
+  border-color: var(--live);
+}
+
+code {
+  color: var(--ink);
 }
