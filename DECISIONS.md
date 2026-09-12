@@ -169,3 +169,46 @@ not, and session 9 should reach for `@anthropic-ai/claude-agent-sdk` instead —
 better answer regardless, since it gives a typed event stream rather than parsed stdout. Shelling
 out stays a fallback for machines that do have the CLI, and must be feature-detected rather than
 assumed.
+
+## Machinery is recognised by what it is, not by not being on a list
+
+*12 September 2026, session 1*
+
+Both Claude Code and Codex write a transcript for every subagent they spawn for themselves. On
+this machine that was 18 of 44 Claude transcripts and 17 of 23 Codex rollouts — in both cases
+the majority of the files on disk. Each would have stood in the grove as a stone nobody had
+ever typed at.
+
+The first version of the Codex filter got this wrong in an instructive way. It asked whether
+`thread_source` was one of the values known to be fine — `user`, `interactive` — and threw away
+everything else. That would have silently hidden every `chatgpt_handoff` session: a real
+conversation, handed over from ChatGPT, whose only crime was a `thread_source` nobody had
+thought of yet.
+
+So machinery is recognised positively, by carrying a `parent_thread_id` or a subagent marker in
+its `source`. Checked across every rollout on this machine, those two signals agree perfectly
+and neither ever appears on a session a person had. Recognising machinery by what it *is* fails
+safely — a new kind of subagent shows up as a stone until we notice. Recognising it by absence
+from a list of the known-good fails by hiding somebody's actual work, which is the failure you
+do not find out about.
+
+The Claude side needed no filter at all, as it happens: subagent transcripts are nested a folder
+deeper, and reading one level deep excludes them structurally. That was luck rather than design,
+so it is now written down in `scanTranscripts` — a future change to a recursive walk would
+silently add eighteen stones.
+
+## The scanner is checked against a second implementation, not against itself
+
+*12 September 2026, session 1*
+
+`npm run verify` counts the files on disk with its own code and complains if the scanner
+disagrees with it. It deliberately does not import the adapters' helpers, because sharing them
+would make the two agree by construction, which is the one thing a check must not do.
+
+This is worth the duplication because the failure mode here is invisible. A grove showing six
+agents when four are running looks exactly like a grove showing four, and nothing about it feels
+wrong. The check found both bugs above within a minute of being written, having watched a
+hand-read scan look entirely plausible for several minutes before that.
+
+Both counts are asserted in a way that would fail rather than drift: the live Claude process is
+checked by pid, and nothing may report `running` without one.

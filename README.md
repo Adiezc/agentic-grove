@@ -17,11 +17,17 @@ macOS only. MIT licensed. No telemetry, ever — everything stays on your machin
 
 ```bash
 npm install
-npm run scan
+npm run scan     # print every agent session on this machine
+npm run watch    # the same thing on the live poll loop
+npm run verify   # check the scanner against the raw files, independently
 ```
 
-Prints every Claude Code and Codex session on this machine: project, status, model, last
-activity. Read-only. It does not touch a single file belonging to another tool.
+`scan` prints every Claude Code and Codex session on this machine: project, status, model, last
+activity, and how much each status can be trusted. Read-only — it does not touch a single file
+belonging to another tool.
+
+`verify` is the one worth knowing about. It counts the files on disk with its own separate code
+and fails if the scanner disagrees, because a wrong number looks exactly like a right one.
 
 ## What it can and cannot see
 

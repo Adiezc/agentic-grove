@@ -24,6 +24,11 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
+
+    // Imports inside `core/` name the real file, extension and all: `./fsutil.ts`. That is what
+    // lets plain node run the scanner with no build step, which is the whole reason `core/` is
+    // kept free of UI code. Vite and tsx both understand it too.
+    "allowImportingTsExtensions": true,
     "types": ["node"]
   },
   "include": ["core", "electron", "src", "test", "vite.config.ts"]
