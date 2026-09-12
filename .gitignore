@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-electron/
+out/
+release/
+*.tsbuildinfo
+
+# The user's own grove. Their projects and layout are theirs, not ours to ship.
+# A grove.example.json is committed instead, so the schema is still visible.
+grove.json
+
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local environment. API keys live in the macOS keychain, never in a file,
+# but this catches anything a contributor might be tempted to put here.
+.env
+.env.*

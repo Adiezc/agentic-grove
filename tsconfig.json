@@ -1,0 +1,30 @@
+{
+  // One config for the whole project, deliberately. Splitting it per-folder is the usual
+  // advice, but it doubles the number of files a newcomer has to understand for a benefit we
+  // do not need yet: `core/` is kept free of browser code by review and by the fact that it
+  // has to run under plain node, not by the compiler refusing to allow it.
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+
+    // Strict, from the first commit. Turning this on later means fixing hundreds of errors at
+    // once, which nobody ever gets round to.
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["core", "electron", "src", "test", "vite.config.ts"]
+}

@@ -1,0 +1,39 @@
+{
+  "name": "agentic-grove",
+  "version": "0.0.1",
+  "private": true,
+  "description": "A desktop cockpit for running and watching AI agents",
+  "license": "MIT",
+  "author": "Adrian Diez Cuadrado",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Adiezc/agentic-grove.git"
+  },
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "scan": "tsx core/cli/scan-once.ts",
+    "watch": "tsx core/cli/scan-once.ts --watch",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^44.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vite": "^7.0.0",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

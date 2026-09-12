@@ -1,0 +1,121 @@
+# Credits
+
+Agentic Grove exists because other people published their work and let others use it. This file
+is written before the feature code, not after it, and it is a condition of the project rather
+than a courtesy.
+
+Every licence below was **read from the repository itself on 12 September 2026**, not taken on
+trust from a project description. Where a repository has no licence file, that is stated plainly
+and the consequence is stated with it.
+
+---
+
+## Code we use
+
+### Station-Sciences/bot-crossing — MIT
+
+<https://github.com/Station-Sciences/bot-crossing> · Copyright (c) 2026 Jarren Rocks
+
+The one we owe the most to, and the original inspiration for this entire project.
+
+**What we took:**
+
+- `server/harnesses/` — the Claude Code, Codex and Cursor adapters, ported from JavaScript to
+  TypeScript and living here as `core/harnesses/`. Close to a line-by-line translation: the file
+  layouts, the caching strategy, the heuristics for deciding whether a session is running or
+  waiting, and most of the hard-won comments explaining *why* each one is the way it is.
+- `server/lib/fsutil.mjs` — the head/tail reading and JSONL-tolerance helpers, as
+  `core/harnesses/fsutil.ts`.
+- `server/scan.mjs` — the scan loop and the project-name disambiguation, as `core/scan.ts`.
+- `server/harnesses/README.md` — the adapter contract. An unusually good document. Ours is
+  adapted to our naming and keeps its structure and much of its wording.
+- The **read-only discipline** towards other tools, which is now principle one of this project.
+- The idea of an append-only `DECISIONS.md`, which this repo also keeps.
+
+Because we copied substantial portions rather than merely reading them, MIT requires the
+copyright notice to travel with the code. The full licence text is therefore kept in-tree at
+[`core/harnesses/LICENSE-bot-crossing`](core/harnesses/LICENSE-bot-crossing), and every ported
+file carries a header pointing at it.
+
+**What we changed, and why it is not a criticism of the original:** we dropped its Windows and
+Linux code paths, because this project is macOS-only and the removed branches were genuine
+platform knowledge that would only rot here. Anyone wanting them should take them from
+bot-crossing, where they are maintained. We also renamed its `Thread` to `Session`, which is the
+word our brief uses. `core/harnesses/README.md` carries a field-by-field mapping so the two can
+still be read side by side.
+
+### hoangsonww/Claude-Code-Agent-Monitor — MIT
+
+<https://github.com/hoangsonww/Claude-Code-Agent-Monitor> · Copyright (c) 2026 - Now, Son Nguyen
+
+**What we plan to take** (session 6 onwards, not yet in this repo): the hook-based event
+plumbing that gives sub-second updates instead of a polled lag, the statusline capture that is
+the only official source of Claude rate-limit figures, the notification layer, and its Electron
+packaging patterns.
+
+Nothing from it is in the repository yet. When it arrives, this entry gets the same treatment as
+bot-crossing above — an in-tree licence file and per-file headers.
+
+### Material Design Icons — Apache-2.0
+
+<https://github.com/google/material-design-icons>
+
+Icon set, if and where we use one. Not yet in the repository.
+
+### Kay Lousberg asset packs — CC0
+
+<https://kaylousberg.itch.io/> (found by way of bot-crossing)
+
+Public-domain 3D kit pieces, available as placeholder geometry during the look-development
+spike. Not yet in the repository. CC0 asks for nothing, which is exactly why it deserves a
+mention here.
+
+---
+
+## Ideas we use, without taking code
+
+### Maciek-roboblog/Claude-Code-Usage-Monitor — MIT
+
+<https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor> · Copyright (c) 2025 Maciej
+
+MIT, so we *could* copy from it, but it is Python and we are not. What we take is the thinking:
+the discipline of labelling every usage figure with its provenance — official, measured,
+estimate or unknown — and the model of the rolling five-hour window. The principle that a dark
+crystal facet beats a lying one comes from here.
+
+### israriqbal/agent-ecologies — no licence file
+
+<https://github.com/israriqbal/agent-ecologies>
+
+**Checked on 12 September 2026: this repository has no `LICENSE` file.** Absent a licence, the
+work is all rights reserved by default, and permission to copy has not been given. So: the
+multi-model orchestration *concept* influenced our thinking, and **not one line of its code is
+in this project.** If a licence appears later, this entry gets revisited.
+
+### tobrun/dashboard-agent — no licence file
+
+<https://github.com/tobrun/dashboard-agent>
+
+**Checked on 12 September 2026: this repository has no `LICENSE` file.** Same position as above,
+and worth stating just as plainly. No licence means all rights reserved, regardless of the code
+being public and readable. **Ideas only. Not one line of code.** Reading a public repository for
+inspiration is fine; copying from it without a licence is not, however small the fragment.
+
+---
+
+## Tools and libraries
+
+The usual dependency tree, each under its own licence as declared in `package.json` — Electron,
+Vite, React, TypeScript, and later Three.js with React Three Fiber, Zustand and Framer Motion.
+They are credited by being declared, which is the convention, and no more is owed. The projects
+above are named individually because they are people's side projects rather than infrastructure,
+and because this project would not exist without them.
+
+---
+
+## If we have got this wrong
+
+If you wrote something listed here and the attribution is inaccurate, the licence is stated
+incorrectly, or you would rather it were credited differently — please open an issue and it
+will be fixed as the next commit. If code of yours is here and you would rather it were not,
+say so and it will be removed.

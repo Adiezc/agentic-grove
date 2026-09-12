@@ -1,0 +1,18 @@
+/* The only styling that exists yet: a dark ground, so launching the app looks like the
+   beginning of the right thing rather than a blank browser tab. The real palette comes out of
+   the concept art in `src/theme/` during the look-development spike. */
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #050806;
+  color: #4ade80;
+  font: 300 0.75rem/1 ui-monospace, SFMono-Regular, monospace;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+}
