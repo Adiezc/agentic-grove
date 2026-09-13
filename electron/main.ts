@@ -14,7 +14,9 @@
  * stays about lifecycle.
  */
 import { BrowserWindow, app, shell } from 'electron'
+import fsp from 'node:fs/promises'
 import path from 'node:path'
+import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
 import { loadGrove, grovePath } from '../core/state/grove.ts'
@@ -106,6 +108,19 @@ function createWindow(): void {
   windows.add(window)
   window.on('closed', () => windows.delete(window))
 
+  /* Forward what the page logs to the terminal, in development only.
+   *
+   * Without this, a renderer error is invisible unless somebody has the devtools open, which on
+   * an app whose whole front end is a 3D scene means a shader that fails to compile looks
+   * identical to a scene that is simply dark. It also makes the frame-rate readout checkable
+   * from a terminal rather than only by eye. */
+  if (devServerUrl) {
+    window.webContents.on('console-message', (event) => {
+      const level = event.level === 'error' ? 'error' : event.level === 'warning' ? 'warn' : 'log'
+      console.log(`renderer:${level}: ${event.message}`)
+    })
+  }
+
   // Send whatever is already known as soon as the page can receive it. Without this, opening a
   // window just after a scan means up to a full interval of blank grove for no reason.
   window.webContents.on('did-finish-load', () => {
@@ -143,6 +158,26 @@ function registerHandlers(): void {
       return { ok: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
+
+  /* Development only. A packaged build has no reason to be able to write PNGs of itself, and
+   * registering it there would be a write surface with no caller. */
+  if (devServerUrl) {
+    ipcMain.handle(CHANNELS.captureStill, async () => {
+      const [window] = [...windows]
+      if (!window || window.isDestroyed()) return { ok: false, error: 'No window to capture' }
+      try {
+        const image = await window.webContents.capturePage()
+        const dir = path.join(os.tmpdir(), 'agentic-grove-stills')
+        await fsp.mkdir(dir, { recursive: true })
+        const file = path.join(dir, `grove-${Date.now()}.png`)
+        await fsp.writeFile(file, image.toPNG())
+        console.log(`grove-still: ${file}`)
+        return { ok: true, path: file }
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) }
+      }
+    })
+  }
 
   ipcMain.handle(CHANNELS.revealGroveFile, async () => {
     const file = grovePath()

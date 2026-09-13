@@ -5,19 +5,30 @@
  * expected to be deleted when the scene replaces the list. Deliberately no layout ambition:
  * a half-styled debug list is the easiest way to start accepting a look nobody chose. */
 
+/* These mirror `src/theme/palette.ts`, which is where they are documented and where they came
+   from (sampled out of the concept art). Two copies is one too many; when the scene and the
+   interface are both settled, the CSS side should be generated from the TypeScript side. */
 :root {
   color-scheme: dark;
-  --ink: #b8c9bd;
+  --ground: #020904;
+  --ink: #c8c7ca;
+  --text: #c8c7ca;
+  --text-dim: #5c6f62;
   --dim: #5c6f62;
-  --ground: #050806;
   --line: #16241a;
-  --live: #4ade80;
+  --deep: #092b15;
+  --vein: #2e6f48;
+  --live: #42b26e;
+  --glow: #94d7ad;
   --wait: #e8c468;
   --bad: #e06c5f;
 }
 
 body {
   margin: 0;
+  /* The scene is full-bleed and fixed, so the page itself never scrolls. The session-two list
+     scrolls inside its own panel. */
+  overflow: hidden;
   background: var(--ground);
   color: var(--ink);
   font: 400 12px/1.5 ui-monospace, SFMono-Regular, monospace;

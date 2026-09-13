@@ -73,6 +73,15 @@ export interface GroveApi {
 
   /** Reveal `grove.json` in Finder, for editing by hand. */
   revealGroveFile(): Promise<void>
+
+  /**
+   * Save a PNG of the window, for comparing the scene against the concept art.
+   *
+   * Development only: the handler is not registered in a packaged build. It exists because
+   * judging a look means putting a still next to the reference, and the alternative is asking a
+   * person to take a screenshot every time a number changes.
+   */
+  captureStill(): Promise<{ ok: boolean; path?: string; error?: string }>
 }
 
 /** The IPC channel names, in one place so the two sides cannot disagree about a string. */
@@ -81,4 +90,5 @@ export const CHANNELS = {
   refresh: 'grove:refresh',
   openSession: 'grove:open-session',
   revealGroveFile: 'grove:reveal-grove-file',
+  captureStill: 'grove:capture-still',
 } as const

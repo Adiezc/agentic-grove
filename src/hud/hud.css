@@ -1,0 +1,404 @@
+/* The interface layer, positioned from measurements of the concept art.
+ *
+ * Every offset below carries the fraction of the frame it was measured at, on the 1000x753
+ * reduction of `assets/concept/grove-main.png`. Percentages rather than pixels so the
+ * composition survives a window that is not the art's aspect ratio.
+ *
+ * One radius system: the console is a full pill, the panels are 14px, nothing else has a corner.
+ * One accent: the green from the palette, used only for state. */
+
+.grove-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--ground);
+}
+
+.grove-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+/* The interface floats over the scene and lets the pointer through to it, except on the
+   things that are actually interactive. Without this the whole canvas is unhoverable. */
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+}
+
+.hud button,
+.hud input,
+.hud .crystal {
+  pointer-events: auto;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Left rail. Measured at x = 30/1000, first icon y = 102/753. ---- */
+
+.rail {
+  position: absolute;
+  left: 3%;
+  top: 13.5%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.05rem;
+  align-items: center;
+}
+
+/* The hanging hairline above the rail, from the top of the frame down to a dot. */
+.rail-thread {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 1.6rem);
+  width: 1px;
+  height: 7.5rem;
+  background: linear-gradient(to bottom, transparent, var(--line) 40%, var(--vein));
+}
+
+.rail-thread::after {
+  content: '';
+  position: absolute;
+  left: -1.5px;
+  bottom: -2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--glow);
+  box-shadow: 0 0 6px var(--live);
+}
+
+.rail-item {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Disabled rail items are the spike being honest that they do nothing yet, rather than
+   pretending to be a finished navigation. */
+.rail-item:disabled {
+  cursor: default;
+}
+
+.rail-item:hover:not(:disabled),
+.rail-item.is-on {
+  color: var(--text);
+}
+
+.rail-item.is-on {
+  color: var(--live);
+}
+
+.rail-item:focus-visible {
+  outline: 1px solid var(--live);
+  outline-offset: 3px;
+}
+
+/* ---- Harness row. Measured at y = 45/753, glyphs x = 687..837/1000. ---- */
+
+.harness-row {
+  position: absolute;
+  top: 4.4%;
+  right: 12.5%;
+  display: flex;
+  gap: 1.55rem;
+}
+
+.harness {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--text-dim);
+}
+
+.harness.is-on {
+  color: var(--text);
+}
+
+.harness-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+/* The dot is the only part of a harness allowed to be green, because the dot is the only part
+   that carries state. */
+.harness.is-on .harness-dot {
+  background: var(--live);
+  box-shadow: 0 0 5px var(--live);
+}
+
+/* ---- Crystal. Measured centre x = 925/1000, y = 140/753. ---- */
+
+.crystal {
+  position: absolute;
+  top: 8%;
+  right: 4.2%;
+  width: 5.5rem;
+  display: grid;
+  place-items: center;
+}
+
+.crystal-thread,
+.crystal-drop {
+  position: absolute;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, var(--vein));
+}
+
+.crystal-thread {
+  bottom: calc(100% - 0.5rem);
+  height: 4.5rem;
+}
+
+.crystal-drop {
+  top: calc(100% - 0.5rem);
+  height: 3.2rem;
+  background: linear-gradient(to bottom, var(--vein), transparent);
+}
+
+.crystal-drop::after {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 1.4rem;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--glow);
+  box-shadow: 0 0 8px var(--live);
+}
+
+/* The faceted shield from the art, as a clipped polygon. A real crystal with refraction belongs
+   in the scene rather than the interface, and it is not what this session is judging. */
+.crystal-body {
+  width: 5rem;
+  height: 6.8rem;
+  display: grid;
+  place-items: center;
+  clip-path: polygon(50% 0%, 100% 26%, 100% 74%, 50% 100%, 0% 74%, 0% 26%);
+  background:
+    radial-gradient(60% 50% at 50% 45%, rgb(66 178 110 / 0.22), transparent 70%),
+    linear-gradient(160deg, rgb(41 81 53 / 0.5), rgb(2 9 4 / 0.9));
+  border: 1px solid rgb(46 111 72 / 0.35);
+}
+
+.crystal-mark {
+  width: 3.1rem;
+  height: 3.1rem;
+  object-fit: contain;
+  /* The logo is a bright mark on black; multiplying it into the facet keeps it inside the
+     crystal rather than sitting on top of it as a sticker. */
+  mix-blend-mode: screen;
+  opacity: 0.82;
+}
+
+/* ---- Counts. Measured x = 31/1000, rows at y = 655, 671, 688 of 753. ---- */
+
+.counts {
+  position: absolute;
+  left: 3%;
+  bottom: 8%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.count {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.count-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--vein);
+}
+
+.count.tone-live .count-dot {
+  background: var(--live);
+  box-shadow: 0 0 6px var(--live);
+}
+
+/* ---- Console. Pill measured x = 277..672, sparkle at 700, all of 1000; y = 673/753.
+   The pill and the sparkle are centred as a pair, which is why the group is centred and the
+   pill is not. ---- */
+
+.console-group {
+  position: absolute;
+  left: 50%;
+  bottom: 7.5%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+  width: min(46rem, 62vw);
+}
+
+.console {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.75rem;
+  padding: 0 0.5rem 0 1.75rem;
+  border: 1px solid rgb(22 36 26 / 0.9);
+  border-radius: 999px;
+  background: rgb(2 9 4 / 0.55);
+  backdrop-filter: blur(6px);
+  transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.console:focus-within {
+  border-color: rgb(46 111 72 / 0.85);
+}
+
+.console-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+}
+
+.console-input::placeholder {
+  /* Measured against the console's own background rather than the page: 4.7:1, which clears
+     WCAG AA for body text. The art's placeholder is fainter than this and would not. */
+  color: #7d9186;
+}
+
+.console-input:focus {
+  outline: none;
+}
+
+.console-send,
+.console-spark {
+  display: grid;
+  place-items: center;
+  padding: 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.12s ease-out;
+}
+
+.console-send:hover,
+.console-spark:hover {
+  color: var(--live);
+}
+
+/* The physical push from the design rules. Cheap, and it makes the console feel like hardware. */
+.console-send:active,
+.console-spark:active {
+  transform: scale(0.94);
+}
+
+.console-send:focus-visible,
+.console-spark:focus-visible {
+  outline: 1px solid var(--live);
+  outline-offset: 3px;
+  border-radius: 50%;
+}
+
+/* ---- The data panel behind the pulse icon: session two's list, kept reachable. ---- */
+
+.data-panel {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  background: rgb(2 9 4 / 0.94);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.data-panel-close {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 1;
+}
+
+/* ---- Frame rate. Only while the spike is being judged. ---- */
+
+.fps {
+  position: absolute;
+  right: 4.2%;
+  bottom: 8%;
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+.fps b {
+  font-weight: 400;
+  color: var(--text);
+}
+
+/* Below about 1100px the measured percentages start overlapping: the rail meets the tree and the
+   console meets the counts. The Grove is a desktop app on a large screen by decision, so rather
+   than reflow into something the concept art never described, the interface tightens and the
+   decorative threads go. */
+@media (max-width: 1100px) {
+  .console-group {
+    width: 78vw;
+    gap: 1rem;
+  }
+  .harness-row {
+    right: 6%;
+    gap: 1.1rem;
+  }
+  .crystal {
+    width: 4rem;
+  }
+  .crystal-body {
+    width: 3.6rem;
+    height: 4.9rem;
+  }
+  .crystal-mark {
+    width: 2.2rem;
+    height: 2.2rem;
+  }
+  .rail-thread,
+  .crystal-thread,
+  .crystal-drop {
+    display: none;
+  }
+}

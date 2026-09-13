@@ -338,3 +338,116 @@ the whole app.
 Styling it further would be work thrown away, and worse: a half-styled debug view is the easiest
 way to start quietly accepting a look nobody chose, which is the one thing the look-development
 spike exists to prevent.
+
+---
+
+## The camera angle is derived from the concept art, not chosen
+
+*13 September 2026, session 3*
+
+The ground rings in `assets/concept/grove-main.png` are about 0.24 as tall as they are wide. A
+circle on the floor projects to an ellipse of that ratio when the camera sits roughly 14 degrees
+above the plane, so that is where the camera sits, at a 28 degree field of view about 15 units
+back.
+
+Worth writing down because the obvious choice is wrong in an interesting way. A 45-degree
+isometric view is what these scenes usually end up being, and it produces a completely different
+picture: you look down *onto* a diagram. The low angle is most of why the art reads as standing
+in a clearing rather than inspecting a map, and it was the single most important number in the
+session.
+
+## The palette is sampled, never typed
+
+*13 September 2026, session 3*
+
+Every colour in `src/theme/palette.ts` was read out of the concept art with a colour picker. The
+fastest way to drift off a visual direction is to type a green that feels about right.
+
+Three things the sampling caught that guessing would not have:
+
+- **The ground is nearly black.** `#020904`, covering about four-fifths of the image. Not dark
+  green — black with a green bias.
+- **The monoliths are darker than the background is bright.** `#000f05`. They are silhouettes lit
+  only by their own rune and a rim, not glowing objects.
+- **The text is grey.** `#c8c7ca`, not green. Green is reserved for *state*.
+
+That last one turned out to be the rule that keeps the whole thing calm enough to leave open all
+day: green means something is alive, grey means it is a label. It is principle four in colour
+form, and it came from a colour picker rather than from taste.
+
+## Four rendering mistakes, and what each one taught
+
+*13 September 2026, session 3*
+
+The first render was badly wrong and the fixes are worth recording, because each was a general
+lesson rather than a tweak.
+
+**Additive blending sums past white.** The canopy was six hundred translucent quads each *adding*
+light, which saturates long before the edge of a pad, so it rendered as glowing clouds. Foliage
+needs normal blending and depth writing, so a leaf occludes the leaf behind it. A small bright
+minority — every twelfth leaf, additive — gives the sparkle without the mass going white.
+
+**A view-dependent term on a flat face is a constant.** A fresnel rim was meant to pick out the
+silhouette edges of the stones; on a six-sided prism, where each face has one normal, it lit
+whole panels and the stones came out as grey road signs. Pointing the normals radially outwards,
+as if the prism were a cylinder, makes the shading sweep around the stone: black where a face
+turns towards you, bright along the edge where it turns away.
+
+**Things bury each other.** The entire mycelial network was invisible for two renders because it
+ran at y = 0.014 underneath a dais whose top face was at 0.06. Two constants in two files that
+had to agree and did not.
+
+**A rune carved on one face is invisible from behind.** Five of the six stones had their backs to
+the camera. Stones now turn to face the viewer by default, with the per-stone `turn` as a
+deviation from that rather than an absolute rotation — which is also the correct behaviour for
+the real thing, since the entire premise is that one look tells you everything.
+
+## Never trust a frame rate you have not seen settle
+
+*13 September 2026, session 3*
+
+The spike reported 39fps, then 1fps, then 3fps, and every one of those numbers was false. Two
+separate causes, both worth knowing:
+
+- **A sample taken after a hot reload measures shader compilation**, not the scene.
+- **A sample taken while the window is hidden measures the browser's background throttle.** A
+  hidden tab gets one animation frame per second, and the counter faithfully reported that.
+
+Chasing the first false reading nearly led to gutting the floor reflections, which were never the
+problem. What settled it was instrumenting rather than optimising: draw calls and triangle counts
+alongside the rate, because a scene at 3fps with 60 draw calls and 40,000 triangles is not heavy,
+it is broken, and knowing which decides everything about what you do next.
+
+The honest figure, measured in Electron on an M4 after the scene had settled: **59 fps, 219 draw
+calls, 80,000 triangles, 18 shader programs.** And the reading that matters more: the `low`
+preset, with half the draw calls and half the triangles, also renders at 61fps. The scene is
+capped by the display's refresh rate, not by the GPU, so there is real headroom in hand.
+
+## Merge anything static that shares a material
+
+*13 September 2026, session 3*
+
+The scene reached 327 draw calls before anyone looked at why, and almost none of it was the tree
+or the stones: it was fifty-odd individually drawn roots, filaments, ground rings and nodes, each
+a few hundred triangles. A draw call costs about the same whether it draws 50 triangles or 5,000.
+
+Merging the static ground layer and sharing one material across all six stones took it to 219.
+The stones themselves stay separate meshes because each is hovered, lit and rotated on its own —
+merging those would trade a real interaction for a saving that is not needed.
+
+## Development tooling earned its place in the repo
+
+*13 September 2026, session 3*
+
+Three small things went in that are not features, and each paid for itself inside the session:
+
+- **The renderer's console is forwarded to the terminal in development.** On an app whose whole
+  front end is a 3D scene, a shader that fails to compile looks exactly like a scene that is
+  meant to be dark.
+- **A still capture**, on the `s` key or `VITE_GROVE_CAPTURE=1`. Judging a look means putting a
+  still beside the reference, and "take a screenshot yourself" is not a workflow.
+- **`VITE_GROVE_QUALITY`**, so each preset's cost can be measured on a cold launch rather than by
+  pressing a key and hoping the reading settles.
+
+All three are development-only. The capture handler is not even registered in a packaged build,
+since a shipped app has no reason to be able to write PNGs of itself.

@@ -33,6 +33,7 @@ const api: GroveApi = {
   refresh: () => ipcRenderer.invoke(CHANNELS.refresh),
   openSession: (harness, ref) => ipcRenderer.invoke(CHANNELS.openSession, harness, ref),
   revealGroveFile: () => ipcRenderer.invoke(CHANNELS.revealGroveFile),
+  captureStill: () => ipcRenderer.invoke(CHANNELS.captureStill),
 }
 
 contextBridge.exposeInMainWorld('grove', api)

@@ -1,205 +1,140 @@
 /**
- * The ugly list. Real data, no grove.
+ * The look-development spike.
  *
- * This is a milestone rather than a screen: it proves the whole chain works — scan, derive
- * stones, cross into the renderer, render — using the sessions actually on this machine. It is
- * meant to be replaced entirely by the scene in session three, so **nothing here is designed**,
- * on purpose. Time spent styling it is time spent on something that gets deleted, and a
- * half-styled list is also the easiest way to start quietly accepting a look nobody chose.
+ * Session three's whole job, from the build plan: one scene, dark, bloomed, the palette from the
+ * concept art, and a judgement about whether full 3D is the right call before anything is built
+ * on top of it. So this is the grove, laid out to match `assets/concept/grove-main.png` as closely
+ * as a real-time scene can, and nothing else.
  *
- * What it *is* careful about is being honest: every status carries how much it can be trusted,
- * and anything the Grove could not read is shown rather than swallowed.
+ * **No real data, deliberately.** The six stones are fixtures from the art. Wiring in the fifteen
+ * real ones would change the composition and make the only question this session is asking —
+ * does it look like the art — impossible to answer. Session four connects the scan. The real
+ * data is one click away behind the rail's pulse icon, so the two can be compared.
  */
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { X } from '@phosphor-icons/react'
+import '@fontsource-variable/geist'
+import { GroveScene, SPIKE_STONES, type PerfSample, type QualityPreset } from './scene/Grove'
+import { Counts, Crystal, HarnessRow, HoverReadout, Rail, RuneConsole, usePrefersReducedMotion } from './hud/Hud'
+import { SessionList } from './SessionList'
 import { useGrove } from './store/grove'
-import type { Runestone } from '../core/state/stones.ts'
-import type { Session } from '../core/harnesses/types.ts'
-
-/** `3m`, `4h`, `12d`. Absolute timestamps are unreadable in a list this long. */
-function ago(timestamp: number): string {
-  if (!timestamp) return '—'
-  const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000))
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
-  if (seconds < 86400) return `${Math.round(seconds / 3600)}h`
-  return `${Math.round(seconds / 86400)}d`
-}
-
-function size(bytes: number): string {
-  if (!bytes) return '—'
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}K`
-  return `${(bytes / 1024 / 1024).toFixed(1)}M`
-}
-
-/** What each provenance means, spelled out on hover rather than explained in prose. */
-const PROVENANCE_TITLE: Record<string, string> = {
-  official: 'Official: the provider told us outright.',
-  measured: 'Measured: we tested something real, such as signalling a live process.',
-  inferred: 'Inferred: a reading of files and timestamps on disk. Usually right.',
-  unknown: 'Unknown: this tool records nothing that answers the question.',
-}
-
-const MARK: Record<string, string> = { official: '=', measured: '=', inferred: '~', unknown: '?' }
-
-function SessionRow({ session }: { session: Session }) {
-  const openIt = () => {
-    void window.grove?.openSession(session.harness, session.ref).then((result) => {
-      // A harness with no per-session deep link says why, and the honest thing is to pass that
-      // sentence on rather than let the click look like it worked.
-      if (!result.ok && result.error) window.alert(result.error)
-    })
-  }
-
-  return (
-    <tr className={`session status-${session.status}`}>
-      <td className="status">
-        {session.status}
-        <span className="mark" title={PROVENANCE_TITLE[session.statusProvenance]}>
-          {MARK[session.statusProvenance]}
-        </span>
-      </td>
-      <td>{session.harnessName}</td>
-      <td className="model">{session.model || '—'}</td>
-      <td className="number">{ago(session.lastActivityAt)}</td>
-      <td className="number">{size(session.sizeBytes)}</td>
-      <td className="title">
-        {session.title}
-        {session.gitBranch ? <span className="branch"> {session.gitBranch}</span> : null}
-        {session.worktree ? <span className="branch"> +{session.worktree}</span> : null}
-      </td>
-      <td>
-        {session.canOpen ? (
-          <button type="button" onClick={openIt}>
-            open
-          </button>
-        ) : null}
-      </td>
-    </tr>
-  )
-}
-
-function Stone({ stone }: { stone: Runestone }) {
-  return (
-    <section className={`stone status-${stone.status}`}>
-      <h2>
-        {stone.name}
-        {stone.role === 'wildwood' ? <span className="role"> the unbound stone</span> : null}
-        <span className="counts">
-          {stone.sessions.length} session{stone.sessions.length === 1 ? '' : 's'}
-          {stone.runningCount ? ` · ${stone.runningCount} running` : ''}
-          {stone.attentionCount ? ` · ${stone.attentionCount} want you` : ''}
-        </span>
-      </h2>
-      <p className="path">{stone.path || 'no folder of its own'}</p>
-      {stone.wildwoodReasons.length ? (
-        <p className="why">Here because: {stone.wildwoodReasons.join('; ')}.</p>
-      ) : null}
-      {stone.sessions.length ? (
-        <table>
-          <tbody>
-            {stone.sessions.map((session) => (
-              <SessionRow key={session.id} session={session} />
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p className="why">Nothing here yet.</p>
-      )}
-    </section>
-  )
-}
+import './hud/hud.css'
 
 export function App() {
-  const { snapshot, loading, bridgeMissing, connect, refresh } = useGrove()
+  const [dataOpen, setDataOpen] = useState(false)
+  const [perf, setPerf] = useState<PerfSample | null>(null)
+  const [post, setPost] = useState(true)
+  const [hovered, setHovered] = useState<string | null>(null)
+  /* Startable at a given preset, so each one's cost can be measured on a cold launch rather
+   * than by pressing `q` and hoping the reading settles:
+   *     VITE_GROVE_QUALITY=low npm run dev
+   * Anything unrecognised falls through to 'high', which is what the look is judged at. */
+  const [quality, setQuality] = useState<QualityPreset>(() => {
+    const wanted = import.meta.env.VITE_GROVE_QUALITY
+    return wanted === 'low' || wanted === 'balanced' ? wanted : 'high'
+  })
+  const reducedMotion = usePrefersReducedMotion()
 
-  // The store owns the subscription; this just ties its lifetime to the component's. The
-  // returned unsubscribe matters more than it looks — React StrictMode mounts twice on purpose,
-  // and without it the snapshot would be handled twice per tick from the first second.
+  // The scan keeps running behind the scene even though the spike does not draw it, so opening
+  // the data panel shows something immediately rather than scanning from cold.
+  const connect = useGrove((state) => state.connect)
   useEffect(() => connect(), [connect])
 
-  if (bridgeMissing) {
-    return (
-      <main>
-        <h1>agentic grove</h1>
-        <p className="why">
-          No bridge to the node side, which means this page is open in a plain browser. Run{' '}
-          <code>npm run dev</code> and use the Electron window that opens.
-        </p>
-      </main>
-    )
-  }
+  /* Two keys, both for judging the spike rather than for the finished app:
+   *   d  the real session data, the same as the rail's pulse icon
+   *   q  step down the quality presets, to see what the reflections actually cost */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement) return
+      if (event.key === 'd') setDataOpen((open) => !open)
+      if (event.key === 'b') setPost((on) => !on)
+      if (event.key === 's') void window.grove?.captureStill()
+      if (event.key === 'q') {
+        setQuality((current) => (current === 'high' ? 'balanced' : current === 'balanced' ? 'low' : 'high'))
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
-  if (loading || !snapshot) {
-    return (
-      <main>
-        <h1>agentic grove</h1>
-        <p className="why">Scanning…</p>
-      </main>
-    )
-  }
+  const reported = useRef(false)
+  const onPerf = useCallback((sample: PerfSample) => {
+    setPerf(sample)
+    /* Log once, after the scene has had a few seconds to compile its shaders and settle.
+     *
+     * Every early reading of this spike was junk, and both reasons are worth knowing about: a
+     * sample taken straight after a hot reload measures shader compilation, and a sample taken
+     * while the window is hidden measures the browser's background throttle rather than the
+     * scene. A settled figure printed to the terminal is the only one worth quoting. */
+    if (!reported.current && sample.fps > 5) {
+      reported.current = true
+      console.log(
+        `grove-perf: ${sample.fps} fps, ${sample.drawCalls} draw calls, ${sample.triangles} triangles, ${sample.programs} shader programs`
+      )
+      // With VITE_GROVE_CAPTURE set, save a still as soon as the scene has settled. The point is
+      // that a still taken at the wrong moment is worse than none: the first two seconds are
+      // shader compilation and a half-built scene.
+      if (import.meta.env.VITE_GROVE_CAPTURE) void window.grove?.captureStill()
+    }
+  }, [])
 
-  const { grove, harnesses, problems, groveProblems, grovePath, scanMs } = snapshot
+  const running = SPIKE_STONES.filter((stone) => stone.status === 'running').length
 
   return (
-    <main>
-      <h1>
-        agentic grove
-        <span className="counts">
-          {grove.stones.length} stones · {grove.totalSessions} sessions ·{' '}
-          {grove.runningSessions} running · {grove.attentionSessions} want you · scanned in{' '}
-          {scanMs}ms
-        </span>
-        <button type="button" onClick={refresh}>
-          rescan
-        </button>
-      </h1>
+    <div className="grove-root">
+      <div className="grove-canvas">
+        <GroveScene
+          quality={quality}
+          // Under `prefers-reduced-motion` the scene renders once and holds: no heartbeat, no
+          // motes, no parallax, no travelling light. It is still the same picture, which is the
+          // test of whether the composition works rather than the movement.
+          animate={!reducedMotion}
+          post={post}
+          onPerf={onPerf}
+          onHoverStone={setHovered}
+        />
+      </div>
 
-      <p className="harnesses">
-        {harnesses.map((harness) => (
-          <span key={harness.id} className={harness.detected ? 'on' : 'off'}>
-            {harness.name}
-            {harness.detected ? '' : ' (not installed)'}
-          </span>
-        ))}
-      </p>
+      <div className="hud">
+        <Rail onToggleData={() => setDataOpen((open) => !open)} dataOpen={dataOpen} />
+        <HarnessRow />
+        <Crystal />
+        {/* The numbers from the concept art, since the scene is the art's six stones. */}
+        <Counts agents={SPIKE_STONES.length} running={running} tasks={12} />
+        <RuneConsole />
+        <HoverReadout name={hovered ? (SPIKE_STONES.find((s) => s.id === hovered)?.name ?? null) : null} />
 
-      {harnesses
-        .filter((harness) => harness.diagnostic)
-        .map((harness) => (
-          <p key={harness.id} className="problem">
-            {harness.name}: {harness.diagnostic}
-          </p>
-        ))}
-
-      {problems.map((problem) => (
-        <p key={problem.harness} className="problem">
-          {problem.harness} failed to scan: {problem.message}
+        <p className="fps">
+          <b>{perf?.fps ?? '--'} fps</b>
+          <br />
+          {perf ? `${perf.drawCalls} calls · ${(perf.triangles / 1000).toFixed(1)}k tris` : ''}
+          <br />
+          {quality}
+          {post ? '' : ' · no post'} · q, b, s
+          <br />
+          d for real data
+          {reducedMotion ? (
+            <>
+              <br />
+              reduced motion
+            </>
+          ) : null}
         </p>
-      ))}
 
-      {groveProblems.map((problem) => (
-        <p key={problem.where} className="problem">
-          grove.json · {problem.where}: {problem.message}
-        </p>
-      ))}
-
-      {grove.hidden.length ? (
-        <p className="why">
-          Hidden by grove.json:{' '}
-          {grove.hidden.map((entry) => `${entry.name} (${entry.sessionCount})`).join(', ')}.
-        </p>
-      ) : null}
-
-      {grove.stones.map((stone) => (
-        <Stone key={stone.id} stone={stone} />
-      ))}
-
-      <p className="why">
-        Configuration lives in <code>{grovePath}</code>.{' '}
-        <button type="button" onClick={() => void window.grove?.revealGroveFile()}>
-          show in Finder
-        </button>
-      </p>
-    </main>
+        {dataOpen ? (
+          <div className="data-panel">
+            <button
+              type="button"
+              className="data-panel-close"
+              onClick={() => setDataOpen(false)}
+              aria-label="Close session data"
+            >
+              <X size={16} weight="thin" />
+            </button>
+            <SessionList />
+          </div>
+        ) : null}
+      </div>
+    </div>
   )
 }
