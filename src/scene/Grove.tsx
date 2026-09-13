@@ -22,7 +22,8 @@ import * as THREE from 'three'
 import { camera as cameraSpec, motion, palette } from '../theme/palette'
 import { Ground } from './Ground'
 import { Motes } from './Motes'
-import { Mycelium, type MyceliumLink } from './Mycelium'
+import { Mycelium } from './Mycelium'
+import { growNetwork } from './network'
 import { Runestone, type StoneSpec } from './Runestone'
 import { WorldTree } from './WorldTree'
 
@@ -37,12 +38,12 @@ import { WorldTree } from './WorldTree'
  * they are the kind of thing that gets lost if you place six objects on an even circle.
  */
 export const SPIKE_STONES: StoneSpec[] = [
-  { id: 'research', name: 'Research', rune: 'ascend', status: 'running', at: [-2.95, -1.85], scale: 0.86, turn: 0.16 },
-  { id: 'data', name: 'Data', rune: 'ring', status: 'idle', at: [-4.15, 0.15], scale: 0.8, turn: -0.24 },
-  { id: 'compute', name: 'Compute', rune: 'thrice', status: 'idle', at: [-2.5, 2.35], scale: 0.9, turn: 0.09 },
-  { id: 'connect', name: 'Connect', rune: 'bind', status: 'waiting', at: [2.05, 2.5], scale: 0.84, turn: -0.13 },
-  { id: 'build', name: 'Build', rune: 'mark', status: 'running', at: [3.05, -1.7], scale: 0.88, turn: 0.21 },
-  { id: 'archive', name: 'Archive', rune: 'tally', status: 'idle', at: [4.35, 0.45], scale: 0.78, turn: -0.18 },
+  { id: 'research', name: 'Research', rune: 'ascend', status: 'running', at: [-3.05, -1.95], scale: 0.94, turn: 0.16 },
+  { id: 'data', name: 'Data', rune: 'ring', status: 'idle', at: [-4.4, 0.2], scale: 1.02, turn: -0.24 },
+  { id: 'compute', name: 'Compute', rune: 'thrice', status: 'idle', at: [-2.7, 2.55], scale: 1.06, turn: 0.09 },
+  { id: 'connect', name: 'Connect', rune: 'bind', status: 'waiting', at: [2.3, 2.65], scale: 1.05, turn: -0.13 },
+  { id: 'build', name: 'Build', rune: 'mark', status: 'running', at: [3.25, -1.8], scale: 0.92, turn: 0.21 },
+  { id: 'archive', name: 'Archive', rune: 'tally', status: 'idle', at: [4.55, 0.5], scale: 0.98, turn: -0.18 },
 ]
 
 export type QualityPreset = 'high' | 'balanced' | 'low'
@@ -160,15 +161,22 @@ export function GroveScene({
   const settings = QUALITY[quality]
   const activity = activityOf(stones)
 
-  const links: MyceliumLink[] = useMemo(
+  /* The whole below-ground system, grown once from where the stones stand. Roots and mycelium
+   * come out of one generator so they cannot come apart at the trunk — see `network.ts`. */
+  const network = useMemo(
+    () => growNetwork(stones.map((stone) => ({ id: stone.id, at: stone.at }))),
+    [stones]
+  )
+
+  /* A root carries light when something is happening at its stone. `waiting` counts: the agent is
+   * still there, holding the turn back, so the connection is live. */
+  const active = useMemo(
     () =>
-      stones.map((stone) => ({
-        id: stone.id,
-        to: stone.at,
-        // A root carries light when something is happening at its stone. `waiting` counts: the
-        // agent is still there, holding the turn back, so the connection is live.
-        active: stone.status === 'running' || stone.status === 'waiting',
-      })),
+      new Set(
+        stones
+          .filter((stone) => stone.status === 'running' || stone.status === 'waiting')
+          .map((stone) => stone.id)
+      ),
     [stones]
   )
 
@@ -209,13 +217,18 @@ export function GroveScene({
       <ambientLight intensity={0.045} color={palette.moss} />
       {/* A cold rim from behind and left, which is what separates the trunk from the background
           in the art without lighting the scene. */}
-      <directionalLight position={[-7, 5, -6]} intensity={0.5} color={palette.glow} />
+      <directionalLight position={[-7, 5, -6]} intensity={0.32} color={palette.glow} />
       {/* A dim warm-side fill so the trunk reads as a solid object rather than a silhouette. */}
-      <directionalLight position={[5, 3, 6]} intensity={0.22} color={palette.bark} />
+      <directionalLight position={[5, 3, 6]} intensity={0.08} color={palette.bone} />
 
       <Ground reflect={settings.reflect} reflectionResolution={settings.reflectionRes} />
-      <Mycelium links={links} />
-      <WorldTree activity={animate ? activity : 0} />
+      <Mycelium network={network} active={active} />
+      {/* Scaled up a touch. Measured against the art the tree should fill rather more of the
+          frame than a one-to-one build of the coordinates gives, because the art's camera is
+          slightly closer than the ring ellipse alone implies. */}
+      <group scale={1.12}>
+        <WorldTree activity={animate ? activity : 0} />
+      </group>
 
       {stones.map((stone) => (
         <Runestone

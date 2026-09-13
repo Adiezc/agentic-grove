@@ -1,264 +1,322 @@
 /**
- * The mycelial network: roots, not wires.
+ * The mycelial network, drawn.
  *
- * The brief is specific about this and it is worth honouring precisely. These are *not* orbits
- * and *not* cables — they hug the ground, they branch, they wander, and they carry light from the
- * tree out to a stone when an agent deploys there. Get that wrong and the metaphor becomes
- * decoration, which is the difference between a world and a diagram.
+ * The shape of it is not decided here — `network.ts` grows the whole thing, roots and mycelium
+ * together, as one branching system leaving the trunk. This file is only about how that system
+ * is *rendered*, and there are three ideas in it worth knowing.
  *
- * Two layers, as in the art:
- *   - a dim resting web that is always there, because the connection exists whether or not
- *     anything is travelling along it
- *   - a bright pulse that runs from trunk to stone when work is happening at that stone
+ * **Every strand is drawn twice.** In the art a root is not a green tube lying on the floor; it
+ * is a hair-thin, nearly white line with a soft wash of green bleeding out of it onto wet stone.
+ * Drawn as a tube alone you get the line and none of the wash, and the floor reads as green
+ * spaghetti. So each strand is a hot core plus a wide, faint ribbon lying flat underneath it.
+ * That second layer is most of what makes the scene look wet.
+ *
+ * **The network is always lit.** What changes with activity is how hard the light runs through
+ * it, not whether it exists — a project nobody is working on is still attached to the tree.
+ *
+ * **A pulse lights a whole subtree in order.** The strands carry their position along their
+ * stone's journey in their `v` coordinate, so one travelling window in the fragment shader lights
+ * the root, then the forks it passes, then the forks off those, all in sequence, with no state
+ * anywhere and one uniform per stone per frame.
  */
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { palette, motion } from '../theme/palette'
-import { at, mergeAll, seededRandom, taperedTube } from './geometry'
+import { flatRibbon, mergeAll, taperedTube } from './geometry'
+import type { Network, Strand } from './network'
 
-/**
- * A root path from the tree base to a stone.
- *
- * The wander is the whole trick. A straight line, or even a clean arc, reads as infrastructure;
- * three off-axis control points with a seeded wobble read as something grown. The path also lifts
- * a few millimetres off the floor at its midpoint, because a root perfectly flat on the ground
- * z-fights with it and flickers.
- */
-/**
- * How far out the raised dais extends, and how tall its top face is.
- *
- * The roots have to ride *over* the dais and then step down onto the floor beyond it. The first
- * version ran them all at y = 0.014, which is underneath a dais whose top face is at 0.06 — so
- * the entire network was buried inside the platform and the scene rendered with no visible roots
- * at all. The art's roots are among its most prominent features, so this was not a subtle miss.
- */
-const DAIS_RADIUS = 2.3
-const DAIS_TOP = 0.062
+/** How much wider than its core a strand's floor wash is. Generous: it is a wash, not an outline. */
+const HALO_WIDTH = 14
 
-/** Sit on whatever surface is underneath at this distance from the trunk. */
-const heightAt = (radius: number) => (radius < DAIS_RADIUS ? DAIS_TOP + 0.016 : 0.018)
-
-function rootPath(to: [number, number], seed: number): THREE.CatmullRomCurve3 {
-  const random = seededRandom(seed)
-  const target = new THREE.Vector3(to[0], 0, to[1])
-  const distance = target.length()
-  const direction = target.clone().normalize()
-  // Perpendicular on the ground plane, to push the middle of the root off the direct line.
-  const side = new THREE.Vector3(-direction.z, 0, direction.x)
-
-  const points: THREE.Vector3[] = [new THREE.Vector3(0, DAIS_TOP + 0.05, 0)]
-  // An extra control point right at the dais edge, so the step down happens there rather than
-  // being smoothed into a ramp across the whole floor.
-  for (const t of [0.2, 0.4, DAIS_RADIUS / distance, 0.75]) {
-    if (t >= 1) continue
-    const sway = (random() - 0.5) * distance * 0.34
-    const alongRadius = distance * t
-    points.push(
-      direction
-        .clone()
-        .multiplyScalar(alongRadius)
-        .add(side.clone().multiplyScalar(sway))
-        .setY(heightAt(alongRadius))
-    )
+const VERTEX = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
-  points.push(target.setY(0.018))
-  return new THREE.CatmullRomCurve3(points)
+`
+
+/**
+ * One shader for both layers.
+ *
+ * `uHalo` switches on the across-the-strand fade, which is the only difference between the wash
+ * and the core: a tube's `u` runs around its circumference and means nothing, a ribbon's runs
+ * across its width and is exactly what needs to fall off.
+ */
+const FRAGMENT = /* glsl */ `
+  uniform float uTime;
+  uniform float uActive;
+  uniform float uHalo;
+  uniform float uRest;
+  uniform vec3 uColour;
+  uniform vec3 uHot;
+  varying vec2 vUv;
+
+  void main() {
+    // vUv.y runs from the trunk (0) to the stone (1) across the whole subtree, not per strand.
+    float head = fract(uTime);
+    float d = vUv.y - head;
+
+    // A short bright core with a long tail behind it, so the light reads as travelling towards
+    // the stone rather than as a bead sliding along a wire.
+    float core = exp(-pow(d * 24.0, 2.0));
+    float tail = smoothstep(0.0, -0.4, d) * exp(d * 4.5) * 0.5;
+    float travelling = (core + tail) * uActive;
+
+    float amount = uRest + travelling;
+
+    // Across the strand, for the wash only.
+    float across = 1.0 - abs(vUv.x * 2.0 - 1.0);
+    float fade = mix(1.0, pow(across, 2.2) * 0.32, uHalo);
+
+    vec3 colour = mix(uColour, uHot, clamp(core * uActive * 1.6, 0.0, 1.0));
+    gl_FragColor = vec4(colour, clamp(amount * fade, 0.0, 1.0));
+  }
+`
+
+function makeMaterial(halo: boolean, rest: number): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    vertexShader: VERTEX,
+    fragmentShader: FRAGMENT,
+    uniforms: {
+      uTime: { value: 0 },
+      uActive: { value: 0 },
+      uHalo: { value: halo ? 1 : 0 },
+      uRest: { value: rest },
+      uColour: { value: new THREE.Color(halo ? palette.vein : palette.live) },
+      uHot: { value: new THREE.Color(palette.core) },
+    },
+  })
 }
 
-export interface MyceliumLink {
-  id: string
-  to: [number, number]
-  /** True when something is working at that stone, which is what sends light down the root. */
-  active: boolean
-}
-
-export function Mycelium({ links }: { links: MyceliumLink[] }) {
-  const paths = useMemo(
-    () => links.map((link, index) => ({ link, curve: rootPath(link.to, 101 + index * 17) })),
-    [links]
-  )
-
-  /**
-   * Every resting root, merged into one mesh.
-   *
-   * Thin. At 0.032 these rendered as pale tubes lying on the floor, overcorrected from being
-   * invisible straight past what the art shows, which is a filament rather than a pipe.
-   */
-  const restGeometry = useMemo(
-    () => mergeAll(paths.map(({ curve }) => taperedTube(curve, (t) => 0.013 * (1 - t * 0.45) + 0.004, 72, 5))),
-    [paths]
-  )
-
-  /**
-   * The resting web.
-   *
-   * Brightened a long way from the first attempt, which used the darkest green in the palette
-   * and rendered as nothing at all. In the concept art every root glows — the network is
-   * *always* connected, and what changes with activity is how hard the light runs through it,
-   * not whether it exists. That is also the truer metaphor: a project you are not working on is
-   * still attached to the tree.
-   */
-  const restMaterial = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        color: palette.live,
-        transparent: true,
-        opacity: 0.62,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    []
-  )
-
-  /**
-   * The travelling pulse.
-   *
-   * A shader rather than a moving mesh, because a mesh would have to be repositioned along the
-   * curve on the CPU every frame for every link. Here the geometry never moves: the tube's `v`
-   * coordinate runs 0 to 1 along its length, so a moving window in the fragment shader *is* the
-   * pulse, and the whole thing costs one uniform per link per frame.
-   */
-  const pulseMaterials = useMemo(
-    () =>
-      paths.map(
-        () =>
-          new THREE.ShaderMaterial({
-            transparent: true,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending,
-            uniforms: {
-              uTime: { value: 0 },
-              uActive: { value: 0 },
-              uColour: { value: new THREE.Color(palette.core) },
-              uGlow: { value: new THREE.Color(palette.live) },
-            },
-            vertexShader: /* glsl */ `
-              varying vec2 vUv;
-              void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-              }
-            `,
-            fragmentShader: /* glsl */ `
-              uniform float uTime;
-              uniform float uActive;
-              uniform vec3 uColour;
-              uniform vec3 uGlow;
-              varying vec2 vUv;
-
-              void main() {
-                // vUv.y runs from the tree (0) to the stone (1). The head of the pulse travels
-                // along it; fract() makes it repeat without any state to keep.
-                float head = fract(uTime);
-                float d = vUv.y - head;
-
-                // A short bright core with a long tail behind it, so the pulse reads as moving
-                // *towards* the stone rather than as a bead sliding along a wire.
-                float core = exp(-pow(d * 26.0, 2.0));
-                float tail = smoothstep(0.0, -0.42, d) * exp(d * 4.5) * 0.55;
-
-                // Always a faint standing glow, so an active root is visible between pulses.
-                float base = 0.16;
-
-                float amount = (core + tail + base) * uActive;
-                vec3 colour = mix(uGlow, uColour, clamp(core * 1.4, 0.0, 1.0));
-                gl_FragColor = vec4(colour, clamp(amount, 0.0, 1.0));
-              }
-            `,
-          })
-      ),
-    [paths]
-  )
-
-  /** Slightly fatter than the resting root, so the light appears to swell the root it runs in. */
-  const pulseGeometries = useMemo(
-    () => paths.map(({ curve }) => taperedTube(curve, (t) => 0.019 * (1 - t * 0.4) + 0.006, 96, 6)),
-    [paths]
-  )
-
-  /**
-   * Side filaments: short offshoots that branch off a root and simply stop.
-   *
-   * One root per stone is a hub-and-spoke diagram, which is exactly what the brief says the
-   * mycelium must not be. Real mycelium branches constantly and most branches lead nowhere, and
-   * adding that is the difference between a wiring harness and something grown. They carry no
-   * meaning and never light up — they are texture.
-   */
-  const filaments = useMemo(() => {
-    const random = seededRandom(89)
-    return paths.flatMap(({ curve }) =>
-      [0.28, 0.52, 0.78].map((t) => {
-        const from = curve.getPointAt(t)
-        const tangent = curve.getTangentAt(t)
-        const side = new THREE.Vector3(-tangent.z, 0, tangent.x).multiplyScalar(random() < 0.5 ? 1 : -1)
-        const reach = 0.3 + random() * 0.55
-        const branch = new THREE.CatmullRomCurve3([
-          from.clone(),
-          from.clone().add(side.clone().multiplyScalar(reach * 0.45)).add(tangent.clone().multiplyScalar(reach * 0.3)),
-          from.clone().add(side.clone().multiplyScalar(reach)).add(tangent.clone().multiplyScalar(reach * 0.15)),
-        ])
-        return taperedTube(branch, (u) => 0.008 * (1 - u) + 0.002, 18, 4)
-      })
+/** Core and wash geometry for a set of strands, merged into one mesh each. */
+function build(strands: Strand[]): { core: THREE.BufferGeometry | null; halo: THREE.BufferGeometry | null } {
+  const cores: THREE.BufferGeometry[] = []
+  const halos: THREE.BufferGeometry[] = []
+  for (const strand of strands) {
+    const v: [number, number] = [strand.from, strand.to]
+    // Segment counts scale with how important a strand is. A third-generation hair 15cm long
+    // does not need 72 segments, and there are a lot of them.
+    const segments = strand.depth === 0 ? 84 : strand.depth === 1 ? 26 : 12
+    const radial = strand.depth === 0 ? 5 : 4
+    cores.push(
+      taperedTube(strand.curve, (t) => strand.r0 + (strand.r1 - strand.r0) * t, segments, radial, false, v)
     )
-  }, [paths])
-
-  const filamentGeometry = useMemo(() => mergeAll(filaments), [filaments])
-
-  /** Bright nodes where roots cross, as in the art. Purely visual; they mean nothing. */
-  const nodeGeometry = useMemo(() => {
-    const random = seededRandom(53)
-    return mergeAll(
-      paths.flatMap(({ curve }) =>
-        [0.32, 0.66].map((t) => {
-          const point = curve.getPointAt(t)
-          const size = 0.016 + random() * 0.013
-          return at(new THREE.SphereGeometry(size, 8, 8), point.x, point.y + 0.004, point.z)
-        })
+    halos.push(
+      flatRibbon(
+        strand.curve,
+        (t) => (strand.r0 + (strand.r1 - strand.r0) * t) * HALO_WIDTH,
+        Math.max(12, Math.round(segments / 2)),
+        -0.004,
+        v
       )
     )
-  }, [paths])
+  }
+  return { core: mergeAll(cores), halo: mergeAll(halos) }
+}
 
-  const nodeMaterial = useMemo(
+/**
+ * The bright junctions, as one screen-facing point cloud.
+ *
+ * `Points` rather than meshes because these are flares — light with no shape of its own — and a
+ * flare has to face the camera. One draw call for all of them, and the star texture is drawn in
+ * code so it can be four-pointed, which is what the art's junctions actually are.
+ */
+function Nodes({ network, brightness }: { network: Network; brightness: React.RefObject<Map<string, number>> }) {
+  const texture = useMemo(() => starTexture(), [])
+
+  const { geometry, owners, at01 } = useMemo(() => {
+    const positions = new Float32Array(network.nodes.length * 3)
+    const sizes = new Float32Array(network.nodes.length)
+    const alphas = new Float32Array(network.nodes.length)
+    const ownerList: (string | null)[] = []
+    const positionAlong: number[] = []
+    network.nodes.forEach((node, i) => {
+      positions[i * 3] = node.at.x
+      positions[i * 3 + 1] = node.at.y + 0.01
+      positions[i * 3 + 2] = node.at.z
+      sizes[i] = node.size * 26
+      alphas[i] = 0.35
+      ownerList.push(node.owner)
+      positionAlong.push(node.at01)
+    })
+    const buffer = new THREE.BufferGeometry()
+    buffer.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    buffer.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1))
+    buffer.setAttribute('aAlpha', new THREE.BufferAttribute(alphas, 1))
+    return { geometry: buffer, owners: ownerList, at01: positionAlong }
+  }, [network])
+
+  const material = useMemo(
     () =>
-      new THREE.MeshBasicMaterial({
-        color: palette.live,
+      new THREE.ShaderMaterial({
         transparent: true,
-        opacity: 0.7,
-        blending: THREE.AdditiveBlending,
         depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: { uMap: { value: texture }, uColour: { value: new THREE.Color(palette.core) } },
+        vertexShader: /* glsl */ `
+          attribute float aSize;
+          attribute float aAlpha;
+          varying float vAlpha;
+          void main() {
+            vAlpha = aAlpha;
+            vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+            // Attenuated with distance, so a node at the back of the grove is smaller than one
+            // at the front. Without this they all read at the same size and the floor flattens.
+            gl_PointSize = aSize * (10.0 / -viewPosition.z);
+            gl_Position = projectionMatrix * viewPosition;
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform sampler2D uMap;
+          uniform vec3 uColour;
+          varying float vAlpha;
+          void main() {
+            vec4 texel = texture2D(uMap, gl_PointCoord);
+            gl_FragColor = vec4(uColour, texel.a * vAlpha);
+          }
+        `,
       }),
-    []
+    [texture]
   )
 
-  const activeRef = useRef<number[]>(links.map(() => 0))
+  useFrame(() => {
+    const alpha = geometry.getAttribute('aAlpha') as THREE.BufferAttribute
+    const array = alpha.array as Float32Array
+    let changed = false
+    for (let i = 0; i < array.length; i++) {
+      const owner = owners[i]
+      const active = owner ? (brightness.current?.get(owner) ?? 0) : 0
+      // A junction sits at a low resting brightness and flares when its stone is working. The
+      // one at the stone's own foot flares hardest, which is where the eye should land.
+      const want = 0.3 + active * 0.75 * (0.4 + (at01[i] ?? 0) * 0.6)
+      if (Math.abs((array[i] ?? 0) - want) > 0.001) {
+        array[i] = want
+        changed = true
+      }
+    }
+    if (changed) alpha.needsUpdate = true
+  })
+
+  return <points geometry={geometry} material={material} />
+}
+
+/** A four-pointed star, drawn once to a small canvas. */
+function starTexture(): THREE.CanvasTexture {
+  const size = 128
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    const centre = size / 2
+    // The round core.
+    const core = ctx.createRadialGradient(centre, centre, 0, centre, centre, size * 0.17)
+    core.addColorStop(0, 'rgba(255,255,255,1)')
+    core.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = core
+    ctx.fillRect(0, 0, size, size)
+    // Two spikes, one long and horizontal and one shorter and vertical, which is what a wet
+    // floor does to a small bright light in the art.
+    ctx.globalCompositeOperation = 'lighter'
+    for (const [w, h] of [
+      [size * 0.5, size * 0.012],
+      [size * 0.014, size * 0.3],
+    ]) {
+      const spike = ctx.createLinearGradient(centre - w!, 0, centre + w!, 0)
+      spike.addColorStop(0, 'rgba(255,255,255,0)')
+      spike.addColorStop(0.5, 'rgba(255,255,255,0.85)')
+      spike.addColorStop(1, 'rgba(255,255,255,0)')
+      ctx.fillStyle = spike
+      ctx.fillRect(centre - w!, centre - h! / 2, w! * 2, h!)
+      ctx.save()
+      ctx.translate(centre, centre)
+      ctx.rotate(Math.PI / 2)
+      ctx.translate(-centre, -centre)
+      ctx.fillRect(centre - w!, centre - h! / 2, w! * 2, h!)
+      ctx.restore()
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+interface MyceliumProps {
+  network: Network
+  /** Stone ids with something happening on them, which is what sends light down a root. */
+  active: ReadonlySet<string>
+}
+
+export function Mycelium({ network, active }: MyceliumProps) {
+  /* Grouped by owner, because a pulse belongs to a stone: everything one stone's light travels
+   * through is one mesh with one uniform, and everything owned by nobody is one more. That is
+   * about fifteen draw calls for the entire floor. */
+  const groups = useMemo(() => {
+    const byOwner = new Map<string | null, Strand[]>()
+    for (const strand of network.strands) {
+      const list = byOwner.get(strand.owner)
+      if (list) list.push(strand)
+      else byOwner.set(strand.owner, [strand])
+    }
+    return [...byOwner.entries()].map(([owner, strands]) => ({
+      owner,
+      ...build(strands),
+      // The unowned delta under the tree rests brighter than the long runs, because in the art
+      // the ground right under the trunk is the brightest part of the floor by a wide margin.
+      coreMaterial: makeMaterial(false, owner === null ? 0.7 : 0.62),
+      haloMaterial: makeMaterial(true, owner === null ? 1.1 : 1.0),
+    }))
+  }, [network])
+
+  /* Disposed on unmount. Three does not free GPU buffers when a React tree goes away, and this
+   * file builds a lot of them — on a hot reload without this the memory climbs every save. */
+  useEffect(
+    () => () => {
+      for (const group of groups) {
+        group.core?.dispose()
+        group.halo?.dispose()
+        group.coreMaterial.dispose()
+        group.haloMaterial.dispose()
+      }
+    },
+    [groups]
+  )
+
+  /** Eased activity per stone, shared with the junction flares so the two cannot disagree. */
+  const brightness = useRef<Map<string, number>>(new Map())
 
   useFrame((state, delta) => {
-    paths.forEach(({ link }, index) => {
-      const material = pulseMaterials[index]
-      if (!material) return
-      // Eased rather than switched, so a stone finishing its work fades its root out over about
-      // a second instead of the light vanishing. Abrupt changes are what make a scene feel like
-      // a status page.
-      const target = link.active ? 1 : 0
-      const current = activeRef.current[index] ?? 0
-      const next = THREE.MathUtils.damp(current, target, 3.2, delta)
-      activeRef.current[index] = next
-      material.uniforms.uActive!.value = next
-      material.uniforms.uTime!.value = state.clock.elapsedTime * motion.myceliumFlow + index * 0.37
+    groups.forEach((group, index) => {
+      const owner = group.owner
+      const want = owner && active.has(owner) ? 1 : 0
+      const current = owner ? (brightness.current.get(owner) ?? 0) : 0
+      // Eased rather than switched: a stone finishing its work should fade its root out over
+      // about a second. Abrupt changes are what make a scene feel like a status page.
+      const next = THREE.MathUtils.damp(current, want, 3.2, delta)
+      if (owner) brightness.current.set(owner, next)
+
+      const time = state.clock.elapsedTime * motion.myceliumFlow + index * 0.37
+      for (const material of [group.coreMaterial, group.haloMaterial]) {
+        material.uniforms.uActive!.value = next
+        material.uniforms.uTime!.value = time
+      }
     })
   })
 
   return (
     <group>
-      {restGeometry ? <mesh geometry={restGeometry} material={restMaterial} /> : null}
-      {filamentGeometry ? <mesh geometry={filamentGeometry} material={restMaterial} /> : null}
-      {pulseGeometries.map((geometry, i) => {
-        const material = pulseMaterials[i]
-        if (!material) return null
-        return <mesh key={`pulse-${i}`} geometry={geometry} material={material} />
-      })}
-      {nodeGeometry ? <mesh geometry={nodeGeometry} material={nodeMaterial} /> : null}
+      {groups.map((group, i) => (
+        <group key={group.owner ?? `unowned-${i}`}>
+          {group.halo ? <mesh geometry={group.halo} material={group.haloMaterial} renderOrder={1} /> : null}
+          {group.core ? <mesh geometry={group.core} material={group.coreMaterial} renderOrder={2} /> : null}
+        </group>
+      ))}
+      <Nodes network={network} brightness={brightness} />
     </group>
   )
 }

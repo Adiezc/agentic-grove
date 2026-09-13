@@ -1,30 +1,35 @@
 /**
- * The floor: a dark reflective plane, the central dais, and the concentric rings.
+ * The floor: a dark reflective plane, the stepped dais, and the concentric rings.
  *
- * The reflection is doing more work here than anything else in the scene. In the concept art
- * every monolith has a vertical smear of itself beneath it, and that one effect is most of why
- * the image reads as a *place* rather than as objects on a black background. Take it away and the
- * stones look pasted on.
+ * The reflection does more work here than anything else in the scene. In the art every monolith
+ * has a vertical smear of itself beneath it, and that one effect is most of why the image reads as
+ * a *place* rather than as objects on a black background. Take it away and the stones look pasted
+ * on. It is also the most expensive thing in the scene, so it has a quality dial — see `Grove.tsx`.
  *
- * It is also the most expensive thing in the scene, so it has a quality dial — see `Grove.tsx`.
+ * The dais is a **stepped** platform, which the first pass drew as a single flat disc. Looking at
+ * the art properly, there are three surfaces and you can see all of them: a recessed inner floor
+ * where the tree stands, a step up to a wide outer band, and a short vertical wall down to the
+ * ground. The step is worth having because the roots visibly climb it on their way out, and that
+ * one detail does more for the sense of a physical place than the rings do.
  */
 import { useMemo } from 'react'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import * as THREE from 'three'
 import { palette } from '../theme/palette'
 import { at, groundRing, mergeAll, seededRandom } from './geometry'
+import { DAIS_INNER_RADIUS, DAIS_INNER_TOP, DAIS_RADIUS, DAIS_TOP } from './stage'
 
 /**
- * The rings, measured off the concept art.
+ * The rings, measured off the art.
  *
- * There are two families: a tight set around the dais under the tree, and a much wider set that
- * runs out past the stones and fades. The wide ones are what give the grove its sense of scale,
- * and they are very nearly invisible — about 12% opacity at the outside.
+ * Two families: a tight set on the dais, and a much wider set running out past the stones and
+ * fading. The wide ones give the grove its sense of scale and are very nearly invisible. Kept
+ * few — the art has far fewer marks under the tree than it first appears, and four rings at close
+ * spacing read as a target right where the eye goes first.
  */
-/* Thinned from four rings to two. Four at this spacing read as a target, or a maze, right where
- * the eye goes first — the art has far fewer marks under the tree than it first appears. */
-const DAIS_RINGS = [1.55, 2.18]
-const FIELD_RINGS = [3.6, 5.0, 6.9, 9.2]
+const INNER_RINGS = [1.02, 1.68]
+const LIP_RINGS = [DAIS_INNER_RADIUS + 0.06, DAIS_RADIUS - 0.07]
+const FIELD_RINGS = [3.1, 3.9, 4.9, 6.1, 7.6, 9.4, 11.6]
 
 interface GroundProps {
   /** Reflection resolution. Dropped on the low preset, where it costs the most and shows least. */
@@ -34,15 +39,58 @@ interface GroundProps {
 }
 
 export function Ground({ reflectionResolution, reflect }: GroundProps) {
-  const daisRings = useMemo(() => mergeAll(DAIS_RINGS.map((r) => groundRing(r, 0.01, 128))), [])
-  const fieldRings = useMemo(() => mergeAll(FIELD_RINGS.map((r) => groundRing(r, 0.007, 160))), [])
+  /**
+   * The dais, as one lathed profile.
+   *
+   * Turned rather than stacked out of cylinders, for the reason session three wrote up: two
+   * constants in two files that have to agree eventually will not. Here the whole platform is one
+   * list of points, so the step is in exactly one place and `stage.ts` is the only thing that
+   * decides where.
+   */
+  const dais = useMemo(() => {
+    const profile = [
+      new THREE.Vector2(0, DAIS_INNER_TOP),
+      new THREE.Vector2(DAIS_INNER_RADIUS, DAIS_INNER_TOP),
+      new THREE.Vector2(DAIS_INNER_RADIUS + 0.035, DAIS_TOP),
+      new THREE.Vector2(DAIS_RADIUS - 0.02, DAIS_TOP),
+      new THREE.Vector2(DAIS_RADIUS, DAIS_TOP - 0.018),
+      new THREE.Vector2(DAIS_RADIUS, 0),
+    ]
+    return new THREE.LatheGeometry(profile, 108)
+  }, [])
+
+  const daisMaterial = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: palette.groundLit,
+        roughness: 0.26,
+        metalness: 0.6,
+        emissive: new THREE.Color(palette.deep),
+        emissiveIntensity: 0.22,
+        side: THREE.DoubleSide,
+      }),
+    []
+  )
+
+  const innerRings = useMemo(
+    () => mergeAll(INNER_RINGS.map((r) => at(groundRing(r, 0.009, 128), 0, DAIS_INNER_TOP + 0.003, 0))),
+    []
+  )
+  const lipRings = useMemo(
+    () => mergeAll(LIP_RINGS.map((r) => at(groundRing(r, 0.008, 128), 0, DAIS_TOP + 0.003, 0))),
+    []
+  )
+  const fieldRings = useMemo(
+    () => mergeAll(FIELD_RINGS.map((r) => at(groundRing(r, 0.007, 160), 0, 0.005, 0))),
+    []
+  )
 
   const daisRingMaterial = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
         color: palette.vein,
         transparent: true,
-        opacity: 0.38,
+        opacity: 0.5,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide,
@@ -61,7 +109,7 @@ export function Ground({ reflectionResolution, reflect }: GroundProps) {
       new THREE.MeshBasicMaterial({
         color: palette.deep,
         transparent: true,
-        opacity: 0.5,
+        opacity: 0.75,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide,
@@ -69,37 +117,20 @@ export function Ground({ reflectionResolution, reflect }: GroundProps) {
     []
   )
 
-  /** The raised disc the tree stands on, with a faint lit edge. */
-  /* Lowered to 0.06 so the mycelium can ride over it without the platform swallowing the roots.
-   * `Mycelium.tsx` reads the same two numbers; they have to agree. */
-  const dais = useMemo(() => new THREE.CylinderGeometry(2.25, 2.3, 0.06, 96), [])
-
-  const daisMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: palette.groundLit,
-        roughness: 0.28,
-        metalness: 0.55,
-        emissive: new THREE.Color(palette.deep),
-        emissiveIntensity: 0.25,
-      }),
-    []
-  )
-
   /**
-   * Faint radial spokes on the dais, which the art has running out from the trunk between the
-   * rings. They read as inlay rather than as structure, so they are barely there.
+   * Faint radial spokes on the inner floor, which the art has running out from the trunk between
+   * the rings. They read as inlay rather than as structure, so they are barely there.
    */
   const spokeGeometry = useMemo(() => {
     const random = seededRandom(71)
     return mergeAll(
-      Array.from({ length: 12 }, (_, i) => {
-        const angle = (i / 12) * Math.PI * 2 + random() * 0.1
-        const length = 1.1 + random() * 1.0
-        const plane = new THREE.PlaneGeometry(length * 1.6, 0.006)
+      Array.from({ length: 14 }, (_, i) => {
+        const angle = (i / 14) * Math.PI * 2 + random() * 0.12
+        const length = 0.9 + random() * 0.85
+        const plane = new THREE.PlaneGeometry(length * 1.7, 0.005)
         plane.rotateX(-Math.PI / 2)
         plane.rotateY(angle)
-        return at(plane, Math.cos(angle) * length, 0.063, Math.sin(angle) * length)
+        return at(plane, Math.cos(angle) * length, DAIS_INNER_TOP + 0.002, Math.sin(angle) * length)
       })
     )
   }, [])
@@ -109,7 +140,7 @@ export function Ground({ reflectionResolution, reflect }: GroundProps) {
       new THREE.MeshBasicMaterial({
         color: palette.deep,
         transparent: true,
-        opacity: 0.45,
+        opacity: 0.5,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       }),
@@ -125,7 +156,7 @@ export function Ground({ reflectionResolution, reflect }: GroundProps) {
         {reflect ? (
           <MeshReflectorMaterial
             // Blurred hard and mixed in weakly. A sharp mirror looks like polished tile; the art
-            // is wet stone, where you get the *suggestion* of the stone above and little else.
+            // is wet stone, where you get the *suggestion* of what stands above and little else.
             blur={[420, 90]}
             resolution={reflectionResolution}
             mixBlur={1.1}
@@ -143,11 +174,12 @@ export function Ground({ reflectionResolution, reflect }: GroundProps) {
         )}
       </mesh>
 
-      <mesh geometry={dais} material={daisMaterial} position={[0, 0.03, 0]} />
+      <mesh geometry={dais} material={daisMaterial} />
 
       {spokeGeometry ? <mesh geometry={spokeGeometry} material={spokeMaterial} /> : null}
-      {daisRings ? <mesh geometry={daisRings} material={daisRingMaterial} position={[0, 0.064, 0]} /> : null}
-      {fieldRings ? <mesh geometry={fieldRings} material={fieldRingMaterial} position={[0, 0.006, 0]} /> : null}
+      {innerRings ? <mesh geometry={innerRings} material={daisRingMaterial} /> : null}
+      {lipRings ? <mesh geometry={lipRings} material={daisRingMaterial} /> : null}
+      {fieldRings ? <mesh geometry={fieldRings} material={fieldRingMaterial} /> : null}
     </group>
   )
 }

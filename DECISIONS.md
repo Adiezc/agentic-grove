@@ -451,3 +451,137 @@ Three small things went in that are not features, and each paid for itself insid
 
 All three are development-only. The capture handler is not even registered in a packaged build,
 since a shipped app has no reason to be able to write PNGs of itself.
+
+---
+
+## The roots and the mycelium are one generator, not two
+
+*13 September 2026, session 4*
+
+The first render had the tree's roots and the grove's mycelium built by different files out of
+different curves, and they met nowhere: the roots stopped in a tidy flare at the trunk and the
+mycelium started as six separate squiggles somewhere out on the floor. It read as a tree standing
+on a diagram.
+
+`network.ts` now grows the whole thing in one recursive walk from the trunk base — the dense delta
+on the dais and the long runs out to the stones are the same organism at two distances — and
+`WorldTree` and `Mycelium` draw parts of one result. They cannot drift apart because there is
+nothing to drift.
+
+The part worth stealing is how a pulse travels it. Every strand records **where along its stone's
+journey it sits**, and that number is baked into the `v` texture coordinate. A fork two thirds of
+the way out carries `v ≈ 0.66`. One travelling window in the fragment shader then lights the root,
+then the forks it passes, then the forks off those, in order, with no per-fork state and no work on
+the CPU at all — one uniform per stone per frame for a network of about two hundred strands.
+
+## Everything on the floor is drawn twice
+
+*13 September 2026, session 4*
+
+A root in the concept art is not a green tube lying on stone. It is a hair-thin, nearly white line
+with a soft wash of green bleeding out of it onto something wet. Drawn as a tube alone you get the
+line and none of the wash, and the floor reads as green spaghetti; drawn as a wash alone there is
+nothing to look at.
+
+So each strand is a tapered tube for the hot core plus a flat ribbon under it, roughly fourteen
+times wider, at very low opacity. That second layer is most of what makes the scene look wet, and
+it costs almost nothing — the ribbons for the whole network merge into one mesh per stone.
+
+One trap: the ribbon has to be built with a fixed world up-vector rather than the curve's own
+binormal. A Frenet frame rolls wherever the curve dips, which stands the ribbon on its edge — and a
+ribbon on edge at a fourteen-degree camera is invisible.
+
+## Wood is a dielectric, and the metalness slider is a trap
+
+*13 September 2026, session 4*
+
+Three attempts at the trunk, each wrong in a way worth recording.
+
+**Chalky.** Roughness 0.62 with an emissive floor of 0.42 lit every face to the same value, and
+bleached wood came out as pale plasticine. The emissive was the culprit: it fills in exactly the
+shadow that gives a limb its form.
+
+**Pewter.** Dropping the emissive and adding metalness to bring back some sheen turned the trunk
+into a machined grey limb. Metal takes its colour from what it reflects, and in a scene that is
+98% black there is nothing to reflect, so a metallic object goes grey however it is tinted.
+
+**Right.** Almost no metalness, middling roughness, and one hard key light doing all the work. The
+colour then survives, because a dielectric keeps its own.
+
+There is a companion mistake in the colour itself. The first sampling pass read the *mean* of the
+trunk region — `#477156` — and the tree vanished into the background. The art's wood is mostly
+dark, and it is the upper decile, `#9db192`, that says what the material should be: the wood is
+pale and the *scene* is dark, which is not the same thing as the wood being mid-green.
+
+## A braid needs a gap, and the light has to sit in it
+
+*13 September 2026, session 4*
+
+The trunk in the art is not a tube, it is several woody cords twisting around each other with deep
+channels between them, and light runs up the channels rather than over the surface. Two numbers
+decide whether any of that is visible, and the first two renders got both wrong.
+
+**Cords must be thinner than their spacing.** Set equal, they overlap so far that they fuse into
+one lumpy tube and the braid disappears — which is what happened, and it is why the second render
+still looked like a smooth grey limb.
+
+**The groove floor is computed, not guessed.** Twice the light was placed at a fraction of the cord
+offset that turned out to be *inside* the wood, and the trunk showed no green above the base at
+all. Where two cylinders of a given radius and spacing actually intersect is four lines of
+trigonometry, and writing those four lines is how the problem stopped recurring.
+
+## A stone is a quartz point, and the ridge is the whole thing
+
+*13 September 2026, session 4*
+
+The first pass built the runestones as cones on cylinders, all six identical bar a scale factor,
+and about twice as tall as they should have been. Three corrections:
+
+**Chisel, not spike.** Real quartz terminates in two or three big slanted planes meeting along a
+short ridge that sits off to one side. A symmetric point is a signpost. Because the ridge is
+off-axis and runs at its own angle, it also gives every stone a silhouette you can tell apart from
+any direction, which is the entire premise of the grove.
+
+**The cut is derived from the project id, not authored.** Hand-authoring a crystal per stone works
+for six fixtures and not at all for the real thing, where stones appear and vanish as work moves
+between folders. A hash of the id, fed to the seeded generator, gives a project the same
+distinctive stone every time it appears, on any machine, with nothing saved anywhere.
+
+**Two-and-a-half to one, not five to one.** Measured off the art: seventy pixels across to a
+hundred and eighty tall, and about two fifths the height of the tree. The first pass had them
+nearly as tall as the tree, which is most of why that render looked like a circle of pylons around
+a shrub.
+
+## Fresnel on a flat face is a trap in both directions
+
+*13 September 2026, session 4*
+
+Session three found that a *lit* material on a six-sided prism gives one uniform value per face and
+turns the stones into road signs, and replaced it with a fresnel term. Session four found the same
+failure from the other side: at a fourteen-degree camera a stone's whole front face is close to
+edge-on, so a **broad** fresnel lights all of it evenly and the stones come out as pale paper
+cutouts.
+
+Two things fixed it. The silhouette term was sharpened to an exponent of eleven, so only the last
+few degrees of turn reach it. And the facet seams were drawn explicitly, as `EdgesGeometry` lines
+at low opacity — the fresnel can only ever draw the outline, and it is the *interior* seams that
+make a black shape read as cut glass rather than as a hole in the picture.
+
+## The canopy is offset, and that is what makes it a bonsai
+
+*13 September 2026, session 4*
+
+The single number that stopped the tree reading as an acacia was moving the crown left of the
+trunk rather than sitting it on top. A canopy centred over its own trunk is a savannah tree
+whatever else is done to it; the art's foliage mass hangs to the left of the deadwood by nearly
+half its own width, with a second storey of foliage below the fork on a long left branch.
+
+Two supporting details. The pads are domed rather than flat, and their rims are pushed in and out
+by a couple of low-frequency waves — at this camera angle the silhouette of the rim is almost all
+you see of a pad, and a perfect ellipse reads as a dinner plate. And the leaves have to be small
+and numerous rather than large and few: at 3cm they are visible triangles and the canopy looks
+like confetti, at 1.7cm with twice as many it is foliage.
+
+The deadwood also gets its own material, paler than the living trunk. In the art the jin is
+visibly bleached against the trunk it grows from, and drawing both with one material loses the
+contrast that the deadwood exists to provide.

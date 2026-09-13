@@ -30,9 +30,24 @@ export const palette = {
   /** The thin lit edge down a monolith's near corner. */
   stoneRim: '#295135',
 
-  /** The trunk: desaturated green-grey, closer to weathered bone than to wood. */
-  bark: '#477156',
-  barkShadow: '#29322a',
+  /**
+   * The trunk and the deadwood.
+   *
+   * Corrected after a second sampling pass, and the correction was large enough to be worth
+   * recording. The first read put the wood at `#477156`, a mid green-grey, and the trunk came out
+   * as a dark green arc that vanished into the background. Sampling the *upper decile* of the
+   * deadwood region rather than its mean gives `#9db192` — the wood in the art is a pale bleached
+   * sage, closer to driftwood or bone than to bark, and it is one of the brightest things in the
+   * frame after the light itself.
+   *
+   * That is what a bonsai's `jin` and `shari` actually are: stripped, weathered, sun-bleached
+   * wood. Getting it dark is the single easiest way to lose the tree.
+   */
+  bone: '#9db192',
+  /** Where the wood catches the key light, along the top of a limb. Nearly white. */
+  boneLit: '#d8e2d2',
+  /** The shadowed side, and the grooves between the strands of the braid. */
+  boneShadow: '#2f3d33',
 
   /* The green ramp, dark to blown-out. Ordered so a status can walk up it. */
   /** Faint structure: ground rings, dormant mycelium, an idle stone's rune. */
@@ -92,7 +107,12 @@ export const camera = {
    * with the stones out at radius 5, which cropped the near two stones at the frame edge and
    * made them twice the height of the tree. The art's grove sits comfortably inside the frame
    * with dark margin all round, and getting that back was mostly distance, not lens. */
+  /* Reframed once the tree was rebuilt to the art's real proportions. The tree grew from 2.9
+   * units to 3.85 and the stones shrank from 2.7 to about 1.6, which is the ratio the art
+   * actually has — roughly two and a half to one — and the old framing cropped the new crown.
+   * Distance and target height moved; the elevation did not, because that is the one number in
+   * this file that was measured rather than chosen. */
   fov: 28,
-  position: [0, 3.05, 15.4] as [number, number, number],
-  target: [0, 1.35, 0] as [number, number, number],
+  position: [0, 3.42, 16.6] as [number, number, number],
+  target: [0, 1.58, 0] as [number, number, number],
 } as const

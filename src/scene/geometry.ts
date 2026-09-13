@@ -21,13 +21,20 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
  * `closed` caps both ends. Left open for anything that disappears into something else — a root
  * entering the ground, a branch meeting the trunk — since a cap you cannot see is triangles you
  * are paying for.
+ *
+ * `vRange` remaps the `v` texture coordinate, which normally runs 0 to 1 along the tube. The
+ * mycelium needs this: a fork hanging off a root two thirds of the way along should light up when
+ * the pulse reaches *that point of the root*, not when a pulse of its own starts. Giving the fork
+ * a `v` range of, say, `[0.66, 0.70]` means the one travelling window in the shader lights the
+ * whole subtree in the right order, for free and with no extra state anywhere.
  */
 export function taperedTube(
   curve: THREE.Curve<THREE.Vector3>,
   radiusAt: (t: number) => number,
   segments = 64,
   radialSegments = 8,
-  closed = false
+  closed = false,
+  vRange: [number, number] = [0, 1]
 ): THREE.BufferGeometry {
   const frames = curve.computeFrenetFrames(segments, false)
   const positions: number[] = []
@@ -61,7 +68,7 @@ export function taperedTube(
       normals.push(normal.x, normal.y, normal.z)
       // v runs along the curve, so a texture or a shader can flow *down* the length of it —
       // which is how the mycelium carries light from the tree to a stone.
-      uvs.push(j / radialSegments, t)
+      uvs.push(j / radialSegments, vRange[0] + t * (vRange[1] - vRange[0]))
     }
   }
 
@@ -133,5 +140,198 @@ export function mergeAll(geometries: THREE.BufferGeometry[]): THREE.BufferGeomet
 /** Offset a geometry in place, so it can be merged while keeping its position. */
 export function at(geometry: THREE.BufferGeometry, x: number, y: number, z: number): THREE.BufferGeometry {
   geometry.translate(x, y, z)
+  return geometry
+}
+
+/**
+ * A flat strip lying on the ground, following `curve`, `widthAt(t)` wide.
+ *
+ * This is the second half of how light on the floor is drawn, and the reason for it is worth
+ * stating. In the concept art a root is not a green tube lying on the stone — it is a *very*
+ * thin white-hot line with a soft wash of green bleeding out of it onto wet rock. Drawn as a tube
+ * alone you get the line and none of the wash, and the scene reads as green spaghetti; drawn as a
+ * ribbon alone you get the wash and no line. So everything on the floor is both: a hair-thin
+ * tapered tube for the core, and one of these underneath it, much wider and barely there.
+ *
+ * `u` runs across the ribbon, so the shader can fade it out towards the edges; `v` runs along it,
+ * remapped by `vRange` exactly as in `taperedTube`, so a pulse lights the core and the wash
+ * together.
+ */
+export function flatRibbon(
+  curve: THREE.Curve<THREE.Vector3>,
+  widthAt: (t: number) => number,
+  segments = 48,
+  lift = 0.002,
+  vRange: [number, number] = [0, 1]
+): THREE.BufferGeometry {
+  const positions: number[] = []
+  const uvs: number[] = []
+  const indices: number[] = []
+  const point = new THREE.Vector3()
+  const tangent = new THREE.Vector3()
+  const side = new THREE.Vector3()
+
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments
+    curve.getPointAt(t, point)
+    curve.getTangentAt(t, tangent)
+    // Sideways on the ground plane. Deliberately not the Frenet binormal: a curve that dips and
+    // rises would twist the ribbon up on edge, and a ribbon on edge is invisible at this camera
+    // angle — which is the whole reason the first version of the network could not be seen.
+    side.set(-tangent.z, 0, tangent.x)
+    if (side.lengthSq() < 1e-8) side.set(1, 0, 0)
+    side.normalize().multiplyScalar(widthAt(t) / 2)
+
+    positions.push(point.x - side.x, point.y + lift, point.z - side.z)
+    positions.push(point.x + side.x, point.y + lift, point.z + side.z)
+    const v = vRange[0] + t * (vRange[1] - vRange[0])
+    uvs.push(0, v, 1, v)
+  }
+
+  for (let i = 0; i < segments; i++) {
+    const a = i * 2
+    indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setIndex(indices)
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+  // Flat on the floor, so every normal points straight up. Cheaper and steadier than computing
+  // them, and nothing lit is ever drawn with this.
+  const normals = new Float32Array((positions.length / 3) * 3)
+  for (let i = 1; i < normals.length; i += 3) normals[i] = 1
+  geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
+  return geometry
+}
+
+/** Everything that makes one crystal different from the next. See `crystal` below. */
+export interface CrystalSpec {
+  /** Faces around the shaft. The art has a mix of four, five and six. */
+  sides: number
+  /** Radius at the foot and at the shoulder where the point begins. */
+  footRadius: number
+  shoulderRadius: number
+  /** Height of the shaft, and of the point on top of it. */
+  shaftHeight: number
+  capHeight: number
+  /** Where the apex ridge sits relative to the axis, and how long it is. */
+  ridgeOffset: [number, number]
+  ridgeLength: number
+  /** Direction of the ridge on the ground plane, in radians. */
+  ridgeAngle: number
+  /** How far the whole crystal leans, and in which direction. */
+  lean: number
+  leanAngle: number
+  /** Rotation of the facets about the axis, so two crystals of the same cut are not twins. */
+  roll: number
+}
+
+/**
+ * A quartz point.
+ *
+ * The stones in the concept art are not cones on cylinders, which is what the first pass built
+ * and what made them read as traffic bollards. They are quartz: a faceted shaft, and on top of it
+ * a **chisel termination** — two or three big slanted planes meeting along a short off-centre
+ * ridge rather than at a point. That ridge is the whole difference. A symmetric point is a
+ * signpost; a ridge that sits off to one side and runs at its own angle is a crystal, and it is
+ * also what gives each stone a distinct silhouette from any direction.
+ *
+ * Built face by face and left non-indexed on purpose, so `computeVertexNormals` produces flat
+ * facets rather than a smoothed blob. The facets are the object.
+ */
+export function crystal(spec: CrystalSpec): THREE.BufferGeometry {
+  const {
+    sides,
+    footRadius,
+    shoulderRadius,
+    shaftHeight,
+    capHeight,
+    ridgeOffset,
+    ridgeLength,
+    ridgeAngle,
+    lean,
+    leanAngle,
+    roll,
+  } = spec
+
+  const positions: number[] = []
+  const push = (v: THREE.Vector3) => positions.push(v.x, v.y, v.z)
+  const tri = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) => {
+    push(a)
+    push(b)
+    push(c)
+  }
+
+  const ringAt = (radius: number, y: number) =>
+    Array.from({ length: sides }, (_, i) => {
+      const angle = roll + (i / sides) * Math.PI * 2
+      return new THREE.Vector3(Math.cos(angle) * radius, y, Math.sin(angle) * radius)
+    })
+
+  const foot = ringAt(footRadius, 0)
+  const shoulder = ringAt(shoulderRadius, shaftHeight)
+
+  // The apex: two points, a short distance apart, which is what makes a chisel rather than a spike.
+  const apexY = shaftHeight + capHeight
+  const half = ridgeLength / 2
+  const ridgeDirection = new THREE.Vector3(Math.cos(ridgeAngle), 0, Math.sin(ridgeAngle))
+  const centre = new THREE.Vector3(ridgeOffset[0], apexY, ridgeOffset[1])
+  const apexA = centre.clone().addScaledVector(ridgeDirection, -half)
+  const apexB = centre.clone().addScaledVector(ridgeDirection, half)
+
+  for (let i = 0; i < sides; i++) {
+    const a = foot[i]!
+    const b = foot[(i + 1) % sides]!
+    const c = shoulder[(i + 1) % sides]!
+    const d = shoulder[i]!
+    tri(a, b, c)
+    tri(a, c, d)
+  }
+
+  /* Each shoulder vertex belongs to whichever end of the ridge it is nearer, projected onto the
+   * ridge line. Where two neighbours belong to different ends, the face between them spans both
+   * and becomes one of the two big planes that catch the light. Doing it this way rather than
+   * hand-listing faces means the same code builds a four-sided and a six-sided cut. */
+  const nearestApex = (v: THREE.Vector3) =>
+    ridgeDirection.dot(v.clone().sub(centre).setY(0)) < 0 ? apexA : apexB
+
+  for (let i = 0; i < sides; i++) {
+    const a = shoulder[i]!
+    const b = shoulder[(i + 1) % sides]!
+    const pa = nearestApex(a)
+    const pb = nearestApex(b)
+    if (pa === pb) {
+      tri(a, b, pa)
+    } else {
+      tri(a, b, pb)
+      tri(a, pb, pa)
+    }
+  }
+
+  // Close the bottom, because a stone's foot sits in a pool of its own reflected light and an
+  // open shell shows the inside of the far wall through it.
+  for (let i = 1; i < sides - 1; i++) tri(foot[0]!, foot[i + 1]!, foot[i]!)
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+
+  if (lean !== 0) {
+    // Lean grows with height, so the foot stays planted and the point travels. Same idea as the
+    // shear the first pass used, kept because it is the only way a stone tilts without its base
+    // lifting off the floor.
+    const array = geometry.attributes.position!.array as Float32Array
+    const total = shaftHeight + capHeight
+    const dx = Math.cos(leanAngle) * lean
+    const dz = Math.sin(leanAngle) * lean
+    for (let i = 0; i < array.length; i += 3) {
+      const t = (array[i + 1] ?? 0) / total
+      const amount = t ** 1.35
+      array[i] = (array[i] ?? 0) + dx * amount
+      array[i + 2] = (array[i + 2] ?? 0) + dz * amount
+    }
+  }
+
+  geometry.computeVertexNormals()
   return geometry
 }
