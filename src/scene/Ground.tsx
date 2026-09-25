@@ -31,6 +31,32 @@ const INNER_RINGS = [1.02, 1.68]
 const LIP_RINGS = [DAIS_INNER_RADIUS + 0.06, DAIS_RADIUS - 0.07]
 const FIELD_RINGS = [3.1, 3.9, 4.9, 6.1, 7.6, 9.4, 11.6]
 
+/** A partial strip of a circle, lying flat. Broken arcs are the visual grammar of the reference
+ * floor: circuitry and old engraved geometry, rather than a clean set of target rings. */
+function arcStrip(radius: number, start: number, length: number, width: number, segments = 28) {
+  const positions: number[] = []
+  const uvs: number[] = []
+  const indices: number[] = []
+  for (let i = 0; i <= segments; i++) {
+    const angle = start + (i / segments) * length
+    const inner = radius - width / 2
+    const outer = radius + width / 2
+    positions.push(Math.cos(angle) * inner, 0, Math.sin(angle) * inner)
+    positions.push(Math.cos(angle) * outer, 0, Math.sin(angle) * outer)
+    uvs.push(i / segments, 0, i / segments, 1)
+  }
+  for (let i = 0; i < segments; i++) {
+    const a = i * 2
+    indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
+  }
+  const geometry = new THREE.BufferGeometry()
+  geometry.setIndex(indices)
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+  geometry.computeVertexNormals()
+  return geometry
+}
+
 interface GroundProps {
   /** Reflection resolution. Dropped on the low preset, where it costs the most and shows least. */
   reflectionResolution: number
@@ -61,10 +87,14 @@ export function Ground({ reflectionResolution, reflect }: GroundProps) {
 
   const daisMaterial = useMemo(
     () =>
+      // Dark polished stone. It was lighter and less metallic, and the tree's own key light and
+      // aura turned the whole platform into a pale disc; in the art the dais is nearly black and
+      // only its rings and the roots on it are lit.
       new THREE.MeshStandardMaterial({
-        color: palette.groundLit,
-        roughness: 0.26,
-        metalness: 0.6,
+        color: palette.ground,
+        // Rough enough that the key light does not skate across it as a sheen at low angles.
+        roughness: 0.62,
+        metalness: 0.55,
         emissive: new THREE.Color(palette.deep),
         emissiveIntensity: 0.22,
         side: THREE.DoubleSide,
@@ -147,6 +177,47 @@ export function Ground({ reflectionResolution, reflect }: GroundProps) {
     []
   )
 
+  /** Hundreds of restrained engraved fragments give the wet floor the density seen in the art.
+   * They are merged into one draw call and stay below bloom, so the network remains the hero. */
+  const inlayGeometry = useMemo(() => {
+    const random = seededRandom(904)
+    const fragments: THREE.BufferGeometry[] = []
+
+    for (let i = 0; i < 92; i++) {
+      const radius = 2.7 + random() * 9.4
+      const start = random() * Math.PI * 2
+      const length = 0.035 + random() * 0.22
+      const width = 0.006 + random() * 0.008
+      fragments.push(at(arcStrip(radius, start, length, width, 8 + Math.floor(random() * 14)), 0, 0.004, 0))
+    }
+
+    // Small tangential bars and etched tiles stop the arcs reading as another neat ring family.
+    for (let i = 0; i < 150; i++) {
+      const angle = random() * Math.PI * 2
+      const radius = 2.8 + random() * 9.2
+      const length = 0.08 + random() * 0.34
+      const width = 0.006 + random() * 0.015
+      const plane = new THREE.PlaneGeometry(length, width)
+      plane.rotateX(-Math.PI / 2)
+      plane.rotateY(-angle + (random() - 0.5) * 0.2)
+      fragments.push(at(plane, Math.cos(angle) * radius, 0.004, Math.sin(angle) * radius))
+    }
+    return mergeAll(fragments)
+  }, [])
+
+  const inlayMaterial = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: '#123d24',
+        transparent: true,
+        opacity: 0.34,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    []
+  )
+
   return (
     <group>
       {/* The floor. Large enough that its edge is never in frame, since a visible edge would
@@ -157,11 +228,11 @@ export function Ground({ reflectionResolution, reflect }: GroundProps) {
           <MeshReflectorMaterial
             // Blurred hard and mixed in weakly. A sharp mirror looks like polished tile; the art
             // is wet stone, where you get the *suggestion* of what stands above and little else.
-            blur={[420, 90]}
+            blur={[260, 70]}
             resolution={reflectionResolution}
             mixBlur={1.1}
-            mixStrength={5.5}
-            roughness={0.85}
+            mixStrength={7.2}
+            roughness={0.76}
             depthScale={1.1}
             minDepthThreshold={0.3}
             maxDepthThreshold={1.3}
@@ -176,6 +247,7 @@ export function Ground({ reflectionResolution, reflect }: GroundProps) {
 
       <mesh geometry={dais} material={daisMaterial} />
 
+      {inlayGeometry ? <mesh geometry={inlayGeometry} material={inlayMaterial} /> : null}
       {spokeGeometry ? <mesh geometry={spokeGeometry} material={spokeMaterial} /> : null}
       {innerRings ? <mesh geometry={innerRings} material={daisRingMaterial} /> : null}
       {lipRings ? <mesh geometry={lipRings} material={daisRingMaterial} /> : null}

@@ -225,6 +225,11 @@ export interface CrystalSpec {
   leanAngle: number
   /** Rotation of the facets about the axis, so two crystals of the same cut are not twins. */
   roll: number
+  /**
+   * Depth relative to width, front to back. Below 1 the crystal is a slab, which is how many of
+   * the real Ogham stones stand: broad face to the viewer, narrow edge to the side. Default 1.
+   */
+  flatten?: number
 }
 
 /**
@@ -253,6 +258,7 @@ export function crystal(spec: CrystalSpec): THREE.BufferGeometry {
     lean,
     leanAngle,
     roll,
+    flatten = 1,
   } = spec
 
   const positions: number[] = []
@@ -266,7 +272,7 @@ export function crystal(spec: CrystalSpec): THREE.BufferGeometry {
   const ringAt = (radius: number, y: number) =>
     Array.from({ length: sides }, (_, i) => {
       const angle = roll + (i / sides) * Math.PI * 2
-      return new THREE.Vector3(Math.cos(angle) * radius, y, Math.sin(angle) * radius)
+      return new THREE.Vector3(Math.cos(angle) * radius, y, Math.sin(angle) * radius * flatten)
     })
 
   const foot = ringAt(footRadius, 0)
@@ -276,7 +282,7 @@ export function crystal(spec: CrystalSpec): THREE.BufferGeometry {
   const apexY = shaftHeight + capHeight
   const half = ridgeLength / 2
   const ridgeDirection = new THREE.Vector3(Math.cos(ridgeAngle), 0, Math.sin(ridgeAngle))
-  const centre = new THREE.Vector3(ridgeOffset[0], apexY, ridgeOffset[1])
+  const centre = new THREE.Vector3(ridgeOffset[0], apexY, ridgeOffset[1] * flatten)
   const apexA = centre.clone().addScaledVector(ridgeDirection, -half)
   const apexB = centre.clone().addScaledVector(ridgeDirection, half)
 

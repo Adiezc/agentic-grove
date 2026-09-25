@@ -50,3 +50,14 @@ export const STONE_HEIGHT = 1.62
 
 /** Height the tree's crown reaches. Used to frame the camera, so it lives with the other sizes. */
 export const TREE_HEIGHT = 3.85
+
+/**
+ * How far the tree model is turned about its trunk, in radians.
+ *
+ * The model's own front is the reference plate's front. Once the tree had depth all round, the
+ * best view of it turned out to be about forty-five degrees round from that: the canopy up on the left,
+ * the deadwood sweeping away to the right. Turning the tree, rather than the camera, keeps the
+ * stones and console composed exactly as the concept art has them. The root tips the mycelium
+ * leaves from are turned by the same amount (`network.ts`), so the two stay joined.
+ */
+export const TREE_YAW = Math.PI / 4

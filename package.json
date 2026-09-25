@@ -20,6 +20,7 @@
     "verify": "tsx test/verify-scan.ts",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:tree-model": "node scripts/build-world-tree-model.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

@@ -25,9 +25,10 @@ import * as THREE from 'three'
 import { palette, motion } from '../theme/palette'
 import { flatRibbon, mergeAll, taperedTube } from './geometry'
 import type { Network, Strand } from './network'
+import { heartbeatFrame } from './heartbeat'
 
 /** How much wider than its core a strand's floor wash is. Generous: it is a wash, not an outline. */
-const HALO_WIDTH = 14
+const HALO_WIDTH = 18
 
 const VERTEX = /* glsl */ `
   varying vec2 vUv;
@@ -49,8 +50,11 @@ const FRAGMENT = /* glsl */ `
   uniform float uActive;
   uniform float uHalo;
   uniform float uRest;
+  uniform float uHeartbeat;
+  uniform float uFailed;
   uniform vec3 uColour;
   uniform vec3 uHot;
+  uniform vec3 uFailure;
   varying vec2 vUv;
 
   void main() {
@@ -64,13 +68,14 @@ const FRAGMENT = /* glsl */ `
     float tail = smoothstep(0.0, -0.4, d) * exp(d * 4.5) * 0.5;
     float travelling = (core + tail) * uActive;
 
-    float amount = uRest + travelling;
+    float amount = uRest * (1.0 + uHeartbeat * 1.15) + travelling;
 
     // Across the strand, for the wash only.
     float across = 1.0 - abs(vUv.x * 2.0 - 1.0);
     float fade = mix(1.0, pow(across, 2.2) * 0.32, uHalo);
 
-    vec3 colour = mix(uColour, uHot, clamp(core * uActive * 1.6, 0.0, 1.0));
+    vec3 living = mix(uColour, uHot, clamp(core * uActive * 1.6 + uHeartbeat * 0.24, 0.0, 1.0));
+    vec3 colour = mix(living, uFailure, uFailed * 0.62);
     gl_FragColor = vec4(colour, clamp(amount * fade, 0.0, 1.0));
   }
 `
@@ -87,8 +92,11 @@ function makeMaterial(halo: boolean, rest: number): THREE.ShaderMaterial {
       uActive: { value: 0 },
       uHalo: { value: halo ? 1 : 0 },
       uRest: { value: rest },
+      uHeartbeat: { value: 0 },
+      uFailed: { value: 0 },
       uColour: { value: new THREE.Color(halo ? palette.vein : palette.live) },
-      uHot: { value: new THREE.Color(palette.core) },
+      uHot: { value: new THREE.Color(palette.energy) },
+      uFailure: { value: new THREE.Color(palette.errored) },
     },
   })
 }
@@ -109,7 +117,10 @@ function build(strands: Strand[]): { core: THREE.BufferGeometry | null; halo: TH
     halos.push(
       flatRibbon(
         strand.curve,
-        (t) => (strand.r0 + (strand.r1 - strand.r0) * t) * HALO_WIDTH,
+        // The main runs got a thinner core when they began at the root tips (it has to come out
+        // of a root, so it cannot be fatter than one), so their wash is widened to keep the
+        // same soft band of green on the floor the art has.
+        (t) => (strand.r0 + (strand.r1 - strand.r0) * t) * HALO_WIDTH * (strand.depth === 0 ? 1.9 : 1.2),
         Math.max(12, Math.round(segments / 2)),
         -0.004,
         v
@@ -157,7 +168,7 @@ function Nodes({ network, brightness }: { network: Network; brightness: React.Re
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
-        uniforms: { uMap: { value: texture }, uColour: { value: new THREE.Color(palette.core) } },
+        uniforms: { uMap: { value: texture }, uColour: { value: new THREE.Color(palette.energy) } },
         vertexShader: /* glsl */ `
           attribute float aSize;
           attribute float aAlpha;
@@ -250,9 +261,15 @@ interface MyceliumProps {
   network: Network
   /** Stone ids with something happening on them, which is what sends light down a root. */
   active: ReadonlySet<string>
+  /** Stone ids holding a turn back. These receive the subtle second attention beat. */
+  attention: ReadonlySet<string>
+  /** Reserved for genuine failure; the only state allowed to tint the organism red. */
+  failed: ReadonlySet<string>
+  activity: number
+  animate: boolean
 }
 
-export function Mycelium({ network, active }: MyceliumProps) {
+export function Mycelium({ network, active, attention, failed, activity, animate }: MyceliumProps) {
   /* Grouped by owner, because a pulse belongs to a stone: everything one stone's light travels
    * through is one mesh with one uniform, and everything owned by nobody is one more. That is
    * about fifteen draw calls for the entire floor. */
@@ -268,8 +285,8 @@ export function Mycelium({ network, active }: MyceliumProps) {
       ...build(strands),
       // The unowned delta under the tree rests brighter than the long runs, because in the art
       // the ground right under the trunk is the brightest part of the floor by a wide margin.
-      coreMaterial: makeMaterial(false, owner === null ? 0.7 : 0.62),
-      haloMaterial: makeMaterial(true, owner === null ? 1.1 : 1.0),
+      coreMaterial: makeMaterial(false, owner === null ? 0.58 : 0.5),
+      haloMaterial: makeMaterial(true, owner === null ? 0.46 : 0.38),
     }))
   }, [network])
 
@@ -291,6 +308,7 @@ export function Mycelium({ network, active }: MyceliumProps) {
   const brightness = useRef<Map<string, number>>(new Map())
 
   useFrame((state, delta) => {
+    const organismBeat = animate ? heartbeatFrame(state.clock.elapsedTime, activity, attention.size > 0).pulse : 0.28
     groups.forEach((group, index) => {
       const owner = group.owner
       const want = owner && active.has(owner) ? 1 : 0
@@ -300,10 +318,15 @@ export function Mycelium({ network, active }: MyceliumProps) {
       const next = THREE.MathUtils.damp(current, want, 3.2, delta)
       if (owner) brightness.current.set(owner, next)
 
-      const time = state.clock.elapsedTime * motion.myceliumFlow + index * 0.37
+      const needsAttention = owner ? attention.has(owner) : false
+      const isFailed = owner ? failed.has(owner) : false
+      const attentionLift = needsAttention ? organismBeat * 0.48 : 0
+      const time = state.clock.elapsedTime * motion.myceliumFlow * (0.72 + activity * 0.7) + index * 0.37
       for (const material of [group.coreMaterial, group.haloMaterial]) {
-        material.uniforms.uActive!.value = next
+        material.uniforms.uActive!.value = next + attentionLift
         material.uniforms.uTime!.value = time
+        material.uniforms.uHeartbeat!.value = organismBeat * (0.28 + activity * 0.72) + attentionLift
+        material.uniforms.uFailed!.value = isFailed ? 1 : 0
       }
     })
   })

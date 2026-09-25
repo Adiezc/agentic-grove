@@ -22,9 +22,20 @@
  * two thirds of the way to a stone carries `from ≈ 0.66`. One travelling window in the shader
  * then lights the whole subtree in the right order as it sweeps past, with no per-fork state and
  * no work on the CPU. See `taperedTube`'s `vRange`.
+ *
+ * ## Where the roots hand over
+ *
+ * The tree model is authored in Blender, and its roots used to be grown there independently of
+ * this file: the wood stopped at one set of points and the light started at another, so the two
+ * met nowhere. Now the Blender build writes out every root tip — where it ends, which way it was
+ * heading and how thick it is there — to `world-tree-roots.json`, and every main strand here
+ * *starts at a root tip and leaves in its direction*. `ReferenceTree` then continues the wood a
+ * little way along the same curve, thinning to nothing, so a root visibly narrows into a line of
+ * light instead of ending beside one.
  */
 import * as THREE from 'three'
-import { DAIS_INNER_RADIUS, DAIS_RADIUS, heightAt } from './stage'
+import treeRoots from '../../assets/models/world-tree-roots.json'
+import { DAIS_INNER_RADIUS, DAIS_INNER_TOP, DAIS_RADIUS, heightAt, TREE_YAW } from './stage'
 import { seededRandom } from './geometry'
 
 export interface Strand {
@@ -39,6 +50,11 @@ export interface Strand {
   /** Radius of the hot core at each end. */
   r0: number
   r1: number
+  /**
+   * Set when the strand begins at one of the tree's root tips: the wood's radius there. The tree
+   * draws the wood on along the strand from that radius down to nothing.
+   */
+  rootRadius?: number
 }
 
 export interface NetworkNode {
@@ -59,17 +75,59 @@ export interface NetworkTarget {
   at: [number, number]
 }
 
+/** One root tip of the tree model, in grove coordinates. */
+interface RootTip {
+  at: THREE.Vector3
+  /** Flat on the ground: the way the root was heading as it ended. */
+  direction: THREE.Vector3
+  radius: number
+  angle: number
+}
+
 /**
- * Where the roots leave the trunk.
- *
- * Not the exact centre: in the art the light emerges from a ring around the base of the trunk,
- * because that is where the buttress roots are, and starting every strand at one point gives a
- * starburst instead. Small, but it is the difference between roots and a firework.
+ * The model's root tips, moved from the tree's own space into the grove's. The tree stands on the
+ * inner dais step, which is the only offset between the two.
  */
-const BASE_RADIUS = 0.62
+const UP = new THREE.Vector3(0, 1, 0)
+
+const ROOT_TIPS: RootTip[] = treeRoots.tips.map((tip) => {
+  const [x = 0, y = 0, z = 0] = tip.at
+  const [dx = 1, , dz = 0] = tip.direction
+  const at = new THREE.Vector3(x, y + DAIS_INNER_TOP, z).applyAxisAngle(UP, TREE_YAW)
+  return {
+    at,
+    direction: new THREE.Vector3(dx, 0, dz).applyAxisAngle(UP, TREE_YAW).normalize(),
+    radius: tip.radius,
+    angle: Math.atan2(at.z, at.x),
+  }
+})
+
+/** The model's fine rootlet ends. Same space as ROOT_TIPS; they have no useful radius. */
+const ROOTLET_TIPS: { at: THREE.Vector3; direction: THREE.Vector3 }[] = (treeRoots.rootlets ?? []).map((tip) => {
+  const [x = 0, y = 0, z = 0] = tip.at
+  const [dx = 1, , dz = 0] = tip.direction
+  return {
+    at: new THREE.Vector3(x, y + DAIS_INNER_TOP, z).applyAxisAngle(UP, TREE_YAW),
+    direction: new THREE.Vector3(dx, 0, dz).applyAxisAngle(UP, TREE_YAW).normalize(),
+  }
+})
+
+/**
+ * Where the light emerges from under the trunk, for the strands that do not start at a root tip.
+ *
+ * In the art there is light under the roots as well as along them: a web on the dais that the
+ * wood lies over. These strands begin inside the root flare, so they appear from between the wood.
+ */
+const BASE_RADIUS = 0.4
 
 /** How far a strand rises above whatever floor is under it, so it reads as light on the surface. */
 const CORE_LIFT = 0.012
+
+/**
+ * How far past its tip a root's direction still steers the strand, in metres. Short enough that
+ * the strand is free to turn towards its stone, long enough that it visibly *continues* the root.
+ */
+const HANDOFF = 0.16
 
 /**
  * Grow the network.
@@ -82,40 +140,95 @@ export function growNetwork(targets: NetworkTarget[], seed = 404): Network {
   const random = seededRandom(seed)
   const strands: Strand[] = []
   const nodes: NetworkNode[] = []
+  const uses = new Map<RootTip, number>()
 
   for (const target of targets) {
-    const primary = pathToStone(target.at, random)
-    strands.push({ curve: primary, depth: 0, owner: target.id, from: 0, to: 1, r0: 0.023, r1: 0.009 })
+    const tip = rootFor(target.at, uses)
+    uses.set(tip, (uses.get(tip) ?? 0) + 1)
+    const primary = pathToStone(target.at, tip, random)
+    strands.push({
+      curve: primary,
+      depth: 0,
+      owner: target.id,
+      from: 0,
+      to: 1,
+      r0: 0.012,
+      r1: 0.006,
+      rootRadius: tip.radius,
+    })
 
     // A bright point where the root arrives at its stone. In the art this is the most emphatic
     // light at ground level: a small star sitting in the stone's rings.
-    nodes.push({
-      at: primary.getPointAt(1).clone(),
-      size: 0.032,
-      owner: target.id,
-      at01: 1,
-    })
+    nodes.push({ at: primary.getPointAt(1).clone(), size: 0.032, owner: target.id, at01: 1 })
 
-    growForks(primary, target.id, 0, 1, 1, random, strands, nodes)
+    growForks(primary, target.id, 0, 0, 1, random, strands, nodes)
   }
 
-  // The delta on the dais: dense, short, fine, and belonging to nobody. This is the part directly
-  // under the tree, and in the art it is much busier than the long runs out to the stones — a
-  // hundred hair-thin lines fanning out of the base and dying before the dais edge.
-  for (let i = 0; i < 22; i++) {
-    const angle = (i / 22) * Math.PI * 2 + random() * 0.22
+  // Every root with no stone still carries on as light, out to about the dais edge, so no root in
+  // the model just stops. These belong to nobody.
+  for (const tip of ROOT_TIPS) {
+    if (uses.has(tip)) continue
+    const reach = Math.min(tip.at.length() + 0.35 + random() * 0.55, DAIS_RADIUS - 0.05)
+    const curve = leaveRoot(tip, polar(tip.angle + (random() - 0.5) * 0.35, reach), random)
+    strands.push({ curve, depth: 1, owner: null, from: 0, to: 0, r0: 0.009, r1: 0.002, rootRadius: tip.radius })
+    growForks(curve, null, 1, 0, 0, random, strands, nodes)
+  }
+
+  // Every rootlet of the model carries on as a hair of light. The rootlets brighten towards their
+  // ends in the model, so the hair starts at the same brightness the wood finishes at.
+  for (const tip of ROOTLET_TIPS) {
+    const length = 0.22 + random() * 0.45
+    const end = tip.at.clone().addScaledVector(tip.direction, length)
+    const side = new THREE.Vector3(-tip.direction.z, 0, tip.direction.x)
+    end.addScaledVector(side, (random() - 0.5) * length * 0.6)
+    end.y = heightAt(Math.hypot(end.x, end.z)) + CORE_LIFT
+    const curve = leaveRoot({ ...tip, radius: 0, angle: 0 }, end, random, 0.05)
+    strands.push({ curve, depth: 2, owner: null, from: 0, to: 0, r0: 0.0034, r1: 0.0007 })
+    growForks(curve, null, 2, 0, 0, random, strands, nodes)
+  }
+
+  // The web under the tree: short, fine, and belonging to nobody. In the art the ground right
+  // under the trunk is much busier than the long runs out to the stones — hair-thin lines fanning
+  // out of the base and dying before the dais edge.
+  for (let i = 0; i < 16; i++) {
+    const angle = (i / 16) * Math.PI * 2 + random() * 0.3
     const reach = 0.7 + random() * (DAIS_INNER_RADIUS - 0.6)
-    const curve = groundPath(
-      polar(angle, BASE_RADIUS),
-      polar(angle + (random() - 0.5) * 0.5, reach),
+    const curve = wrinkle(
+      groundPath(polar(angle, BASE_RADIUS), polar(angle + (random() - 0.5) * 0.5, reach), random, 0.22),
       random,
-      0.22
+      0.02,
+      0
     )
-    strands.push({ curve, depth: 1, owner: null, from: 0, to: 0, r0: 0.011, r1: 0.002 })
+    strands.push({ curve, depth: 1, owner: null, from: 0, to: 0, r0: 0.008, r1: 0.0015 })
     growForks(curve, null, 1, 0, 0, random, strands, nodes)
   }
 
   return { strands, nodes }
+}
+
+/**
+ * The root a stone's strand grows from: the one pointing most nearly at it.
+ *
+ * A root already feeding a stone counts as a little further away, so neighbouring stones spread
+ * over neighbouring roots rather than all hanging off one. With more stones than roots, some roots
+ * feed two, which is also what a real root does.
+ */
+function rootFor(to: [number, number], uses: Map<RootTip, number>): RootTip {
+  const angle = Math.atan2(to[1], to[0])
+  let best = ROOT_TIPS[0]!
+  let bestScore = Infinity
+  for (const tip of ROOT_TIPS) {
+    const score = Math.abs(wrapAngle(tip.angle - angle)) + (uses.get(tip) ?? 0) * 0.35
+    if (score < bestScore) {
+      best = tip
+      bestScore = score
+    }
+  }
+  return best
+}
+
+function wrapAngle(angle: number): number {
+  return Math.atan2(Math.sin(angle), Math.cos(angle))
 }
 
 /** A point on the ground plane at a given angle and distance, sitting on whatever floor is there. */
@@ -127,40 +240,107 @@ function polar(angle: number, radius: number): THREE.Vector3 {
   )
 }
 
+/** The first two points of any strand leaving a root: the tip itself, then a step on along it. */
+function handoff(tip: RootTip, distance = HANDOFF): THREE.Vector3[] {
+  const onward = tip.at.clone().addScaledVector(tip.direction, distance)
+  onward.y = heightAt(Math.hypot(onward.x, onward.z)) + CORE_LIFT
+  return [tip.at.clone(), onward]
+}
+
+/** A short run from a root tip out to a point on the ground. */
+function leaveRoot(
+  tip: RootTip,
+  to: THREE.Vector3,
+  random: () => number,
+  step = HANDOFF
+): THREE.CatmullRomCurve3 {
+  const [start, onward] = handoff(tip, step)
+  const mid = onward!.clone().lerp(to, 0.5)
+  mid.y = heightAt(Math.hypot(mid.x, mid.z)) + CORE_LIFT
+  return wrinkle(new THREE.CatmullRomCurve3([start!, onward!, mid, to]), random, 0.025, 2)
+}
+
 /**
- * The main run from the trunk to one stone.
+ * The main run from a root tip to one stone.
  *
- * Two things stop this being a wire. It wanders — the midpoints are pushed sideways off the
- * direct line by a good fraction of the distance, so no two roots leave at the same angle they
- * arrive at. And it has a control point exactly at the dais edge, so the step down off the
- * platform happens *there*, as a step, rather than being smoothed into a ramp across the whole
- * floor.
+ * Three things stop this being a wire. It starts by carrying on the way its root was going, and
+ * only then turns towards its stone, so the root and the light are one line. It wanders — the
+ * midpoints are pushed sideways off the direct line by a good fraction of the distance, so no two
+ * roots arrive at the angle they left at. And it has a control point exactly at the dais edge, so
+ * the step down off the platform happens *there*, as a step, rather than as a ramp.
  */
-function pathToStone(to: [number, number], random: () => number): THREE.CatmullRomCurve3 {
+function pathToStone(to: [number, number], tip: RootTip, random: () => number): THREE.CatmullRomCurve3 {
   const target = new THREE.Vector3(to[0], 0, to[1])
   const distance = target.length()
-  const direction = target.clone().normalize()
-  const side = new THREE.Vector3(-direction.z, 0, direction.x)
-  const angle = Math.atan2(direction.z, direction.x)
+  const targetAngle = Math.atan2(to[1], to[0])
+  const turn = wrapAngle(targetAngle - tip.angle)
 
-  const points: THREE.Vector3[] = [polar(angle, BASE_RADIUS)]
-  const stops = [0.18, 0.36, DAIS_RADIUS / distance, 0.72, 0.88]
+  const points = handoff(tip)
+  const clear = Math.hypot(points[1]!.x, points[1]!.z) + 0.25
+  const stops = [0.3, 0.45, DAIS_RADIUS / distance, 0.72, 0.88]
   for (const t of stops) {
-    if (t <= 0 || t >= 1) continue
     const radius = distance * t
+    if (t <= 0 || t >= 1 || radius < clear) continue
+    // Turn from the root's heading to the stone's bearing over the first stretch.
+    const eased = THREE.MathUtils.smoothstep(t, 0.2, 0.7)
+    const angle = tip.angle + turn * eased
     // The wander is strongest in the middle and settles as the strand nears its stone, because a
     // root that arrives sideways looks like it missed.
     const settle = Math.sin(t * Math.PI) ** 0.8
-    const sway = (random() - 0.5) * distance * 0.3 * settle
-    points.push(
-      direction
-        .clone()
-        .multiplyScalar(radius)
-        .add(side.clone().multiplyScalar(sway))
-        .setY(heightAt(radius) + CORE_LIFT)
-    )
+    const sway = (random() - 0.5) * distance * 0.26 * settle
+    const point = polar(angle, radius)
+    point.x += -Math.sin(angle) * sway
+    point.z += Math.cos(angle) * sway
+    point.y = heightAt(Math.hypot(point.x, point.z)) + CORE_LIFT
+    points.push(point)
   }
   points.push(target.setY(CORE_LIFT))
+  return wrinkle(new THREE.CatmullRomCurve3(points), random, 0.04, 2)
+}
+
+/**
+ * Small, irregular kinks along a strand.
+ *
+ * The long curves on their own are smooth splines, and a smooth spline reads as a cable. The
+ * strands in the art are crooked at a small scale the way lightning and hyphae are: they change
+ * direction every few centimetres. So the curve is resampled and every point nudged sideways by
+ * a random amount, with the first `keep` points left alone so a root's hand-off stays exact.
+ */
+function wrinkle(
+  curve: THREE.CatmullRomCurve3,
+  random: () => number,
+  amplitude: number,
+  keep: number
+): THREE.CatmullRomCurve3 {
+  const length = curve.getLength()
+  const count = Math.max(4, Math.round(length / 0.14))
+  const points: THREE.Vector3[] = curve.points.slice(0, keep).map((point) => point.clone())
+  // Find how far along the kept points reach, so resampling begins after them.
+  let from = 0
+  if (keep > 0) {
+    const last = curve.points[keep - 1]!
+    let closest = Infinity
+    for (let i = 0; i <= 60; i++) {
+      const distanceToLast = curve.getPointAt(i / 60).distanceTo(last)
+      if (distanceToLast < closest) {
+        closest = distanceToLast
+        from = i / 60
+      }
+    }
+  }
+  for (let i = 1; i <= count; i++) {
+    // Clamped: rounding can land a hair past 1, and three reads past the end of the curve there.
+    const t = Math.min(1, from + ((1 - from) * i) / count)
+    const point = curve.getPointAt(t)
+    if (i < count) {
+      const tangent = curve.getTangentAt(t)
+      const side = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize()
+      // Quieter where the strand arrives, so it still lands in its stone's rings.
+      point.addScaledVector(side, (random() - 0.5) * 2 * amplitude * Math.sin(Math.PI * t) ** 0.5)
+      point.y = heightAt(Math.hypot(point.x, point.z)) + CORE_LIFT
+    }
+    points.push(point)
+  }
   return new THREE.CatmullRomCurve3(points)
 }
 
@@ -206,20 +386,20 @@ function growForks(
 ): void {
   if (depth >= 3) return
 
-  // Fewer, longer forks near the stone; more, shorter ones near the trunk, which is what the
-  // delta in the art actually does.
-  const count = depth === 0 ? 4 : depth === 1 ? 2 : 1
+  // More forks than the first pass had, spread along the whole run: the art's strands are hairy
+  // from end to end, not bare cables with a tuft at each end.
+  const count = depth === 0 ? 7 : depth === 1 ? 3 : 1
   for (let i = 0; i < count; i++) {
-    const t = 0.12 + (i + random() * 0.7) / (count + 0.4)
-    if (t >= 0.94) continue
+    const t = 0.1 + (i + random() * 0.8) / (count + 0.3)
+    if (t >= 0.95) continue
 
     const origin = parent.getPointAt(t)
     const tangent = parent.getTangentAt(t).setY(0).normalize()
     const side = new THREE.Vector3(-tangent.z, 0, tangent.x).multiplyScalar(random() < 0.5 ? 1 : -1)
 
     // A fork leaves at a shallow angle and curves away, rather than branching at ninety degrees.
-    const reach = (depth === 0 ? 0.75 : 0.4) * (0.45 + random() * 0.85)
-    const spread = 0.4 + random() * 0.5
+    const reach = (depth === 0 ? 0.7 : 0.38) * (0.45 + random() * 0.85)
+    const spread = 0.35 + random() * 0.5
     const end = origin
       .clone()
       .addScaledVector(tangent, reach * (1 - spread * 0.5))
@@ -227,17 +407,17 @@ function growForks(
     const endRadius = Math.hypot(end.x, end.z)
     end.y = heightAt(endRadius) + CORE_LIFT
 
-    const curve = groundPath(origin.clone(), end, random, 0.3)
+    const curve = wrinkle(groundPath(origin.clone(), end, random, 0.3), random, 0.018, 1)
     // A fork occupies a short window of its owner's journey rather than a point, so the light
     // runs out along it instead of the whole thing flashing at once.
     const from01 = parentFrom + (parentTo - parentFrom) * t
     const to01 = Math.min(from01 + 0.06 / (depth + 1), 1)
 
-    const r0 = depth === 0 ? 0.009 : 0.005
-    strands.push({ curve, depth: depth + 1, owner, from: from01, to: to01, r0, r1: r0 * 0.28 })
+    const r0 = depth === 0 ? 0.006 : 0.0038
+    strands.push({ curve, depth: depth + 1, owner, from: from01, to: to01, r0, r1: r0 * 0.25 })
 
     // Only the first generation of forks gets a node. Every junction lit is a starfield.
-    if (depth === 0 && random() < 0.55) {
+    if (depth === 0 && random() < 0.5) {
       nodes.push({ at: origin.clone(), size: 0.016 + random() * 0.01, owner, at01: from01 })
     }
 

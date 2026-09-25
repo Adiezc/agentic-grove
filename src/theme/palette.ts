@@ -64,6 +64,8 @@ export const palette = {
   glow: '#94d7ad',
   /** The blown-out core of anything bloomed. Near-white mint, never pure white. */
   core: '#bff3d8',
+  /** Work energy. Kept inside the living green language of the supplied Grove art. */
+  energy: '#72f6a2',
 
   /* Interface. Neutral on purpose — see the note above. */
   /** Labels, stone names, the console's own text. */
@@ -75,7 +77,7 @@ export const palette = {
 
   /* State, for later sessions. Kept here so nothing invents its own amber. */
   /** A session holding the turn back, waiting for you. */
-  waiting: '#e8c468',
+  waiting: '#9cf5b9',
   /** A recent failure. */
   errored: '#e06c5f',
 } as const
@@ -83,24 +85,23 @@ export const palette = {
 /**
  * Motion tokens.
  *
- * "Calm by default" is a principle, so the numbers are slow. The heartbeat is the one thing that
- * is allowed to change speed, and it does so with total system activity — an idle grove breathes
- * about as fast as someone asleep, and a busy one about as fast as someone walking.
+ * "Calm by default" is a principle, so the numbers are slow. The warm activity field is the one
+ * thing allowed to breathe, and it does so with total system activity. The tree itself stays still.
  */
 export const motion = {
-  /** Seconds per canopy breath when nothing at all is happening. */
-  breathIdleSeconds: 6.5,
-  /** Seconds per breath when the grove is fully busy. */
-  breathBusySeconds: 2.2,
+  /** Seconds per activity-glow breath when nothing at all is happening. */
+  breathIdleSeconds: 9.0,
+  /** Seconds per activity-glow breath when the grove is fully busy. */
+  breathBusySeconds: 1.85,
   /** How fast light travels along a root carrying an agent, in world units per second. */
-  myceliumFlow: 0.55,
+  myceliumFlow: 0.68,
   /** Drift speed of the motes. Slow enough that you notice them only at the edge of vision. */
   moteDrift: 0.09,
   /** How far the camera leans with the mouse. Gentle parallax, per the brief's default. */
   parallax: 0.055,
 } as const
 
-/** Camera, read off the concept art's own perspective. See `Grove.tsx` for the derivation. */
+/** Camera, matched to the elevated three-quarter view of the supplied concept frames. */
 export const camera = {
   /* Pulled back and narrowed after the first render. The elevation still comes from the ring
    * ellipse ratio in the art (about 14 degrees), but the first attempt put the camera at z=10
@@ -112,7 +113,10 @@ export const camera = {
    * actually has — roughly two and a half to one — and the old framing cropped the new crown.
    * Distance and target height moved; the elevation did not, because that is the one number in
    * this file that was measured rather than chosen. */
-  fov: 28,
-  position: [0, 3.42, 16.6] as [number, number, number],
-  target: [0, 1.58, 0] as [number, number, number],
+  /* Pulled back again, same elevation, when the tree gained depth and the stones moved out to
+   * give it room. */
+  fov: 30,
+  // Tilted up to about thirty degrees, looking down into the grove as the user's chosen view does.
+  position: [0, 11.9, 18.4] as [number, number, number],
+  target: [0, 1.25, 0] as [number, number, number],
 } as const

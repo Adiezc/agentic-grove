@@ -25,6 +25,7 @@ export function App() {
   const [perf, setPerf] = useState<PerfSample | null>(null)
   const [post, setPost] = useState(true)
   const [hovered, setHovered] = useState<string | null>(null)
+  const [viewResetKey, setViewResetKey] = useState(0)
   /* Startable at a given preset, so each one's cost can be measured on a cold launch rather
    * than by pressing `q` and hoping the reading settles:
    *     VITE_GROVE_QUALITY=low npm run dev
@@ -34,6 +35,7 @@ export function App() {
     return wanted === 'low' || wanted === 'balanced' ? wanted : 'high'
   })
   const reducedMotion = usePrefersReducedMotion()
+  const showDebug = new URLSearchParams(window.location.search).has('debug')
 
   // The scan keeps running behind the scene even though the spike does not draw it, so opening
   // the data panel shows something immediately rather than scanning from cold.
@@ -78,7 +80,9 @@ export function App() {
     }
   }, [])
 
-  const running = SPIKE_STONES.filter((stone) => stone.status === 'running').length
+  const running = SPIKE_STONES.filter(
+    (stone) => stone.status === 'running' || stone.status === 'waiting'
+  ).length
 
   return (
     <div className="grove-root">
@@ -92,6 +96,7 @@ export function App() {
           post={post}
           onPerf={onPerf}
           onHoverStone={setHovered}
+          viewResetKey={viewResetKey}
         />
       </div>
 
@@ -103,8 +108,17 @@ export function App() {
         <Counts agents={SPIKE_STONES.length} running={running} tasks={12} />
         <RuneConsole />
         <HoverReadout name={hovered ? (SPIKE_STONES.find((s) => s.id === hovered)?.name ?? null) : null} />
+        <button
+          type="button"
+          className="view-home"
+          onClick={() => setViewResetKey((key) => key + 1)}
+          aria-label="Return to the Grove home view"
+          title="Return to home view"
+        >
+          HOME VIEW
+        </button>
 
-        <p className="fps">
+        {showDebug ? <p className="fps">
           <b>{perf?.fps ?? '--'} fps</b>
           <br />
           {perf ? `${perf.drawCalls} calls · ${(perf.triangles / 1000).toFixed(1)}k tris` : ''}
@@ -119,7 +133,7 @@ export function App() {
               reduced motion
             </>
           ) : null}
-        </p>
+        </p> : null}
 
         {dataOpen ? (
           <div className="data-panel">

@@ -8,6 +8,10 @@ out/
 release/
 *.tsbuildinfo
 
+# Reproducible Blender source scenes and comparison renders; ship the GLB, script and plates.
+assets/modeling/world-tree-review/
+scripts/__pycache__/
+
 # The user's own grove. Their projects and layout are theirs, not ours to ship.
 # A grove.example.json is committed instead, so the schema is still visible.
 grove.json

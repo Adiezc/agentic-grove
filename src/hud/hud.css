@@ -28,6 +28,31 @@
   font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
 }
 
+.view-home {
+  position: absolute;
+  right: 28px;
+  bottom: 26px;
+  z-index: 8;
+  border: 1px solid color-mix(in srgb, var(--line) 72%, var(--live));
+  border-radius: 999px;
+  padding: 7px 12px 6px;
+  background: color-mix(in srgb, var(--ground) 84%, transparent);
+  color: var(--text-dim);
+  font: 500 9px/1 var(--font-mono);
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  opacity: 0.62;
+  transition: color 160ms ease, border-color 160ms ease, opacity 160ms ease;
+}
+
+.view-home:hover,
+.view-home:focus-visible {
+  color: var(--glow);
+  border-color: var(--live);
+  opacity: 1;
+  outline: none;
+}
+
 .hud button,
 .hud input,
 .hud .crystal {
@@ -194,6 +219,7 @@
 /* The faceted shield from the art, as a clipped polygon. A real crystal with refraction belongs
    in the scene rather than the interface, and it is not what this session is judging. */
 .crystal-body {
+  position: relative;
   width: 5rem;
   height: 6.8rem;
   display: grid;
@@ -203,11 +229,31 @@
     radial-gradient(60% 50% at 50% 45%, rgb(66 178 110 / 0.22), transparent 70%),
     linear-gradient(160deg, rgb(41 81 53 / 0.5), rgb(2 9 4 / 0.9));
   border: 1px solid rgb(46 111 72 / 0.35);
+  filter: drop-shadow(0 0 12px rgb(66 178 110 / 0.14));
 }
 
+.crystal-body::before,
+.crystal-body::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  clip-path: polygon(50% 0%, 100% 26%, 100% 74%, 50% 100%, 0% 74%, 0% 26%);
+  background:
+    linear-gradient(62deg, transparent 48.8%, rgb(148 215 173 / 0.22) 49.5%, transparent 50.4%),
+    linear-gradient(-62deg, transparent 48.8%, rgb(148 215 173 / 0.16) 49.5%, transparent 50.4%);
+  pointer-events: none;
+}
+
+.crystal-body::after {
+  inset: 14px;
+  opacity: 0.55;
+  transform: rotate(180deg);
+}
+
+/* Sized so the logo's circle (about 85% of the image) nearly spans the crystal at its widest. */
 .crystal-mark {
-  width: 3.1rem;
-  height: 3.1rem;
+  width: 4.9rem;
+  height: 4.9rem;
   object-fit: contain;
   /* The logo is a bright mark on black; multiplying it into the facet keeps it inside the
      crystal rather than sitting on top of it as a sticker. */
@@ -393,8 +439,8 @@
     height: 4.9rem;
   }
   .crystal-mark {
-    width: 2.2rem;
-    height: 2.2rem;
+    width: 3.5rem;
+    height: 3.5rem;
   }
   .rail-thread,
   .crystal-thread,

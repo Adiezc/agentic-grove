@@ -64,6 +64,8 @@ const STONE_SHADER = {
     uHeight: { value: STONE_HEIGHT },
     /** How hard the interior burns, which is the one thing state changes about the body. */
     uGlow: { value: 0.35 },
+    /** Weight of the one hard facet highlight. Lower on the small companion crystals. */
+    uFacet: { value: 0.55 },
   },
   vertexShader: /* glsl */ `
     varying vec3 vNormal;
@@ -85,6 +87,7 @@ const STONE_SHADER = {
     uniform vec3 uKey;
     uniform float uHeight;
     uniform float uGlow;
+    uniform float uFacet;
     varying vec3 vNormal;
     varying vec3 vView;
     varying float vHeight;
@@ -119,7 +122,7 @@ const STONE_SHADER = {
       vec3 colour = uBase
         + uRim * body * 0.09
         + uEdge * edge * 0.72
-        + uEdge * facet * 0.55
+        + uEdge * facet * uFacet
         + uInner * (interior + foot * 0.3);
 
       gl_FragColor = vec4(colour, 1.0);
@@ -158,7 +161,7 @@ const PLINTH_MATERIAL = new THREE.MeshStandardMaterial({
 /** How brightly a rune burns, per state. The whole visual language of status, in four numbers. */
 const RUNE_INTENSITY: Record<SessionStatus, number> = {
   /** Barely lit. The stone is there; nothing is happening on it. */
-  idle: 0.5,
+  idle: 0.78,
   /** Working. Bright, steady, and bloomed. */
   running: 2.7,
   /** Holding the turn back. Slightly dimmer than running, but it *pulses*, which is what catches
@@ -210,11 +213,30 @@ export interface StoneSpec {
  * project gets the *same* distinctive stone every time it appears, on any machine, with no state
  * saved anywhere — and two projects side by side reliably look nothing like each other.
  *
- * The ranges are read off the art. Four to six sides; between two and three times taller than
- * wide; a cap around a quarter to a third of the height; and a ridge that always sits off-centre,
- * because a centred one is a spike and reads as a traffic bollard.
+ * Every stone is the same dark quartz, but each is one of five cuts, so they differ in character
+ * and not just in size. The cut is picked first and the fine proportions are varied inside it,
+ * because varying everything at once gives six stones that are all slightly different averages.
+ *
+ *   chisel   the art's default: a short off-centre ridge on top
+ *   spire    tall and slender, drawn to a near point
+ *   slab     broad and thin, a crystal standing like one of the old Ogham pillar stones
+ *   stout    squat and wide, six-sided
+ *   broken   the point snapped off long ago, leaving a low, nearly flat top
+ *
+ * One rule holds for all of them: one face always points straight at the viewer, so the
+ * inscription sits flat on a face instead of across a corner.
  */
-export function cutFor(id: string, overrides?: Partial<CrystalSpec>): CrystalSpec {
+export type CutStyle = 'chisel' | 'spire' | 'slab' | 'stout' | 'broken'
+const CUT_STYLES: CutStyle[] = ['chisel', 'spire', 'slab', 'stout', 'broken']
+
+export interface StoneCut {
+  style: CutStyle
+  body: CrystalSpec
+  /** Small crystals grown at the foot of the main one. Positions are relative to the stone. */
+  companions: { spec: CrystalSpec; at: [number, number] }[]
+}
+
+export function cutFor(id: string, overrides?: Partial<CrystalSpec>): StoneCut {
   let hash = 2166136261
   for (let i = 0; i < id.length; i++) {
     hash ^= id.charCodeAt(i)
@@ -224,35 +246,79 @@ export function cutFor(id: string, overrides?: Partial<CrystalSpec>): CrystalSpe
   // Burn the first few, which on a hash-derived seed are correlated with the first character.
   random()
   random()
+  const between = (low: number, high: number) => low + random() * (high - low)
 
-  const sides = 4 + Math.floor(random() * 3)
-  /* Wider than the second render, which still had these at about three and a half to one and
-   * read as shards rather than as the blocky quartz in the art. Measuring a stone in
-   * `grove-main.png` gives 70 pixels across to 180 tall: two and a half to one. */
-  const width = 0.27 + random() * 0.085
-  const capShare = 0.19 + random() * 0.09
-  const height = STONE_HEIGHT * (0.88 + random() * 0.24)
+  const style = CUT_STYLES[Math.floor(random() * CUT_STYLES.length)]!
+  // The ranges are read off the art for `chisel`, and pushed out from there for the rest.
+  const shape = {
+    chisel: { sides: [4, 6], width: [0.27, 0.35], tall: [0.9, 1.1], cap: [0.19, 0.28], ridge: [0.5, 1.2], flat: [0.9, 1] },
+    spire: { sides: [5, 6], width: [0.22, 0.26], tall: [1.05, 1.18], cap: [0.3, 0.38], ridge: [0.08, 0.22], flat: [0.9, 1] },
+    slab: { sides: [4, 5], width: [0.33, 0.38], tall: [0.86, 1.0], cap: [0.14, 0.2], ridge: [0.9, 1.3], flat: [0.55, 0.68] },
+    stout: { sides: [6, 6], width: [0.35, 0.4], tall: [0.78, 0.88], cap: [0.22, 0.3], ridge: [0.35, 0.7], flat: [0.9, 1] },
+    broken: { sides: [4, 6], width: [0.28, 0.34], tall: [0.74, 0.86], cap: [0.07, 0.11], ridge: [1.1, 1.4], flat: [0.8, 0.95] },
+  }[style]
 
-  return {
+  const sides = Math.round(between(shape.sides[0]!, shape.sides[1]! + 0.99) - 0.49)
+  const width = between(shape.width[0]!, shape.width[1]!)
+  const capShare = between(shape.cap[0]!, shape.cap[1]!)
+  const height = STONE_HEIGHT * between(shape.tall[0]!, shape.tall[1]!)
+
+  const body: CrystalSpec = {
     sides,
     footRadius: width,
     // Slightly narrower at the shoulder than the foot, which is what stops a shaft reading as
     // extruded. Real quartz is nearly parallel-sided, but nearly is the operative word.
-    shoulderRadius: width * (0.82 + random() * 0.12),
+    shoulderRadius: width * between(0.8, 0.94),
     shaftHeight: height * (1 - capShare),
     capHeight: height * capShare,
-    // Always off-axis, by between a fifth and a half of the stone's own width.
-    ridgeOffset: [
-      (random() - 0.5) * width * 0.9,
-      (random() - 0.5) * width * 0.9,
-    ],
-    ridgeLength: width * (0.5 + random() * 0.7),
+    // Always off-axis, by up to half the stone's own width.
+    ridgeOffset: [(random() - 0.5) * width * 0.9, (random() - 0.5) * width * 0.9],
+    ridgeLength: width * between(shape.ridge[0]!, shape.ridge[1]!),
     ridgeAngle: random() * Math.PI,
-    lean: (random() - 0.5) * 0.1,
+    lean: (random() - 0.5) * 0.12,
     leanAngle: random() * Math.PI * 2,
-    roll: random() * Math.PI * 2,
+    // Face 0 runs from angle `roll` to `roll + 2pi/sides`; centring it on +z puts a face, not a
+    // corner, towards the viewer.
+    roll: Math.PI / 2 - Math.PI / sides,
+    flatten: between(shape.flat[0]!, shape.flat[1]!),
     ...overrides,
   }
+
+  // Companions: none on a spire, which is the point of a spire; up to two elsewhere, and always
+  // behind or beside the main crystal so they never cover the inscription.
+  const companions: StoneCut['companions'] = []
+  const count = style === 'spire' ? 0 : Math.floor(random() * (style === 'broken' ? 3 : 2.4))
+  for (let i = 0; i < count; i++) {
+    // Out to one side and a little back: alternate sides, measured from straight behind (0) to
+    // square to the side (pi/2) and a touch beyond.
+    const side = i % 2 ? -1 : 1
+    const angle = Math.PI * between(0.3, 0.55)
+    const direction: [number, number] = [side * Math.sin(angle), -Math.cos(angle)]
+    const small = between(0.26, 0.44)
+    const smallHeight = height * small
+    const smallWidth = width * between(0.34, 0.5)
+    const smallSides = 4 + Math.floor(random() * 3)
+    const smallCap = between(0.22, 0.34)
+    companions.push({
+      at: [direction[0] * width * 0.95, direction[1] * width * 0.95 * (body.flatten ?? 1)],
+      spec: {
+        sides: smallSides,
+        footRadius: smallWidth,
+        shoulderRadius: smallWidth * 0.85,
+        shaftHeight: smallHeight * (1 - smallCap),
+        capHeight: smallHeight * smallCap,
+        ridgeOffset: [0, 0],
+        ridgeLength: smallWidth * between(0.1, 0.5),
+        ridgeAngle: random() * Math.PI,
+        // Leaning outward, away from the parent, the way clustered quartz grows.
+        lean: smallHeight * between(0.25, 0.55),
+        leanAngle: Math.atan2(direction[1], direction[0]),
+        roll: random() * Math.PI * 2,
+      },
+    })
+  }
+
+  return { style, body, companions }
 }
 
 interface RunestoneProps {
@@ -268,8 +334,17 @@ export function Runestone({ spec, cameraAt, showLabel, onHover }: RunestoneProps
   const scale = spec.scale ?? 1
   const status = spec.status
 
-  const cut = useMemo(() => cutFor(spec.id, spec.cut), [spec.id, spec.cut])
+  const stoneCut = useMemo(() => cutFor(spec.id, spec.cut), [spec.id, spec.cut])
+  const cut = stoneCut.body
   const body = useMemo(() => crystal(cut), [cut])
+  const companions = useMemo(
+    () =>
+      stoneCut.companions.map(({ spec: companion, at }) => {
+        const geometry = crystal(companion)
+        return { geometry, edges: new THREE.EdgesGeometry(geometry, 8), at }
+      }),
+    [stoneCut]
+  )
 
   /**
    * The hairlines where two facets meet.
@@ -298,6 +373,20 @@ export function Runestone({ spec, cameraAt, showLabel, onHover }: RunestoneProps
     return shader
   }, [height])
 
+  /* The companions share the shader but not its numbers. They are short, so almost all of each
+   * one sits in the band the main stone lights as its glowing foot; with the same values they
+   * came out as pale, flat shards. Here they are measured against a much taller stone, which
+   * keeps them dark glass with only a faint lower glow. */
+  const companionMaterial = useMemo(() => {
+    const shader = material.clone()
+    shader.uniforms = THREE.UniformsUtils.clone(material.uniforms)
+    shader.uniforms.uHeight!.value = height * 2.4
+    // Small leaning crystals turn whole faces to the key light, and a whole pale face read as a
+    // paper shard. The main stone keeps the art's single bright facet.
+    shader.uniforms.uFacet!.value = 0.12
+    return shader
+  }, [material, height])
+
   /** The rune, as a plane just off the stone's front face with an additive texture. */
   const runeTexture = useMemo(() => {
     const texture = new THREE.CanvasTexture(drawRune(spec.rune))
@@ -324,6 +413,38 @@ export function Runestone({ spec, cameraAt, showLabel, onHover }: RunestoneProps
     []
   )
 
+  /* The thread of light rising from the stone's point, as in the concept frames: a hairline that
+   * fades as it climbs, with a single bead on it. It is the stone's state again, seen from far
+   * away, so it follows the rune's colour and brightness. */
+  const beamMaterial = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: { uColour: { value: new THREE.Color(RUNE_COLOUR[status]) }, uAmount: { value: 0.5 } },
+        vertexShader: /* glsl */ `
+          varying float vAlong;
+          void main() {
+            vAlong = uv.y;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform vec3 uColour;
+          uniform float uAmount;
+          varying float vAlong;
+          void main() {
+            float along = clamp(vAlong, 0.0, 1.0);
+            float fade = pow(1.0 - along, 1.8) * smoothstep(0.0, 0.04, along);
+            gl_FragColor = vec4(uColour, fade * uAmount);
+          }
+        `,
+      }),
+    [status]
+  )
+  const beamHeight = 1.4 + (cut.shaftHeight % 0.37) * 2.2
+
   const runeRef = useRef<THREE.Mesh>(null)
   const glowRef = useRef<THREE.PointLight>(null)
 
@@ -346,15 +467,26 @@ export function Runestone({ spec, cameraAt, showLabel, onHover }: RunestoneProps
     // Enough that a running stone is faintly lit from within, never enough to compete with it.
     material.uniforms.uInner!.value.setStyle(RUNE_COLOUR[status])
     material.uniforms.uGlow!.value = 0.1 + Math.min(intensity, 2.7) * 0.1
+    companionMaterial.uniforms.uInner!.value.setStyle(RUNE_COLOUR[status])
+    companionMaterial.uniforms.uGlow!.value = 0.04 + Math.min(intensity, 2.7) * 0.03
     if (glowRef.current) glowRef.current.intensity = intensity * 1.5
+    beamMaterial.uniforms.uColour!.value.setStyle(RUNE_COLOUR[status])
+    beamMaterial.uniforms.uAmount!.value = Math.min(0.18 + intensity * 0.28, 0.95)
   })
 
   const [x, z] = spec.at
   // Face the viewer, then deviate by `turn`.
   const facing = Math.atan2(cameraAt[0] - x, cameraAt[2] - z) + (spec.turn ?? 0)
-  // The rune sits on the front face, at about a third of the height — where the art puts it.
+  // The inscription sits on the front face, a little below the middle — where the art puts it.
+  // The front face's distance from the axis is the polygon's inradius, squashed for a slab, and
+  // the panel follows the stone's lean up to that height so it stays on the face.
   const runeSize = cut.footRadius * 1.9
   const runeY = height * 0.46
+  const leanAt = cut.lean * (runeY / height) ** 1.35
+  const faceDepth =
+    ((cut.footRadius + cut.shoulderRadius) / 2) * Math.cos(Math.PI / cut.sides) * (cut.flatten ?? 1)
+  const runeX = Math.cos(cut.leanAngle) * leanAt
+  const runeZ = faceDepth + Math.sin(cut.leanAngle) * leanAt + 0.012
 
   return (
     <group
@@ -375,20 +507,51 @@ export function Runestone({ spec, cameraAt, showLabel, onHover }: RunestoneProps
           <lineBasicMaterial
             color={palette.stoneRim}
             transparent
-            opacity={0.13}
+            opacity={0.24}
             blending={THREE.AdditiveBlending}
             depthWrite={false}
           />
         </lineSegments>
 
-        <mesh ref={runeRef} material={runeMaterial} position={[0, runeY, cut.footRadius * 0.92]}>
-          <planeGeometry args={[runeSize, runeSize * 1.9]} />
+        {companions.map((companion, i) => (
+          <group key={`companion-${i}`} position={[companion.at[0], 0, companion.at[1]]}>
+            <mesh geometry={companion.geometry} material={companionMaterial} />
+            <lineSegments geometry={companion.edges}>
+              <lineBasicMaterial
+                color={palette.stoneRim}
+                transparent
+                opacity={0.2}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+              />
+            </lineSegments>
+          </group>
+        ))}
+
+        <mesh ref={runeRef} material={runeMaterial} position={[runeX, runeY, runeZ]}>
+          <planeGeometry args={[runeSize, runeSize * 2]} />
         </mesh>
+
+        {/* The beam starts at the apex, which is off-centre by the ridge offset plus the lean. */}
+        <group
+          position={[
+            cut.ridgeOffset[0] + Math.cos(cut.leanAngle) * cut.lean,
+            height + 0.05,
+            cut.ridgeOffset[1] * (cut.flatten ?? 1) + Math.sin(cut.leanAngle) * cut.lean,
+          ]}
+        >
+          <mesh material={beamMaterial} position={[0, beamHeight / 2, 0]}>
+            <cylinderGeometry args={[0.0035, 0.0035, beamHeight, 4, 1, true]} />
+          </mesh>
+          <mesh material={beamMaterial} position={[0, beamHeight * 0.34, 0]}>
+            <sphereGeometry args={[0.018, 8, 6]} />
+          </mesh>
+        </group>
 
         {/* What the rune throws onto the stone and the ground around it. */}
         <pointLight
           ref={glowRef}
-          position={[0, runeY, cut.footRadius * 1.5]}
+          position={[runeX, runeY, runeZ + cut.footRadius * 0.6]}
           color={RUNE_COLOUR[status]}
           distance={2.0}
           decay={2}

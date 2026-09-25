@@ -585,3 +585,28 @@ like confetti, at 1.7cm with twice as many it is foliage.
 The deadwood also gets its own material, paler than the living trunk. In the art the jin is
 visibly bleached against the trunk it grows from, and drawing both with one material loses the
 contrast that the deadwood exists to provide.
+
+
+## The runestones are inscribed in Ogham, not runes
+
+*25 September 2026*
+
+There is no evidence the druids used runes. The futhark is Germanic and Norse. The script that
+comes from the druids' world is Ogham: early Irish letters cut along the edges of standing stones,
+mostly fourth to sixth century, each letter later named after a tree. It also matches the concept
+art almost exactly: one stem line with groups of strokes on it. Each stone carries one real word
+from the surviving inscriptions (MAQI, MUCOI, AVI, ANM, NETA, CELI, KOI; spellings and meanings per
+McManus, *A Guide to Ogam*), read bottom to top as on the stones. See `src/scene/runes.ts`.
+
+Each stone is also one of five cuts (chisel, spire, slab, stout, broken), some with small
+companion crystals at the foot, all derived from the project id. One face always points at the
+viewer, so the inscription sits on a face rather than across a corner.
+
+## Roots and mycelium are joined at the root tips
+
+*25 September 2026*
+
+The Blender tree's roots and the grove's mycelium used to be grown separately and met nowhere.
+The Blender build now exports each root tip, and the network starts every strand there, in the
+root's direction, with the wood continued a little way along it. Changing the tree model means
+rebuilding `world-tree-roots.json` with it.

@@ -119,3 +119,14 @@ If you wrote something listed here and the attribution is inaccurate, the licenc
 incorrectly, or you would rather it were credited differently — please open an issue and it
 will be fixed as the next commit. If code of yours is here and you would rather it were not,
 say so and it will be removed.
+
+---
+
+## Reference works
+
+### Ogham inscriptions
+
+The runestone inscriptions are words from the corpus of early Irish Ogham stones (fourth to
+sixth century). Letter forms and the spellings and meanings of the words follow Damian McManus,
+*A Guide to Ogam* (Maynooth, 1991). No text or images are copied from it; the letters are drawn in
+code in `src/scene/runes.ts`.

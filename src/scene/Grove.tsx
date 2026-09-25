@@ -1,31 +1,28 @@
 /**
  * The grove itself: camera, light, the cast, and the post-processing that ties it together.
  *
- * **Camera, derived rather than chosen.** The ground rings in the concept art are about 0.24 as
- * tall as they are wide. A circle on the floor projects to an ellipse of that ratio when the
- * camera sits roughly 14 degrees above the plane, so that is where the camera sits. This is worth
- * spelling out because a 45-degree isometric view — the obvious choice, and what most of these
- * scenes end up being — makes a completely different picture: you look down *onto* a diagram
- * rather than across at a place. The low angle is most of why the art feels like standing in a
- * clearing, and it is the single easiest thing to get wrong.
+ * **Camera.** The supplied flow frames show more of the roots and circular floor than the first
+ * spike did. The elevated three-quarter camera keeps the tree dominant while exposing enough of
+ * the dais for the root-to-mycelium transition to read as one continuous system.
  *
  * **Spike scope, stated plainly.** No real data. The six stones and their states are fixtures
  * taken from the concept art, because the point of this session is to judge the *look* — wiring
  * in the real 15 stones would change the composition and make the comparison against the art
  * impossible. Session four connects the scan.
  */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { OrbitControls } from '@react-three/drei'
 import { Bloom, EffectComposer, Noise, Vignette } from '@react-three/postprocessing'
 import { BlendFunction, KernelSize } from 'postprocessing'
 import * as THREE from 'three'
-import { camera as cameraSpec, motion, palette } from '../theme/palette'
+import { camera as cameraSpec, palette } from '../theme/palette'
 import { Ground } from './Ground'
 import { Motes } from './Motes'
 import { Mycelium } from './Mycelium'
 import { growNetwork } from './network'
 import { Runestone, type StoneSpec } from './Runestone'
-import { WorldTree } from './WorldTree'
+import { ReferenceTree } from './ReferenceTree'
 
 /**
  * The six stones, placed to match the concept art.
@@ -34,16 +31,19 @@ import { WorldTree } from './WorldTree'
  * spacing is *not*: even. There is a deliberate gap at front-centre, because that is where the
  * rune console sits and a stone behind it would fight with it. The stones also sit further out
  * sideways than they do towards the camera, which is what keeps them clear of the tree in a
- * low-angle view. Both of those are compositional decisions in the original, not accidents, and
+ * elevated view. Both of those are compositional decisions in the original, not accidents, and
  * they are the kind of thing that gets lost if you place six objects on an even circle.
  */
+/* Pushed out by about a third once the tree was rebuilt with depth all round: its crown now
+ * spreads nearly a metre further to each side, and the stones had started to crowd it. The
+ * arrangement is the art's, scaled; only the distance from the trunk changed. */
 export const SPIKE_STONES: StoneSpec[] = [
-  { id: 'research', name: 'Research', rune: 'ascend', status: 'running', at: [-3.05, -1.95], scale: 0.94, turn: 0.16 },
-  { id: 'data', name: 'Data', rune: 'ring', status: 'idle', at: [-4.4, 0.2], scale: 1.02, turn: -0.24 },
-  { id: 'compute', name: 'Compute', rune: 'thrice', status: 'idle', at: [-2.7, 2.55], scale: 1.06, turn: 0.09 },
-  { id: 'connect', name: 'Connect', rune: 'bind', status: 'waiting', at: [2.3, 2.65], scale: 1.05, turn: -0.13 },
-  { id: 'build', name: 'Build', rune: 'mark', status: 'running', at: [3.25, -1.8], scale: 0.92, turn: 0.21 },
-  { id: 'archive', name: 'Archive', rune: 'tally', status: 'idle', at: [4.55, 0.5], scale: 0.98, turn: -0.18 },
+  { id: 'research', name: 'Research', rune: 'anm', status: 'running', at: [-3.7, -2.25], scale: 0.94, turn: 0.16 },
+  { id: 'data', name: 'Data', rune: 'maqi', status: 'idle', at: [-5.25, 0.3], scale: 1.02, turn: -0.24 },
+  { id: 'compute', name: 'Compute', rune: 'celi', status: 'idle', at: [-3.35, 3.1], scale: 1.06, turn: 0.09 },
+  { id: 'connect', name: 'Connect', rune: 'mucoi', status: 'waiting', at: [2.9, 3.2], scale: 1.05, turn: -0.13 },
+  { id: 'build', name: 'Build', rune: 'neta', status: 'running', at: [3.9, -2.05], scale: 0.92, turn: 0.21 },
+  { id: 'archive', name: 'Archive', rune: 'avi', status: 'idle', at: [5.3, 0.7], scale: 0.98, turn: -0.18 },
 ]
 
 export type QualityPreset = 'high' | 'balanced' | 'low'
@@ -66,34 +66,41 @@ const QUALITY: Record<QualityPreset, { reflect: boolean; reflectionRes: number; 
  */
 function activityOf(stones: StoneSpec[]): number {
   if (!stones.length) return 0
-  const working = stones.filter((stone) => stone.status === 'running').length
+  const working = stones.filter((stone) => stone.status === 'running' || stone.status === 'waiting').length
   // Saturating rather than linear: three running agents should already feel busy, and a
   // twenty-stone grove should not need eighteen of them lit to reach a full heartbeat.
   return 1 - Math.exp(-working / 2.2)
 }
 
-/** Gentle parallax on mouse move, which is the brief's default over a free camera. */
-function CameraRig({ enabled }: { enabled: boolean }) {
+/** Orbit the whole grove, while keeping the supplied composition as a reliable home view. */
+function CameraRig({ resetKey, animate }: { resetKey: number; animate: boolean }) {
   const { camera } = useThree()
-  const target = useMemo(() => new THREE.Vector3(...cameraSpec.target), [])
-  const base = useMemo(() => new THREE.Vector3(...cameraSpec.position), [])
+  const controls = useRef<ComponentRef<typeof OrbitControls>>(null)
 
-  useFrame((state, delta) => {
-    if (!enabled) {
-      camera.position.copy(base)
-      camera.lookAt(target)
-      return
-    }
-    // `state.pointer` is -1..1 across the canvas. Damped towards the offset rather than set to
-    // it, so the camera has weight and a flicked mouse does not snap the whole world sideways.
-    const wantX = base.x + state.pointer.x * motion.parallax * 7
-    const wantY = base.y - state.pointer.y * motion.parallax * 2.6
-    camera.position.x = THREE.MathUtils.damp(camera.position.x, wantX, 2.4, delta)
-    camera.position.y = THREE.MathUtils.damp(camera.position.y, wantY, 2.4, delta)
-    camera.position.z = base.z
-    camera.lookAt(target)
-  })
-  return null
+  useEffect(() => {
+    camera.position.set(...cameraSpec.position)
+    controls.current?.target.set(...cameraSpec.target)
+    controls.current?.update()
+  }, [camera, resetKey])
+
+  return (
+    <OrbitControls
+      ref={controls}
+      makeDefault
+      target={cameraSpec.target}
+      enablePan={false}
+      enableZoom
+      enableRotate
+      enableDamping={animate}
+      dampingFactor={0.065}
+      rotateSpeed={0.42}
+      zoomSpeed={0.55}
+      minDistance={13}
+      maxDistance={29}
+      minPolarAngle={Math.PI * 0.22}
+      maxPolarAngle={Math.PI * 0.46}
+    />
+  )
 }
 
 /** What the renderer is doing, sampled once a second. */
@@ -147,6 +154,8 @@ interface GroveSceneProps {
   post?: boolean
   onPerf?: (sample: PerfSample) => void
   onHoverStone?: (id: string | null) => void
+  /** Increment to return the orbit camera to the supplied Grove composition. */
+  viewResetKey?: number
 }
 
 export function GroveScene({
@@ -156,6 +165,7 @@ export function GroveScene({
   post = true,
   onPerf,
   onHoverStone,
+  viewResetKey = 0,
 }: GroveSceneProps) {
   const [hovered, setHovered] = useState<string | null>(null)
   const settings = QUALITY[quality]
@@ -177,6 +187,14 @@ export function GroveScene({
           .filter((stone) => stone.status === 'running' || stone.status === 'waiting')
           .map((stone) => stone.id)
       ),
+    [stones]
+  )
+  const attention = useMemo(
+    () => new Set(stones.filter((stone) => stone.status === 'waiting').map((stone) => stone.id)),
+    [stones]
+  )
+  const failed = useMemo(
+    () => new Set(stones.filter((stone) => stone.status === 'errored').map((stone) => stone.id)),
     [stones]
   )
 
@@ -205,7 +223,7 @@ export function GroveScene({
         scene.fog = new THREE.Fog(palette.ground, 30, 62)
       }}
     >
-      <CameraRig enabled={animate} />
+      <CameraRig resetKey={viewResetKey} animate={animate} />
       {onPerf ? <Perf onSample={onPerf} /> : null}
 
       {/* Light is minimal on purpose. Nearly everything in this scene emits rather than reflects,
@@ -214,20 +232,20 @@ export function GroveScene({
       {/* Almost nothing. The first pass had ambient at 0.16 and it lifted the entire floor off
           black, which is the one thing the art never does. Everything that should be visible
           here emits its own light; ambient exists only so a trunk edge is not pure void. */}
-      <ambientLight intensity={0.045} color={palette.moss} />
+      <ambientLight intensity={0.065} color={palette.moss} />
       {/* A cold rim from behind and left, which is what separates the trunk from the background
           in the art without lighting the scene. */}
-      <directionalLight position={[-7, 5, -6]} intensity={0.32} color={palette.glow} />
+      <directionalLight position={[-7, 5, -6]} intensity={0.38} color={palette.glow} />
       {/* A dim warm-side fill so the trunk reads as a solid object rather than a silhouette. */}
       <directionalLight position={[5, 3, 6]} intensity={0.08} color={palette.bone} />
 
       <Ground reflect={settings.reflect} reflectionResolution={settings.reflectionRes} />
-      <Mycelium network={network} active={active} />
+      <Mycelium network={network} active={active} attention={attention} failed={failed} activity={activity} animate={animate} />
       {/* Scaled up a touch. Measured against the art the tree should fill rather more of the
           frame than a one-to-one build of the coordinates gives, because the art's camera is
           slightly closer than the ring ellipse alone implies. */}
       <group scale={1.12}>
-        <WorldTree activity={animate ? activity : 0} />
+        <ReferenceTree activity={activity} attention={attention.size > 0} network={network} animate={animate} />
       </group>
 
       {stones.map((stone) => (
@@ -256,9 +274,9 @@ export function GroveScene({
             and leaves the rest crisp. MEDIUM kernel rather than LARGE: it is also most of the
             frame cost, and the difference is invisible next to the threshold change. */}
         <Bloom
-          intensity={0.72}
-          luminanceThreshold={0.52}
-          luminanceSmoothing={0.22}
+          intensity={0.9}
+          luminanceThreshold={0.36}
+          luminanceSmoothing={0.28}
           kernelSize={KernelSize.MEDIUM}
           mipmapBlur
         />
