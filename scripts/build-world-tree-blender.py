@@ -569,7 +569,7 @@ def cord_surface(c, a, along, twist, cords, phase):
     return factor, max(1 - crest, crack), max(-.5, min(.5, tone * 1.7))
 
 
-def carved(name, controls, radii, material, glow=False, phase=0, tip_glow=False):
+def carved(name, controls, radii, material, glow=False, phase=0, tip_glow=False, root_segments=0):
     # Big strands get the dense surface the eye lands on; thin roots stay cheap.
     big = max(radii) > .15
     rings, sides = (150, 64) if big else (70, 24)
@@ -642,6 +642,12 @@ def carved(name, controls, radii, material, glow=False, phase=0, tip_glow=False)
             # trunk, as if the braid were lit from within and the light leaked out of the cracks.
             inner=INNER_GLOW*grooves[i*sides+j]**1.6*low*(1 if big else .5)
             wash=max(inner,near*.55*low)
+            if root_segments:
+                # The strand begins as a root out on the ground: its first `root_segments`
+                # control spans light up towards the tip, where the mycelium takes over.
+                span=i/(rings-1)*(len(controls)-1)
+                ramp=max(0.0,min(1.0,1-span/root_segments))
+                wash=max(wash,ROOT_TIP_GLOW*ramp*ramp*(3-2*ramp))
             if tip_glow:
                 # Roots light up towards their tips, all the way round, so by the time a root
                 # hands over to the mycelium it is already the same light. This is what makes the
@@ -684,36 +690,58 @@ def carved(name, controls, radii, material, glow=False, phase=0, tip_glow=False)
 
 # The deadwood flows (3, 4, 5) end with their tips pulled back in depth: the left plate shows
 # the hooks staying close to the trunk, and depth changes cannot alter the front outline.
+# Every flow starts close under the trunk with a thick foot, so it plunges into the ground like a
+# buttress. Several used to start far out on the dais at a needle point and ramp up to the trunk,
+# which read as a branch lying on the floor.
 flows=[
- ([(294,486,-.50),(337,443,-.48),(360,390,-.48),(435,347,-.35),(492,298,-.12),(476,260,.05),(415,231,.25),(387,190,.45),(380,144,.60),(345,104,.68),(345,54,.7)],[.045,.16,.22,.24,.25,.22,.18,.16,.11,.07,.005]),
- ([(456,487,-.1),(400,451,-.38),(398,408,-.60),(448,370,-.64),(505,339,-.54),(511,288,-.32),(469,252,-.18),(418,220,.04),(403,171,.35),(377,122,.6)],[.025,.14,.22,.25,.24,.20,.16,.13,.10,.018]),
- ([(243,485,.18),(302,458,.22),(347,408,.25),(406,372,.38),(461,344,.42),(479,301,.50),(450,264,.55),(383,227,.65),(346,193,.75),(317,168,.90)],[.008,.10,.15,.20,.21,.19,.16,.14,.09,.008]),
- ([(523,485,.6),(474,457,.42),(458,411,.30),(477,367,.15),(523,320,.1),(553,271,.05),(551,234,.05),(569,205,.15),(616,203,.35),(658,180,.45)],[.008,.10,.16,.21,.20,.20,.19,.14,.10,.001]),
- ([(346,490,-.7),(372,447,-.75),(408,402,-.78),(464,375,-.82),(528,343,-.83),(590,330,-.55),(635,306,-.1),(670,260,.2)],[.012,.11,.18,.22,.23,.16,.09,.001]),
- ([(390,487,.80),(375,439,.72),(401,392,.62),(466,359,.58),(528,335,.49),(584,348,.55),(630,337,.75),(659,307,.95)],[.01,.14,.18,.22,.20,.14,.08,.001]),
+ ([(318,488,-.50),(342,450,-.48),(360,390,-.48),(435,347,-.35),(492,298,-.12),(476,260,.05),(415,231,.25),(387,190,.45),(380,144,.60),(345,104,.68),(345,54,.7)],[.09,.16,.22,.24,.25,.22,.18,.16,.11,.07,.005]),
+ ([(456,487,-.1),(400,451,-.38),(398,408,-.60),(448,370,-.64),(505,339,-.54),(511,288,-.32),(469,252,-.18),(418,220,.04),(403,171,.35),(377,122,.6)],[.08,.14,.22,.25,.24,.20,.16,.13,.10,.018]),
+ ([(298,487,.18),(318,462,.22),(347,408,.25),(406,372,.38),(461,344,.42),(479,301,.50),(450,264,.55),(383,227,.65),(346,193,.75),(317,168,.90)],[.06,.11,.15,.20,.21,.19,.16,.14,.09,.008]),
+ ([(470,488,.6),(462,458,.42),(458,411,.30),(477,367,.15),(523,320,.1),(553,271,.05),(551,234,.05),(569,205,.15),(616,203,.35),(658,180,.45)],[.06,.11,.16,.21,.20,.20,.19,.14,.10,.001]),
+ ([(346,490,-.7),(372,447,-.75),(408,402,-.78),(464,375,-.82),(528,343,-.83),(590,330,-.55),(635,306,-.1),(670,260,.2)],[.06,.12,.18,.22,.23,.16,.09,.001]),
+ ([(390,487,.80),(375,439,.72),(401,392,.62),(466,359,.58),(528,335,.49),(584,348,.55),(630,337,.75),(659,307,.95)],[.06,.14,.18,.22,.20,.14,.08,.001]),
  # Ends in the braid now. It used to arch out over the top and finish, still thick, inside a
  # deadwood hook, which read as a living branch growing out of dead wood.
- ([(571,484,1.0),(495,457,.95),(463,419,.9),(449,369,.8),(460,320,.7),(432,274,.72),(410,236,.74),(398,205,.72)],[.005,.075,.12,.13,.14,.12,.08,.01]),
+ ([(492,488,1.0),(478,458,.95),(463,419,.9),(449,369,.8),(460,320,.7),(432,274,.72),(410,236,.74),(398,205,.72)],[.05,.085,.12,.13,.14,.12,.08,.01]),
 ]
 flows.extend([
- ([(321,484,-.3),(366,443,-.4),(385,400,-.62),(450,359,-.45),(480,325,.16),(467,287,.46),(433,259,.2),(394,228,-.15),(360,196,.3)],[.01,.075,.11,.12,.13,.12,.10,.07,.005]),
- ([(484,485,.5),(427,453,.28),(421,411,-.1),(479,374,-.36),(538,340,-.7),(572,325,-.75),(600,305,-.7),(624,286,-.65)],[.007,.085,.11,.12,.095,.07,.04,.001]),
+ ([(342,488,-.3),(368,448,-.4),(385,400,-.62),(450,359,-.45),(480,325,.16),(467,287,.46),(433,259,.2),(394,228,-.15),(360,196,.3)],[.05,.085,.11,.12,.13,.12,.10,.07,.005]),
+ ([(452,488,.5),(430,455,.28),(421,411,-.1),(479,374,-.36),(538,340,-.7),(572,325,-.75),(600,305,-.7),(624,286,-.65)],[.05,.09,.11,.12,.095,.07,.04,.001]),
 ])
 # The trunk centre the spiral turns about: the mean of the two main living flows, untwisted.
 _axis_a = resample(plate_raw(flows[0][0]), 60)
 _axis_b = resample(plate_raw(flows[1][0]), 60)
 TRUNK_AXIS.extend(sorted(((a.z + b.z) / 2, (a.x + b.x) / 2, (a.y + b.y) / 2) for a, b in zip(_axis_a, _axis_b)))
 
-for i,(pts,rr) in enumerate(flows):
-    carved('Anatomical flow %02d'%i,plate(pts),rr,MAT_DEAD if i in (3,4,5) else MAT_LIVING,i in (0,2),i*.7)
-# Low living branch curls out of the main braid and supports the detached low pad.
-carved('Low left bough',plate([(395,381,-.45),(427,334,-.5),(417,300,-.45),(385,286,-.38),(350,297,-.2),(309,277,.0),(273,259,.2)]),[.12,.115,.10,.095,.07,.045,.006],MAT_LIVING,False)
-# Roots descend from the braid, bend across the ground and divide recursively.
-# Uneven angular spacing and branch length avoid the previous conical root skirt.
 ROOT_TIP_RADIUS = .016
 ROOT_TIP_GLOW = 1.6   # `_glow` at a root tip; Grove's mycelium core is about this bright at rest
 ROOT_TIPS = []
 ROOTLET_TIPS = []
+
+# Every trunk strand starts as a root. Its foot used to go straight down into the floor, and
+# those ends were the only wood that did not hand over to the mycelium. Now each foot bends out
+# along the ground away from the trunk, thins to the root hand-off radius and lights up towards
+# its tip, and the tip is exported like every other root's.
+_base=axis_at(.2)
+for i,(pts,rr) in enumerate(flows):
+    path=plate(pts)
+    foot=path[0]
+    out=Vector((foot.x-_base.x,foot.y-_base.y,0))
+    if out.length<.05:
+        out=Vector((path[1].x-path[0].x,path[1].y-path[0].y,0))
+    out.normalize()
+    reach=.75+.12*(i%4)
+    tip=foot+out*reach; tip.z=.035
+    mid=foot+out*reach*.5+Vector((0,0,.06))
+    foot=foot.copy(); foot.z=.12
+    path=[tip,mid,foot]+path[1:]
+    rr=[ROOT_TIP_RADIUS,max(.045,rr[0]*.7),max(rr[0],.07)]+list(rr[1:])
+    ROOT_TIPS.append((tip.copy(),(tip-mid).normalized(),ROOT_TIP_RADIUS))
+    carved('Anatomical flow %02d'%i,path,rr,MAT_DEAD if i in (3,4,5) else MAT_LIVING,i in (0,2),i*.7,root_segments=2)
+# Low living branch curls out of the main braid and supports the detached low pad.
+carved('Low left bough',plate([(395,381,-.45),(427,334,-.5),(417,300,-.45),(385,286,-.38),(350,297,-.2),(309,277,.0),(273,259,.2)]),[.12,.115,.10,.095,.07,.045,.006],MAT_LIVING,False)
+# Roots descend from the braid, bend across the ground and divide recursively.
+# Uneven angular spacing and branch length avoid the previous conical root skirt.
 for i in range(19):
     a=i*math.tau/19+rng.uniform(-.09,.09)
     start=Vector((.12+math.cos(a)*.25,.08+math.sin(a)*.22,.65+rng.uniform(-.12,.22)))
@@ -751,8 +779,10 @@ front_roots=[
  [(462,404,.2),(461,435,.18),(481,451,.12),(518,465,.08),(546,480,0)],
  [(343,434,.2),(318,448,.24),(299,462,.2),(270,467,.24),(238,483,.2)],
 ]
-for i,pts in enumerate(front_roots):
-    carved('Front buttress %02d'%i,plate(pts),[.105,.095,.07,.045,.002],MAT_LIVING,False,i*.8)
+# Not built any more. These were traced from the front plate but joined nothing: run out along
+# the floor they ended as needles, cut short they ended as stumps. The radial roots above cover
+# every direction, and each of them hands over to the mycelium. Kept for reference.
+del front_roots
 
 # Separated, irregular foliage islands match the reference plate tiers.
 pad_specs=[
@@ -1281,7 +1311,7 @@ except Exception as exc:  # pragma: no cover
 # nowhere: the wood stopped, and the light began somewhere else.
 #
 # Grove fits the model with the same rule ReferenceTree.tsx uses: glTF is Y up (Blender x, z, -y),
-# scaled so the whole exported model is GROVE_TREE_HEIGHT tall, lowest point on the floor. If that
+# scaled so the whole exported model is GROVE_TREE_HEIGHT tall, Blender's z = 0 on the floor. If that
 # rule changes there, change it here too.
 GROVE_TREE_HEIGHT = 4.25
 exported = (WOOD, FINE, GLOW, BRANCHES, FOLIAGE)
@@ -1290,7 +1320,8 @@ low, high = min(zs), max(zs)
 fit = GROVE_TREE_HEIGHT / (high - low)
 
 def to_grove(v):
-    return [round(v.x * fit, 4), round((v.z - low) * fit, 4), round(-v.y * fit, 4)]
+    # Blender's floor (z = 0) is Grove's dais top; strand feet are buried below it on purpose.
+    return [round(v.x * fit, 4), round(v.z * fit, 4), round(-v.y * fit, 4)]
 
 roots_json = {
     "note": "Generated by scripts/build-world-tree-blender.py. Root tips in ReferenceTree's local space.",

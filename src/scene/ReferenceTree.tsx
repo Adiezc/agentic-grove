@@ -122,12 +122,13 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
         }
       }
     })
-    // Blender exports metres with Y up. Fit the crown to the existing grove and put the
-    // lowest root exactly on its platform, independently of authoring-camera coordinates.
+    // Blender exports metres with Y up. Fit the whole model to the grove's height, and stand its
+    // floor (Blender's z = 0) on the platform. Not its lowest point: the strand feet are buried a
+    // little below the floor on purpose, so their ends never show. The Blender build uses the same
+    // rule for the root tips it writes out.
     const bounds = new THREE.Box3().setFromObject(clone)
     const scale = 4.25 / bounds.getSize(new THREE.Vector3()).y
     clone.scale.setScalar(scale)
-    clone.position.y = -bounds.min.y * scale
     return { tree: clone, energyMaterials, foliageMaterials, woodMaterials, barkGlow }
   }, [sourceTree])
 
