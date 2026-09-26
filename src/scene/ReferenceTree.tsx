@@ -62,10 +62,15 @@ function activityTexture() {
  * `strength` is shared by every wood material and set each frame from the heartbeat, so the
  * bark breathes together with the veins instead of sitting at a fixed brightness.
  */
-function addBarkGlow(material: THREE.MeshStandardMaterial, strength: { value: number }) {
+function addBarkGlow(
+  material: THREE.MeshStandardMaterial,
+  strength: { value: number },
+  colour: { value: THREE.Color }
+) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.barkGlow = strength
-    shader.uniforms.barkGlowColor = { value: new THREE.Color(palette.energy) }
+    // Shared, like `strength`, so the whole tree's glow can lean amber at once.
+    shader.uniforms.barkGlowColor = colour
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nattribute float _glow;\nvarying float vBarkGlow;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBarkGlow = _glow;')
@@ -99,6 +104,7 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
     const foliageMaterials: THREE.MeshStandardMaterial[] = []
     const woodMaterials: THREE.MeshStandardMaterial[] = []
     const barkGlow = { value: 0 }
+    const barkGlowColour = { value: new THREE.Color(palette.energy) }
     clone.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return
       object.castShadow = true
@@ -117,7 +123,7 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
         } else {
           // A small ambient floor keeps the baked grain visible without flattening its shadows.
           material.emissive.set('#11180f')
-          if (object.geometry.hasAttribute('_glow')) addBarkGlow(material, barkGlow)
+          if (object.geometry.hasAttribute('_glow')) addBarkGlow(material, barkGlow, barkGlowColour)
           woodMaterials.push(material)
         }
       }
@@ -129,7 +135,8 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
     const bounds = new THREE.Box3().setFromObject(clone)
     const scale = 4.25 / bounds.getSize(new THREE.Vector3()).y
     clone.scale.setScalar(scale)
-    return { tree: clone, energyMaterials, foliageMaterials, woodMaterials, barkGlow }
+    const veinColours = energyMaterials.map((material) => material.emissive.clone())
+    return { tree: clone, energyMaterials, foliageMaterials, woodMaterials, barkGlow, barkGlowColour, veinColours }
   }, [sourceTree])
 
   useEffect(() => () => {
@@ -197,7 +204,7 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
       emissive: new THREE.Color('#11180f'),
       emissiveIntensity: 0.15,
     })
-    addBarkGlow(material, model.barkGlow)
+    addBarkGlow(material, model.barkGlow, model.barkGlowColour)
     return material
   }, [model])
 
@@ -217,6 +224,9 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
   const aura = useRef<THREE.Sprite>(null)
   const auraLight = useRef<THREE.PointLight>(null)
   const smoothedActivity = useRef(0)
+  const amber = useRef(0)
+  const amberColour = useMemo(() => new THREE.Color(palette.waiting), [])
+  const energyColour = useMemo(() => new THREE.Color(palette.energy), [])
 
   useFrame((state, delta) => {
     smoothedActivity.current = THREE.MathUtils.damp(smoothedActivity.current, activity, 1.7, delta)
@@ -234,6 +244,17 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
     // mostly in shadow, so they need more light per pixel to read as lit from inside.
     model.barkGlow.value = 0.36 + workload * 0.18 + beat * 0.45
     rootLightMaterial.opacity = 0.64 + workload * 0.12 + beat * 0.22
+
+    // Something needs you: the tree's light leans amber, and leans furthest on each beat. The
+    // veins are one heartbeat with the mycelium, so they change colour together with it.
+    amber.current = THREE.MathUtils.damp(amber.current, attention ? 1 : 0, 1.4, delta)
+    const lean = amber.current * (0.35 + pulse * 0.55)
+    model.barkGlowColour.value.copy(energyColour).lerp(amberColour, lean)
+    model.energyMaterials.forEach((material, i) => {
+      material.emissive.copy(model.veinColours[i]!).lerp(amberColour, lean)
+    })
+    ;(aura.current?.material as THREE.SpriteMaterial | undefined)?.color.copy(energyColour).lerp(amberColour, lean)
+    auraLight.current?.color.copy(energyColour).lerp(amberColour, lean)
 
     if (aura.current) {
       const radius = 2.45 + workload * 2.7 + beat * 0.82

@@ -32,3 +32,8 @@ npm-debug.log*
 # but this catches anything a contributor might be tempted to put here.
 .env
 .env.*
+
+# Personal working notes for the author's own Claude Code sessions. Kept on the author's machine,
+# never published.
+CLAUDE.md
+PROJECT-BRIEF.md

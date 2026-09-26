@@ -47,7 +47,12 @@ export const useGrove = create<GroveStore>((set) => ({
       set({ loading: false, bridgeMissing: true })
       return () => {}
     }
-    return api.onSnapshot((snapshot) => set({ snapshot, loading: false }))
+    const unsubscribe = api.onSnapshot((snapshot) => set({ snapshot, loading: false }))
+    /* Ask for one now. The main process also sends its latest snapshot when the page finishes
+     * loading, but that can land before React has subscribed, and then the grove shows the
+     * fixtures until the next scan five seconds later. Asking once subscribed closes the gap. */
+    void api.refresh()
+    return unsubscribe
   },
 
   refresh: () => {

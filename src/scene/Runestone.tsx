@@ -33,6 +33,7 @@ import { crystal, groundRing, seededRandom, type CrystalSpec } from './geometry'
 import { STONE_HEIGHT } from './stage'
 import { drawRune, type RuneId } from './runes'
 import type { SessionStatus } from '../../core/harnesses/types.ts'
+import { WorkerBadges } from './WorkerBadges'
 
 /**
  * Dark glass.
@@ -202,6 +203,14 @@ export interface StoneSpec {
   turn?: number
   /** Override any part of the cut. Left off, the cut is derived from the id — see `cutFor`. */
   cut?: Partial<CrystalSpec>
+  /** One line for the stone's panel: what was last worked on there. Not drawn in the scene. */
+  line?: string
+  /**
+   * Who is working here right now: a tree agent's id when the Grove sent it, or a harness id
+   * (`claude-code`, `codex`) for work you started yourself. Each shows as a small orb above the
+   * stone, which is how two agents on two projects stay tellable apart inside one heartbeat.
+   */
+  workers?: string[]
 }
 
 /**
@@ -328,9 +337,12 @@ interface RunestoneProps {
   /** Labels appear on hover, plus permanently for anything wanting attention. The brief's default. */
   showLabel: boolean
   onHover: (id: string | null) => void
+  onSelect?: (id: string) => void
+  /** The stone the panel is open on. Its body lights from within, as frame 2 of the art shows. */
+  selected?: boolean
 }
 
-export function Runestone({ spec, cameraAt, showLabel, onHover }: RunestoneProps) {
+export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, selected = false }: RunestoneProps) {
   const scale = spec.scale ?? 1
   const status = spec.status
 
@@ -448,7 +460,11 @@ export function Runestone({ spec, cameraAt, showLabel, onHover }: RunestoneProps
   const runeRef = useRef<THREE.Mesh>(null)
   const glowRef = useRef<THREE.PointLight>(null)
 
-  useFrame((state) => {
+  /** Eased 0 to 1, so choosing a stone brightens it over half a second rather than switching. */
+  const lift = useRef(0)
+
+  useFrame((state, delta) => {
+    lift.current = THREE.MathUtils.damp(lift.current, selected ? 1 : 0, 5, delta)
     const base = RUNE_INTENSITY[status]
     /* Only `waiting` pulses, and this is the most deliberate decision in the file. A stone that
      * wants you should be findable by peripheral vision, which means movement; a stone that is
@@ -466,10 +482,10 @@ export function Runestone({ spec, cameraAt, showLabel, onHover }: RunestoneProps
     // The body's interior carries a trace of the same state, well below the rune's brightness.
     // Enough that a running stone is faintly lit from within, never enough to compete with it.
     material.uniforms.uInner!.value.setStyle(RUNE_COLOUR[status])
-    material.uniforms.uGlow!.value = 0.1 + Math.min(intensity, 2.7) * 0.1
+    material.uniforms.uGlow!.value = 0.1 + Math.min(intensity, 2.7) * 0.1 + lift.current * 0.45
     companionMaterial.uniforms.uInner!.value.setStyle(RUNE_COLOUR[status])
     companionMaterial.uniforms.uGlow!.value = 0.04 + Math.min(intensity, 2.7) * 0.03
-    if (glowRef.current) glowRef.current.intensity = intensity * 1.5
+    if (glowRef.current) glowRef.current.intensity = intensity * 1.5 + lift.current * 2.5
     beamMaterial.uniforms.uColour!.value.setStyle(RUNE_COLOUR[status])
     beamMaterial.uniforms.uAmount!.value = Math.min(0.18 + intensity * 0.28, 0.95)
   })
@@ -495,8 +511,16 @@ export function Runestone({ spec, cameraAt, showLabel, onHover }: RunestoneProps
       onPointerOver={(event) => {
         event.stopPropagation()
         onHover(spec.id)
+        if (onSelect) document.body.style.cursor = 'pointer'
       }}
-      onPointerOut={() => onHover(null)}
+      onPointerOut={() => {
+        onHover(null)
+        document.body.style.cursor = ''
+      }}
+      onClick={(event) => {
+        event.stopPropagation()
+        onSelect?.(spec.id)
+      }}
     >
       <group scale={[scale, scale, scale]}>
         <mesh geometry={body} material={material} />
@@ -577,6 +601,9 @@ export function Runestone({ spec, cameraAt, showLabel, onHover }: RunestoneProps
       </group>
 
       {showLabel ? <RuneLabel name={spec.name} /> : null}
+      {spec.workers?.length ? (
+        <WorkerBadges workers={spec.workers} height={(cut.shaftHeight + cut.capHeight) * scale} alert={status === 'waiting' || status === 'errored'} />
+      ) : null}
     </group>
   )
 }
@@ -611,8 +638,11 @@ function RuneLabel({ name }: { name: string }) {
   }, [name])
 
   return (
-    <sprite position={[0, -0.24, 0.5]} scale={[1.4, 0.35, 1]}>
-      <spriteMaterial map={texture} transparent depthWrite={false} opacity={0.85} />
+    // At the stone's foot, just in front of its rings, where the art writes the names. It used to
+    // sit at y = -0.24, under the reflective floor, which hid every label. Drawn without a depth
+    // test so the dais rim in front of a back-row stone cannot swallow it either.
+    <sprite position={[0, 0.16, 1.0]} scale={[3.0, 0.75, 1]} renderOrder={10}>
+      <spriteMaterial map={texture} transparent depthWrite={false} depthTest={false} opacity={0.85} />
     </sprite>
   )
 }

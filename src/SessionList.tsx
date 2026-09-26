@@ -83,17 +83,13 @@ function Stone({ stone }: { stone: Runestone }) {
     <section className={`stone status-${stone.status}`}>
       <h2>
         {stone.name}
-        {stone.role === 'wildwood' ? <span className="role"> the unbound stone</span> : null}
         <span className="counts">
           {stone.sessions.length} session{stone.sessions.length === 1 ? '' : 's'}
           {stone.runningCount ? ` · ${stone.runningCount} running` : ''}
           {stone.attentionCount ? ` · ${stone.attentionCount} want you` : ''}
         </span>
       </h2>
-      <p className="path">{stone.path || 'no folder of its own'}</p>
-      {stone.wildwoodReasons.length ? (
-        <p className="why">Here because: {stone.wildwoodReasons.join('; ')}.</p>
-      ) : null}
+      <p className="path">{stone.path}</p>
       {stone.sessions.length ? (
         <table>
           <tbody>
@@ -187,6 +183,13 @@ export function SessionList() {
         <p className="why">
           Hidden by grove.json:{' '}
           {grove.hidden.map((entry) => `${entry.name} (${entry.sessionCount})`).join(', ')}.
+        </p>
+      ) : null}
+
+      {grove.unconnectedSessions ? (
+        <p className="why">
+          {grove.unconnectedSessions} session{grove.unconnectedSessions === 1 ? '' : 's'} outside every
+          connected project, not drawn.
         </p>
       ) : null}
 

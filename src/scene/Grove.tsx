@@ -23,6 +23,11 @@ import { Mycelium } from './Mycelium'
 import { growNetwork } from './network'
 import { Runestone, type StoneSpec } from './Runestone'
 import { ReferenceTree } from './ReferenceTree'
+import { Canopy, DeployWisp } from './Canopy'
+import { EmptyPlace } from './EmptyPlace'
+import type { EmptyPlace as Place } from './layout'
+import { TREE_AGENTS } from '../agents/fixtures'
+import { useFlow, type FlowView } from '../store/flow'
 
 /**
  * The six stones, placed to match the concept art.
@@ -72,16 +77,78 @@ function activityOf(stones: StoneSpec[]): number {
   return 1 - Math.exp(-working / 2.2)
 }
 
-/** Orbit the whole grove, while keeping the supplied composition as a reliable home view. */
-function CameraRig({ resetKey, animate }: { resetKey: number; animate: boolean }) {
+type Vec3 = [number, number, number]
+interface Shot {
+  position: Vec3
+  target: Vec3
+}
+
+/** The home composition, and the direction every other shot looks from. */
+const HOME: Shot = { position: cameraSpec.position, target: cameraSpec.target }
+const HOME_OFFSET = new THREE.Vector3(...cameraSpec.position).sub(new THREE.Vector3(...cameraSpec.target))
+
+/**
+ * Where the camera should be for each step of the flow.
+ *
+ * Every shot looks from the same direction as home and only moves closer, so moving between them
+ * reads as leaning in rather than flying somewhere. The targets are pushed right of the subject
+ * because the panels open on the right: the thing you picked should sit in the open two-thirds
+ * of the screen, as it does in the art.
+ */
+function shotFor(view: FlowView, stone: StoneSpec | undefined): Shot {
+  if (view === 'stone' && stone) {
+    // From the home direction, never round the side: every rune is carved on the face that
+    // looks at the home camera, and swinging round a stone shows you its blank back. Aimed right
+    // of the stone, so it lands left of centre with the tree beside it and the panel clear.
+    const target = new THREE.Vector3(stone.at[0] + 2.6, 1.1, stone.at[1])
+    const position = target.clone().addScaledVector(HOME_OFFSET, 0.74)
+    return { target: target.toArray() as Vec3, position: position.toArray() as Vec3 }
+  }
+  if (view === 'agents') {
+    // Level with the canopy rather than looking down into it, as frame 3 does.
+    const target = new THREE.Vector3(0.4, 3.75, 0)
+    const from = new THREE.Vector3(0, 0.3, 1).normalize().multiplyScalar(8.6)
+    return { target: target.toArray() as Vec3, position: target.clone().add(from).toArray() as Vec3 }
+  }
+  return HOME
+}
+
+/**
+ * Orbit the whole grove, and glide between the flow's shots.
+ *
+ * The glide is a damped chase rather than a timed tween, so a second click halfway through simply
+ * changes where it is heading with no jump. The orbit controls are switched off while it runs,
+ * because two things steering one camera is how you get a shudder at the end of every move.
+ */
+function CameraRig({ shot, resetKey, animate }: { shot: Shot; resetKey: number; animate: boolean }) {
   const { camera } = useThree()
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null)
+  const gliding = useRef(true)
+  const goal = useMemo(
+    () => ({ position: new THREE.Vector3(...shot.position), target: new THREE.Vector3(...shot.target) }),
+    [shot]
+  )
 
   useEffect(() => {
-    camera.position.set(...cameraSpec.position)
-    controls.current?.target.set(...cameraSpec.target)
-    controls.current?.update()
-  }, [camera, resetKey])
+    gliding.current = true
+  }, [goal, resetKey])
+
+  useFrame((_, delta) => {
+    const orbit = controls.current
+    if (!gliding.current || !orbit) return
+    // Under reduced motion the camera cuts rather than glides.
+    const rate = animate ? 3.2 : 1000
+    camera.position.x = THREE.MathUtils.damp(camera.position.x, goal.position.x, rate, delta)
+    camera.position.y = THREE.MathUtils.damp(camera.position.y, goal.position.y, rate, delta)
+    camera.position.z = THREE.MathUtils.damp(camera.position.z, goal.position.z, rate, delta)
+    orbit.target.x = THREE.MathUtils.damp(orbit.target.x, goal.target.x, rate, delta)
+    orbit.target.y = THREE.MathUtils.damp(orbit.target.y, goal.target.y, rate, delta)
+    orbit.target.z = THREE.MathUtils.damp(orbit.target.z, goal.target.z, rate, delta)
+    orbit.update()
+    if (camera.position.distanceTo(goal.position) < 0.01 && orbit.target.distanceTo(goal.target) < 0.01) {
+      gliding.current = false
+    }
+  })
 
   return (
     <OrbitControls
@@ -95,10 +162,15 @@ function CameraRig({ resetKey, animate }: { resetKey: number; animate: boolean }
       dampingFactor={0.065}
       rotateSpeed={0.42}
       zoomSpeed={0.55}
-      minDistance={13}
+      // Close enough for the canopy shot; the home shot sits at about 22.
+      minDistance={7}
       maxDistance={29}
       minPolarAngle={Math.PI * 0.22}
-      maxPolarAngle={Math.PI * 0.46}
+      maxPolarAngle={Math.PI * 0.49}
+      // Grabbing the view mid-glide hands it straight back to you.
+      onStart={() => {
+        gliding.current = false
+      }}
     />
   )
 }
@@ -147,6 +219,8 @@ function Perf({ onSample }: { onSample: (sample: PerfSample) => void }) {
 
 interface GroveSceneProps {
   stones?: StoneSpec[]
+  /** Places with no stone yet, drawn as empty circles you can fill. */
+  empty?: Place[]
   quality?: QualityPreset
   /** Off under `prefers-reduced-motion`, and off for a still capture. */
   animate?: boolean
@@ -159,7 +233,8 @@ interface GroveSceneProps {
 }
 
 export function GroveScene({
-  stones = SPIKE_STONES,
+  stones = [],
+  empty = [],
   quality = 'high',
   animate = true,
   post = true,
@@ -169,13 +244,34 @@ export function GroveScene({
 }: GroveSceneProps) {
   const [hovered, setHovered] = useState<string | null>(null)
   const settings = QUALITY[quality]
+  const view = useFlow((state) => state.view)
+  const stoneId = useFlow((state) => state.stoneId)
+  const deployment = useFlow((state) => state.deployment)
+  const selectStone = useFlow((state) => state.selectStone)
+  const land = useFlow((state) => state.land)
+  const shot = useMemo(
+    () => shotFor(view, stones.find((stone) => stone.id === stoneId)),
+    [view, stoneId, stones]
+  )
+  const deployFrom = deployment ? TREE_AGENTS.find((agent) => agent.id === deployment.agentId)?.at : undefined
+  const deployTo = deployment ? stones.find((stone) => stone.id === deployment.stoneId)?.at : undefined
   const activity = activityOf(stones)
 
   /* The whole below-ground system, grown once from where the stones stand. Roots and mycelium
    * come out of one generator so they cannot come apart at the trunk — see `network.ts`. */
+  /* Keyed on where the stones stand, not on the stones themselves: a stone changing state (a
+   * deployment lighting it, say) must not regrow every root in the grove. */
+  /* Empty places get roots too, faint and owned by nobody that can light them, so the mycelium
+   * already reaches the spot where your next stone will stand. */
+  const targets = [
+    ...stones.map((stone) => ({ id: stone.id, at: stone.at })),
+    ...empty.map((place) => ({ id: `place-${place.index}`, at: place.at })),
+  ]
+  const layoutKey = targets.map((target) => `${target.id}@${target.at.join(',')}`).join('|')
   const network = useMemo(
-    () => growNetwork(stones.map((stone) => ({ id: stone.id, at: stone.at }))),
-    [stones]
+    () => growNetwork(targets),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [layoutKey]
   )
 
   /* A root carries light when something is happening at its stone. `waiting` counts: the agent is
@@ -208,6 +304,10 @@ export function GroveScene({
       dpr={settings.dpr}
       camera={{ fov: cameraSpec.fov, position: cameraSpec.position, near: 0.1, far: 120 }}
       gl={{ antialias: true, alpha: false }}
+      // A click on open ground closes an empty circle's menu, as a click outside any menu should.
+      onPointerMissed={() => {
+        if (useFlow.getState().placeIndex !== null) useFlow.getState().back()
+      }}
       // Colour management on and tone mapping off. The palette was sampled from an image in sRGB,
       // so anything that re-grades it moves us off the art — and ACES in particular would pull
       // every bright green towards white, which is exactly the fidelity we are trying to keep.
@@ -223,7 +323,7 @@ export function GroveScene({
         scene.fog = new THREE.Fog(palette.ground, 30, 62)
       }}
     >
-      <CameraRig resetKey={viewResetKey} animate={animate} />
+      <CameraRig shot={shot} resetKey={viewResetKey} animate={animate} />
       {onPerf ? <Perf onSample={onPerf} /> : null}
 
       {/* Light is minimal on purpose. Nearly everything in this scene emits rather than reflects,
@@ -245,7 +345,7 @@ export function GroveScene({
           frame than a one-to-one build of the coordinates gives, because the art's camera is
           slightly closer than the ring ellipse alone implies. */}
       <group scale={1.12}>
-        <ReferenceTree activity={activity} attention={attention.size > 0} network={network} animate={animate} />
+        <ReferenceTree activity={activity} attention={attention.size > 0 || failed.size > 0} network={network} animate={animate} />
       </group>
 
       {stones.map((stone) => (
@@ -255,10 +355,28 @@ export function GroveScene({
           cameraAt={cameraSpec.position}
           // On hover, and permanently for anything that wants you. The brief's default, and it
           // keeps the resting scene almost wordless.
-          showLabel={hovered === stone.id || stone.status === 'waiting' || stone.status === 'errored'}
+          // While picking a target every name shows, because that moment is a choice between them.
+          showLabel={
+            hovered === stone.id ||
+            stoneId === stone.id ||
+            view === 'picking' ||
+            stone.status === 'waiting' ||
+            stone.status === 'errored'
+          }
           onHover={handleHover}
+          onSelect={selectStone}
+          selected={stoneId === stone.id && view !== 'home'}
         />
       ))}
+
+      {empty.map((place) => (
+        <EmptyPlace key={place.index} place={place} />
+      ))}
+
+      {view === 'agents' ? <Canopy animate={animate} /> : null}
+      {deployment?.phase === 'flight' && deployFrom && deployTo ? (
+        <DeployWisp key={`${deployment.agentId}-${deployment.stoneId}`} from={deployFrom} to={deployTo} animate={animate} onArrive={land} />
+      ) : null}
 
       {animate ? <Motes activity={activity} /> : null}
 

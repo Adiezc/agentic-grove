@@ -52,6 +52,8 @@ const FRAGMENT = /* glsl */ `
   uniform float uRest;
   uniform float uHeartbeat;
   uniform float uFailed;
+  uniform float uAttention;
+  uniform vec3 uAmber;
   uniform vec3 uColour;
   uniform vec3 uHot;
   uniform vec3 uFailure;
@@ -76,6 +78,8 @@ const FRAGMENT = /* glsl */ `
 
     vec3 living = mix(uColour, uHot, clamp(core * uActive * 1.6 + uHeartbeat * 0.24, 0.0, 1.0));
     vec3 colour = mix(living, uFailure, uFailed * 0.62);
+    // Something needs you: the whole organism leans amber, and each beat pushes it further.
+    colour = mix(colour, uAmber, clamp(uAttention, 0.0, 1.0));
     gl_FragColor = vec4(colour, clamp(amount * fade, 0.0, 1.0));
   }
 `
@@ -94,6 +98,8 @@ function makeMaterial(halo: boolean, rest: number): THREE.ShaderMaterial {
       uRest: { value: rest },
       uHeartbeat: { value: 0 },
       uFailed: { value: 0 },
+      uAttention: { value: 0 },
+      uAmber: { value: new THREE.Color(palette.waiting) },
       uColour: { value: new THREE.Color(halo ? palette.vein : palette.live) },
       uHot: { value: new THREE.Color(palette.energy) },
       uFailure: { value: new THREE.Color(palette.errored) },
@@ -306,9 +312,13 @@ export function Mycelium({ network, active, attention, failed, activity, animate
 
   /** Eased activity per stone, shared with the junction flares so the two cannot disagree. */
   const brightness = useRef<Map<string, number>>(new Map())
+  /** How far the whole network leans amber, eased so it warms and cools over a couple of seconds. */
+  const amber = useRef(0)
 
   useFrame((state, delta) => {
-    const organismBeat = animate ? heartbeatFrame(state.clock.elapsedTime, activity, attention.size > 0).pulse : 0.28
+    const wanted = attention.size > 0 || failed.size > 0
+    const organismBeat = animate ? heartbeatFrame(state.clock.elapsedTime, activity, wanted).pulse : 0.28
+    amber.current = THREE.MathUtils.damp(amber.current, wanted ? 1 : 0, 1.4, delta)
     groups.forEach((group, index) => {
       const owner = group.owner
       const want = owner && active.has(owner) ? 1 : 0
@@ -327,6 +337,9 @@ export function Mycelium({ network, active, attention, failed, activity, animate
         material.uniforms.uTime!.value = time
         material.uniforms.uHeartbeat!.value = organismBeat * (0.28 + activity * 0.72) + attentionLift
         material.uniforms.uFailed!.value = isFailed ? 1 : 0
+        // Everywhere a little, beating; along the roots to the stone that wants you, a lot.
+        material.uniforms.uAttention!.value =
+          amber.current * (0.18 + organismBeat * 0.5) + (needsAttention || isFailed ? 0.5 : 0)
       }
     })
   })

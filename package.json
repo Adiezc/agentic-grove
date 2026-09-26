@@ -21,7 +21,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "build:tree-model": "node scripts/build-world-tree-model.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "app": "bash scripts/make-app.sh"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

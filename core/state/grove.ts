@@ -102,3 +102,29 @@ export async function saveGrove(grove: GroveFile): Promise<void> {
     throw error
   }
 }
+
+/**
+ * Add a folder to the grove as a project stone.
+ *
+ * The one place a stone is ever made. Re-reads the file first rather than trusting an earlier
+ * copy, so an edit you made by hand a moment ago is kept rather than overwritten. Adding a folder
+ * that is already there is not an error: the answer to "make this a stone" is already yes.
+ */
+export async function addProject(folder: string): Promise<{ ok: boolean; error?: string }> {
+  if (!path.isAbsolute(folder)) return { ok: false, error: 'Not an absolute path' }
+  const stat = await fsp.stat(folder).catch(() => null)
+  if (!stat?.isDirectory()) return { ok: false, error: 'Not a folder' }
+
+  const loaded = await loadGrove()
+  // Saving over a file with problems in it would quietly drop whatever could not be read. Refuse,
+  // and let the problem the interface is already showing be fixed first.
+  if (loaded.problems.length) {
+    return { ok: false, error: 'grove.json has an error; fix it before adding projects' }
+  }
+  const resolved = path.resolve(folder)
+  if (!loaded.grove.stones.some((stone) => stone.path === resolved)) {
+    loaded.grove.stones.push({ path: resolved })
+    await saveGrove(loaded.grove)
+  }
+  return { ok: true }
+}

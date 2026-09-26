@@ -13,16 +13,16 @@
  * Windows, the tray and notifications will each get their own file as they arrive. This one
  * stays about lifecycle.
  */
-import { BrowserWindow, app, shell } from 'electron'
+import { BrowserWindow, app, dialog, shell } from 'electron'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
-import { loadGrove, grovePath } from '../core/state/grove.ts'
+import { addProject, loadGrove, grovePath } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
 import { defaultGrove } from '../core/state/schema.ts'
-import { CHANNELS, type GroveSnapshot } from './bridge.ts'
+import { CHANNELS, type GroveSnapshot, type ProjectResult } from './bridge.ts'
 import { ipcMain } from 'electron'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -134,10 +134,17 @@ function createWindow(): void {
   }
 }
 
+/** Add a folder, then rescan so its stone appears straight away rather than on the next tick. */
+async function addAndRescan(folder: string): Promise<ProjectResult> {
+  const result = await addProject(folder)
+  if (result.ok) await restartScanning()
+  return result
+}
+
 /**
- * The handlers the renderer can call. Three, and each one is deliberately small.
+ * The handlers the renderer can call, each deliberately small.
  *
- * Note that none of them takes a path from the renderer. `revealGroveFile` resolves the path on
+ * Only `connectSuggested` takes a path from the renderer, and only one it was just offered. `revealGroveFile` resolves the path on
  * this side; `openSession` hands its `ref` to the adapter, which pattern-checks the ids before
  * anything reaches the opener. Page code never gets to name a file for the node side to act on.
  */
@@ -178,6 +185,47 @@ function registerHandlers(): void {
       }
     })
   }
+
+  ipcMain.handle(CHANNELS.connectSuggested, async (_event, folder: unknown): Promise<ProjectResult> => {
+    // Page code is untrusted: accept only a path the node side itself offered.
+    const offered = latest?.grove.suggestions.some((suggestion) => suggestion.path === folder)
+    if (typeof folder !== 'string' || !offered) return { ok: false, error: 'Not one of the suggested folders' }
+    return addAndRescan(folder)
+  })
+
+  ipcMain.handle(CHANNELS.browseProject, async (event): Promise<ProjectResult> => {
+    const owner = BrowserWindow.fromWebContents(event.sender)
+    const options: Electron.OpenDialogOptions = {
+      title: 'Connect a project',
+      buttonLabel: 'Connect',
+      defaultPath: path.join(os.homedir(), 'Documents'),
+      properties: ['openDirectory', 'createDirectory'],
+    }
+    const picked = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options)
+    const folder = picked.filePaths[0]
+    if (picked.canceled || !folder) return { ok: false, cancelled: true }
+    return addAndRescan(folder)
+  })
+
+  ipcMain.handle(CHANNELS.createProject, async (event): Promise<ProjectResult> => {
+    const owner = BrowserWindow.fromWebContents(event.sender)
+    const options: Electron.SaveDialogOptions = {
+      title: 'New project',
+      buttonLabel: 'Create',
+      nameFieldLabel: 'Project',
+      defaultPath: path.join(os.homedir(), 'Documents', 'New project'),
+      properties: ['createDirectory', 'showOverwriteConfirmation'],
+    }
+    const picked = owner ? await dialog.showSaveDialog(owner, options) : await dialog.showSaveDialog(options)
+    if (picked.canceled || !picked.filePath) return { ok: false, cancelled: true }
+    try {
+      // `recursive` so that choosing a name that already exists as a folder simply connects it.
+      await fsp.mkdir(picked.filePath, { recursive: true })
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+    return addAndRescan(picked.filePath)
+  })
 
   ipcMain.handle(CHANNELS.revealGroveFile, async () => {
     const file = grovePath()

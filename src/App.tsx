@@ -1,24 +1,31 @@
 /**
- * The look-development spike.
+ * The grove: the scene, and the interface over it.
  *
- * Session three's whole job, from the build plan: one scene, dark, bloomed, the palette from the
- * concept art, and a judgement about whether full 3D is the right call before anything is built
- * on top of it. So this is the grove, laid out to match `assets/concept/grove-main.png` as closely
- * as a real-time scene can, and nothing else.
- *
- * **No real data, deliberately.** The six stones are fixtures from the art. Wiring in the fifteen
- * real ones would change the composition and make the only question this session is asking —
- * does it look like the art — impossible to answer. Session four connects the scan. The real
- * data is one click away behind the rail's pulse icon, so the two can be compared.
+ * Your projects stand as the runestones: the ones you created or connected, nothing else. The
+ * concept art's six fixtures appear only in demo mode; see `demo.ts`.
+ * The raw session data is one click away behind the rail's pulse icon, so the scene can always
+ * be checked against the truth underneath it.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X } from '@phosphor-icons/react'
 import '@fontsource-variable/geist'
 import { GroveScene, SPIKE_STONES, type PerfSample, type QualityPreset } from './scene/Grove'
 import { Counts, Crystal, HarnessRow, HoverReadout, Rail, RuneConsole, usePrefersReducedMotion } from './hud/Hud'
 import { SessionList } from './SessionList'
+import { AgentCard, DeployToast, PickHint, StonePanel } from './hud/Flow'
+import { Intro } from './hud/Intro'
+import { useFlow } from './store/flow'
 import { useGrove } from './store/grove'
+import { emptyPlaces, layoutStones } from './scene/layout'
+import { DEMO } from './demo'
+import { TREE_AGENTS } from './agents/fixtures'
 import './hud/hud.css'
+
+/** Who the demo shows working on its running stones, as in the concept art's frame 1. */
+const DEMO_WORKERS: Record<string, string> = { research: 'researcher', build: 'builder', connect: 'researcher' }
+
+/** Shared, so an empty grove is the same value from one render to the next. */
+const NO_STONES: never[] = []
 
 export function App() {
   const [dataOpen, setDataOpen] = useState(false)
@@ -35,6 +42,42 @@ export function App() {
     return wanted === 'low' || wanted === 'balanced' ? wanted : 'high'
   })
   const reducedMotion = usePrefersReducedMotion()
+  const consoleInput = useRef<HTMLInputElement>(null)
+  const view = useFlow((state) => state.view)
+  const stoneId = useFlow((state) => state.stoneId)
+  const statusOverrides = useFlow((state) => state.statusOverrides)
+  const openAgents = useFlow((state) => state.openAgents)
+
+  const snapshot = useGrove((state) => state.snapshot)
+  const deployment = useFlow((state) => state.deployment)
+
+  /* Your projects, from the scan. A new grove has none, and that is the intended first sight: the
+   * tree, Researcher, and three empty circles. The concept art's six stones appear only in demo
+   * mode (`?demo`), for judging the scene against the art in a browser tab.
+   *
+   * Deploying is still only an animation, so on real stones it may light the target while the
+   * light is travelling and no longer: saying a project is running when nothing was started
+   * there would break the one rule the grove cannot break, which is not to invent state. The
+   * demo stones are pretend anyway, so there the deployment is allowed to stick. */
+  const real = snapshot?.grove.stones ?? NO_STONES
+  const stones = useMemo(() => {
+    const base = DEMO ? SPIKE_STONES : layoutStones(real)
+    return base.map((stone) => {
+      const lit = DEMO ? statusOverrides[stone.id] : deployment?.stoneId === stone.id ? 'running' : undefined
+      // While an agent is on its way, or (in the demo) once it has landed, its face joins the
+      // stone's workers so you can see who went where.
+      const sent = deployment?.stoneId === stone.id ? deployment.agentId : DEMO ? DEMO_WORKERS[stone.id] : undefined
+      const workers = sent && !stone.workers?.includes(sent) ? [...(stone.workers ?? []), sent] : stone.workers
+      return { ...stone, status: lit ?? stone.status, workers }
+    })
+  }, [real, deployment, statusOverrides])
+  const empty = useMemo(() => (DEMO ? [] : emptyPlaces(real.length)), [real.length])
+  const selectedName = stones.find((stone) => stone.id === stoneId)?.name
+  const goHome = () => {
+    useFlow.setState({ view: 'home', stoneId: null, pendingAgentId: null })
+    setDataOpen(false)
+    setViewResetKey((key) => key + 1)
+  }
   const showDebug = new URLSearchParams(window.location.search).has('debug')
 
   // The scan keeps running behind the scene even though the spike does not draw it, so opening
@@ -47,6 +90,12 @@ export function App() {
    *   q  step down the quality presets, to see what the reflections actually cost */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // Esc steps back out of the flow, and works from inside the console too.
+      if (event.key === 'Escape') {
+        if (event.target instanceof HTMLInputElement) event.target.blur()
+        useFlow.getState().back()
+        return
+      }
       if (event.target instanceof HTMLInputElement) return
       if (event.key === 'd') setDataOpen((open) => !open)
       if (event.key === 'b') setPost((on) => !on)
@@ -80,7 +129,7 @@ export function App() {
     }
   }, [])
 
-  const running = SPIKE_STONES.filter(
+  const running = stones.filter(
     (stone) => stone.status === 'running' || stone.status === 'waiting'
   ).length
 
@@ -88,6 +137,8 @@ export function App() {
     <div className="grove-root">
       <div className="grove-canvas">
         <GroveScene
+          stones={stones}
+          empty={empty}
           quality={quality}
           // Under `prefers-reduced-motion` the scene renders once and holds: no heartbeat, no
           // motes, no parallax, no travelling light. It is still the same picture, which is the
@@ -100,18 +151,34 @@ export function App() {
         />
       </div>
 
-      <div className="hud">
-        <Rail onToggleData={() => setDataOpen((open) => !open)} dataOpen={dataOpen} />
+      <div className={`hud${view === 'stone' ? ' is-panel' : ''}`}>
+        <Rail
+          onToggleData={() => setDataOpen((open) => !open)}
+          dataOpen={dataOpen}
+          onHome={goHome}
+          onAgents={openAgents}
+          inAgents={view === 'agents'}
+        />
         <HarnessRow />
         <Crystal />
-        {/* The numbers from the concept art, since the scene is the art's six stones. */}
-        <Counts agents={SPIKE_STONES.length} running={running} tasks={12} />
-        <RuneConsole />
-        <HoverReadout name={hovered ? (SPIKE_STONES.find((s) => s.id === hovered)?.name ?? null) : null} />
+        {/* Agents are the tree's definitions; tasks are the runes carved on stones, honestly zero
+            until runes can be made. 12 is the art's number, for the demo. */}
+        <Counts
+          agents={TREE_AGENTS.length}
+          running={running}
+          tasks={DEMO ? 12 : real.reduce((sum, stone) => sum + stone.runes.length, 0)}
+        />
+        <RuneConsole inputRef={consoleInput} placeholder={selectedName ? `Task for ${selectedName}...` : undefined} />
+        <StonePanel stones={stones} onAddTask={() => consoleInput.current?.focus()} />
+        <AgentCard stones={stones} />
+        <DeployToast stones={stones} />
+        <PickHint />
+        <Intro />
+        <HoverReadout name={hovered ? (stones.find((s) => s.id === hovered)?.name ?? null) : null} />
         <button
           type="button"
           className="view-home"
-          onClick={() => setViewResetKey((key) => key + 1)}
+          onClick={goHome}
           aria-label="Return to the Grove home view"
           title="Return to home view"
         >

@@ -610,3 +610,38 @@ The Blender tree's roots and the grove's mycelium used to be grown separately an
 The Blender build now exports each root tip, and the network starts every strand there, in the
 root's direction, with the wood continued a little way along it. Changing the tree model means
 rebuilding `world-tree-roots.json` with it.
+
+
+## Two kinds of agent on the tree: tethered orbs and loose fireflies
+
+*26 September 2026*
+
+The concept art's flow (select a stone, open the tree's agents, send one) is built, visual only:
+deploying plays the animation and lights the stone but spawns nothing until session nine.
+
+Agents the Grove can run (Claude Code, Codex, an API model) hang from the branches on a thread of
+light, because the tree can send them down the mycelium to a stone. Grok Bots drift loose round
+the canopy, dashed and smaller, tied to nothing: they live in xAI's own app with no API, so they
+cannot be sent anywhere and their card shows no state. That is the brief's cockpit-versus-launcher
+line drawn as a picture instead of a label. Researcher is the one agent every grove starts with;
+an empty bud marks where new ones will grow.
+
+The camera never swings round a stone to frame it. Every rune faces the home camera, so the
+stone and canopy shots only lean in from the home direction.
+
+
+## A new grove is empty; stones only by choice
+
+*26 September 2026*
+
+Every folder any agent had run in used to become a stone by itself: twenty-nine on this machine,
+most of them throwaway chat folders. Now a stone exists only for a folder you create or connect,
+written into `grove.json`. A new grove is the tree, Researcher and three empty circles; more
+circles appear once two are filled, always keeping two spare. The scan still watches everything,
+so a session you start yourself inside a connected folder (or any folder under it) lights that
+stone, and busy folders you have not connected are offered in the Connect menu. The Wildwood is
+retired until something needs it. The concept art's six stones survive only as `?demo`.
+
+Amber is the grove's one non-green colour and means "needs you", for both a waiting agent and a
+recent failure. The heartbeat stays single; when two agents work on two projects, each stone
+shows the working agent's face above it rather than the pulse splitting in two.

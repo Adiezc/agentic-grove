@@ -82,6 +82,27 @@ export interface GroveApi {
    * person to take a screenshot every time a number changes.
    */
   captureStill(): Promise<{ ok: boolean; path?: string; error?: string }>
+
+  /**
+   * The three ways a stone is made. Each ends with the folder added to `grove.json` and a fresh
+   * scan, so the new stone arrives on the next snapshot like any other change.
+   *
+   * `connectSuggested` takes a path from page code, so the node side accepts it only if it is
+   * one of the suggestions it sent in the latest snapshot. The other two ask macOS for the
+   * folder, so the path never passes through the page at all.
+   */
+  connectSuggested(folder: string): Promise<ProjectResult>
+  /** Pick an existing folder with the system folder picker. */
+  browseProject(): Promise<ProjectResult>
+  /** Name a new folder with the system save panel; it is created, then added. */
+  createProject(): Promise<ProjectResult>
+}
+
+/** `cancelled` when the person closed the picker, which is a choice, not a failure. */
+export interface ProjectResult {
+  ok: boolean
+  cancelled?: boolean
+  error?: string
 }
 
 /** The IPC channel names, in one place so the two sides cannot disagree about a string. */
@@ -91,4 +112,7 @@ export const CHANNELS = {
   openSession: 'grove:open-session',
   revealGroveFile: 'grove:reveal-grove-file',
   captureStill: 'grove:capture-still',
+  connectSuggested: 'grove:connect-suggested',
+  browseProject: 'grove:browse-project',
+  createProject: 'grove:create-project',
 } as const

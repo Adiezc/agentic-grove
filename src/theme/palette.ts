@@ -75,11 +75,13 @@ export const palette = {
   /** Hairlines: the console's border, panel edges. */
   line: '#16241a',
 
-  /* State, for later sessions. Kept here so nothing invents its own amber. */
-  /** A session holding the turn back, waiting for you. */
-  waiting: '#9cf5b9',
-  /** A recent failure. */
-  errored: '#e06c5f',
+  /* Attention. The one colour in the grove that is not green, and so the one that means "you".
+   * Amber rather than red: firelight against the forest, clearly different at the edge of vision
+   * without turning a screen that is open all day into an alarm panel. */
+  /** A session holding the turn back, waiting for you. The grove's heartbeat turns this colour. */
+  waiting: '#f2b44c',
+  /** A recent failure. The same family, a shade deeper, so both read as "look here". */
+  errored: '#e8903a',
 } as const
 
 /**

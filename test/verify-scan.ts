@@ -19,7 +19,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { scan } from '../core/scan.ts'
-import { deriveStones, wantsYou, ERROR_ALARM_MS, WILDWOOD_ID } from '../core/state/stones.ts'
+import { deriveStones, wantsYou, ERROR_ALARM_MS } from '../core/state/stones.ts'
 import { defaultGrove, parseGrove } from '../core/state/schema.ts'
 import { loadGrove } from '../core/state/grove.ts'
 import type { Session } from '../core/harnesses/types.ts'
@@ -296,26 +296,15 @@ check(
   `${derived.stones.length} stones, ${new Set(derived.stones.map((s) => s.id)).size} distinct ids`
 )
 
-// Nothing may be lost or double-counted on the way from sessions to stones. A session that
-// silently vanishes here is work the grove would never show you.
+// Nothing may be lost or double-counted on the way from sessions to stones. A session is either
+// on exactly one stone, hidden with its project, or counted as outside every project.
 const placed = derived.stones.flatMap((stone) => stone.sessions.map((session) => session.id))
 const hiddenCount = derived.hidden.reduce((total, entry) => total + entry.sessionCount, 0)
 check(
-  'every session lands on exactly one stone',
-  placed.length === new Set(placed).size && placed.length + hiddenCount === result.sessions.length,
-  `${result.sessions.length} sessions in, ${placed.length} placed on stones, ${hiddenCount} hidden by grove.json`
-)
-
-check(
-  'the Wildwood is always present',
-  derived.stones.some((stone) => stone.id === WILDWOOD_ID),
-  (() => {
-    const wildwood = derived.stones.find((stone) => stone.id === WILDWOOD_ID)
-    return wildwood
-      ? `holding ${wildwood.sessions.length} session(s)` +
-          (wildwood.wildwoodReasons.length ? `: ${wildwood.wildwoodReasons.join('; ')}` : '')
-      : 'missing'
-  })()
+  'every session is placed, hidden or counted, exactly once',
+  placed.length === new Set(placed).size &&
+    placed.length + hiddenCount + derived.unconnectedSessions === result.sessions.length,
+  `${result.sessions.length} sessions in: ${placed.length} on stones, ${hiddenCount} hidden, ${derived.unconnectedSessions} outside any project`
 )
 
 // Deriving twice from the same input must give the same answer. A stone whose name or status
@@ -331,6 +320,9 @@ check(
  * here with sessions invented for the purpose rather than left to whatever this machine has. */
 
 const NOW = 1_800_000_000_000
+
+/** A grove with the fake sessions' folder connected, since only connected folders are stones. */
+const DEMO = { ...defaultGrove(), stones: [{ path: '/tmp/demo' }] }
 
 function fakeSession(overrides: Partial<Session>): Session {
   return {
@@ -369,7 +361,7 @@ const staleError = fakeSession({
   status: 'errored',
   lastActivityAt: NOW - ERROR_ALARM_MS - 1,
 })
-const staleStone = deriveStones([staleError], defaultGrove(), NOW).stones[0]
+const staleStone = deriveStones([staleError], DEMO, NOW).stones[0]
 check(
   'an error older than a day stops setting the stone colour',
   staleStone?.status === 'idle' && !wantsYou(staleError, NOW),
@@ -377,7 +369,7 @@ check(
 )
 
 const freshError = fakeSession({ id: 'fake:fresh', status: 'errored', lastActivityAt: NOW - 60_000 })
-const freshStone = deriveStones([freshError], defaultGrove(), NOW).stones[0]
+const freshStone = deriveStones([freshError], DEMO, NOW).stones[0]
 check(
   'an error from a minute ago does set it',
   freshStone?.status === 'errored' && wantsYou(freshError, NOW),
@@ -391,7 +383,7 @@ const mixed = deriveStones(
     fakeSession({ id: 'fake:wait', status: 'waiting', lastActivityAt: NOW - 2000 }),
     fakeSession({ id: 'fake:run', status: 'running', lastActivityAt: NOW }),
   ],
-  defaultGrove(),
+  DEMO,
   NOW
 ).stones[0]
 check(
@@ -406,7 +398,7 @@ const provenance = deriveStones(
     fakeSession({ id: 'fake:a', status: 'running', statusProvenance: 'measured' }),
     fakeSession({ id: 'fake:b', status: 'running', statusProvenance: 'inferred' }),
   ],
-  defaultGrove(),
+  DEMO,
   NOW
 ).stones[0]
 check(
@@ -415,21 +407,50 @@ check(
   `measured + inferred reads as "${provenance?.statusProvenance}"`
 )
 
-// An explicit grove.json entry has to beat the Grove's own assumption, in both directions —
-// otherwise there is no way to say "no, this scratch folder really is a project to me".
+// A new grove is empty. Nothing becomes a stone until you connect it, however much work the
+// scan finds, and that work is offered back as suggestions instead.
+const fresh = deriveStones([fakeSession({ id: 'fake:loose', projectPath: '/tmp/elsewhere', project: 'elsewhere' })], defaultGrove(), NOW)
+check(
+  'a new grove has no stones, and offers the work it saw',
+  fresh.stones.length === 0 && fresh.unconnectedSessions === 1 && fresh.suggestions[0]?.path === '/tmp/elsewhere',
+  `${fresh.stones.length} stones, ${fresh.suggestions.length} suggestion(s)`
+)
+
+// A connected project stands even with nothing in it, and work in any folder under it lights it.
+// The nearest connected folder wins, and a sibling that merely shares a prefix is not inside.
+const connected = deriveStones(
+  [
+    fakeSession({ id: 'fake:deep', projectPath: '/tmp/work/site/src', project: 'src', status: 'running' }),
+    fakeSession({ id: 'fake:sibling', projectPath: '/tmp/work/site-old', project: 'site-old' }),
+  ],
+  { ...defaultGrove(), stones: [{ path: '/tmp/work' }, { path: '/tmp/work/site' }, { path: '/tmp/empty' }] },
+  NOW
+)
+const site = connected.stones.find((s) => s.path === '/tmp/work/site')
+const work = connected.stones.find((s) => s.path === '/tmp/work')
+check(
+  'work in a subfolder lights the nearest connected project',
+  site?.status === 'running' &&
+    work?.sessions.map((s) => s.id).join() === 'fake:sibling' &&
+    connected.stones.some((s) => s.path === '/tmp/empty' && s.sessions.length === 0),
+  'site/src lights site, site-old stays with work, an empty project still stands'
+)
+
+// Scratch folders are real work, but never worth offering as a project.
 const scratchPath = `${HOME}/Library/Application Support/Claude/scratch-workspaces/x/y/scratch-1`
-const scratch = fakeSession({ id: 'fake:scratch', projectPath: scratchPath, project: 'scratch-1' })
-const assumed = deriveStones([scratch], defaultGrove(), NOW)
-const overridden = deriveStones(
-  [scratch],
-  { ...defaultGrove(), stones: [{ path: scratchPath, wildwood: false }] },
+const codexChat = `${HOME}/Documents/Codex/2026-09-14/lev`
+const offered = deriveStones(
+  [
+    fakeSession({ id: 'fake:scratch', projectPath: scratchPath, project: 'scratch-1' }),
+    fakeSession({ id: 'fake:codex', projectPath: codexChat, project: 'lev' }),
+  ],
+  defaultGrove(),
   NOW
 )
 check(
-  'grove.json overrides the Wildwood assumption in both directions',
-  assumed.stones.find((s) => s.id === WILDWOOD_ID)?.sessions.length === 1 &&
-    overridden.stones.some((s) => s.path === scratchPath),
-  'a scratch workspace goes to the Wildwood by default, and "wildwood": false gives it a stone'
+  'scratch and chat folders are never suggested',
+  offered.suggestions.length === 0 && offered.unconnectedSessions === 2,
+  'a Claude scratch workspace and a Codex chat folder are counted, not offered'
 )
 
 // Hiding a project must remove it from the grove without losing the session from the totals —

@@ -15,7 +15,7 @@
  * Icons come from Phosphor. The runes on the stones are brand marks and are drawn in
  * `scene/runes.ts`; nothing in the interface hand-rolls an SVG path.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type RefObject } from 'react'
 import {
   Asterisk,
   BookOpen,
@@ -44,10 +44,22 @@ const ICON = { size: 17, weight: 'thin' } as const
  * scene, which is the most useful thing to have a shortcut to while judging whether the scene is
  * telling the truth.
  */
-export function Rail({ onToggleData, dataOpen }: { onToggleData: () => void; dataOpen: boolean }) {
+export function Rail({
+  onToggleData,
+  dataOpen,
+  onHome,
+  onAgents,
+  inAgents,
+}: {
+  onToggleData: () => void
+  dataOpen: boolean
+  onHome: () => void
+  onAgents: () => void
+  inAgents: boolean
+}) {
   const items = [
-    { key: 'grove', Icon: Record, label: 'Grove', active: true },
-    { key: 'agents', Icon: User, label: 'Agents' },
+    { key: 'grove', Icon: Record, label: 'Grove', action: onHome, on: !inAgents && !dataOpen },
+    { key: 'agents', Icon: User, label: 'Agents', action: onAgents, on: inAgents },
     { key: 'runes', Icon: BookOpen, label: 'Runes' },
     { key: 'projects', Icon: Cube, label: 'Projects' },
     { key: 'activity', Icon: Pulse, label: 'Session data', action: onToggleData, on: dataOpen },
@@ -59,11 +71,11 @@ export function Rail({ onToggleData, dataOpen }: { onToggleData: () => void; dat
       {/* The hairline and dot hanging from the top of the frame, as in the art. Decorative, and
           the only purely decorative element kept from it. */}
       <span className="rail-thread" aria-hidden="true" />
-      {items.map(({ key, Icon, label, active, action, on }) => (
+      {items.map(({ key, Icon, label, action, on }) => (
         <button
           key={key}
           type="button"
-          className={`rail-item${active || on ? ' is-on' : ''}`}
+          className={`rail-item${on ? ' is-on' : ''}`}
           onClick={action}
           disabled={!action}
           aria-label={label}
@@ -139,9 +151,9 @@ export function Crystal() {
  */
 export function Counts({ agents, running, tasks }: { agents: number; running: number; tasks: number }) {
   const rows = [
-    { key: 'agents', value: agents, label: 'agents', tone: 'idle' },
+    { key: 'agents', value: agents, label: agents === 1 ? 'agent' : 'agents', tone: 'idle' },
     { key: 'running', value: running, label: 'running', tone: 'live' },
-    { key: 'tasks', value: tasks, label: 'tasks', tone: 'idle' },
+    { key: 'tasks', value: tasks, label: tasks === 1 ? 'task' : 'tasks', tone: 'idle' },
   ]
   return (
     <div className="counts">
@@ -167,7 +179,13 @@ export function Counts({ agents, running, tasks }: { agents: number; running: nu
  * into reads as an image of a console, and part of what is being judged is whether this feels
  * like something you would talk to.
  */
-export function RuneConsole() {
+export function RuneConsole({
+  inputRef,
+  placeholder = 'Ask. Build. Orchestrate...',
+}: {
+  inputRef?: RefObject<HTMLInputElement | null>
+  placeholder?: string
+}) {
   const [value, setValue] = useState('')
   return (
     <div className="console-group">
@@ -179,10 +197,11 @@ export function RuneConsole() {
         }}
       >
         <input
+          ref={inputRef}
           className="console-input"
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          placeholder="Ask. Build. Orchestrate..."
+          placeholder={placeholder}
           aria-label="Command the grove"
           spellCheck={false}
         />
