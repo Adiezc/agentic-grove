@@ -38,6 +38,7 @@ const api: GroveApi = {
   browseProject: () => ipcRenderer.invoke(CHANNELS.browseProject),
   createProject: () => ipcRenderer.invoke(CHANNELS.createProject),
   addAgent: (draft) => ipcRenderer.invoke(CHANNELS.addAgent, draft),
+  removeProject: (stoneId) => ipcRenderer.invoke(CHANNELS.removeProject, stoneId),
   removeAgent: (id) => ipcRenderer.invoke(CHANNELS.removeAgent, id),
   openAgentLink: (id) => ipcRenderer.invoke(CHANNELS.openAgentLink, id),
   planHooks: (action) => ipcRenderer.invoke(CHANNELS.planHooks, action),

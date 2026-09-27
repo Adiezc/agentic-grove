@@ -932,6 +932,13 @@
   color: var(--wait);
 }
 
+.panel-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--wait);
+}
+
 .panel-error {
   margin: 0.6rem 0 0;
   font-size: 0.72rem;

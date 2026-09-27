@@ -14,6 +14,7 @@ import { HARNESS_MARK, kindOf, ROOM, useTree } from '../agents/tree'
 import type { StoneSpec } from '../scene/Runestone'
 import { ago } from '../../core/usage/format.ts'
 import { useFlow } from '../store/flow'
+import { DEMO } from '../demo'
 
 /** One line per fixture stone. Real stones will take theirs from the project's README or name. */
 const STONE_LINES: Record<string, string> = {
@@ -40,6 +41,26 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
   const back = useFlow((state) => state.back)
   const stone = stones.find((candidate) => candidate.id === stoneId)
   const open = view === 'stone' && Boolean(stone)
+  // Removing asks twice, like removing an agent: the first press turns the bin amber and says
+  // what will happen, the second takes the stone off the grove.
+  const [confirming, setConfirming] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    setConfirming(false)
+    setError(null)
+  }, [stoneId, open])
+  // Demo stones are pretend, and a plain browser tab has no bridge to write with.
+  const canRemove = Boolean(window.grove) && !DEMO
+  const remove = async () => {
+    if (!stone) return
+    if (!confirming) {
+      setConfirming(true)
+      return
+    }
+    const result = await window.grove?.removeProject(stone.id)
+    if (result?.ok) back()
+    else setError(result?.error ?? 'Could not remove it')
+  }
 
   return (
     <aside className={`flow-panel stone-panel${open ? ' is-open' : ''}`} aria-hidden={!open} inert={!open}>
@@ -48,6 +69,18 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
           <button type="button" className="panel-close" onClick={back} aria-label="Close">
             <X size={16} weight="thin" />
           </button>
+          {canRemove ? (
+            <button
+              type="button"
+              className={`panel-remove${confirming ? ' is-confirming' : ''}`}
+              onClick={remove}
+              onBlur={() => setConfirming(false)}
+              aria-label={confirming ? `Remove ${stone.name} from the grove: press again to confirm` : `Remove ${stone.name} from the grove`}
+              title={confirming ? 'Press again to remove' : 'Remove from the grove'}
+            >
+              <Trash size={15} weight="thin" />
+            </button>
+          ) : null}
           <header className="panel-head">
             <span className={`panel-sigil tone-${stone.status}`} aria-hidden="true" />
             <div>
@@ -72,6 +105,10 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
               ))}
             </ul>
           ) : null}
+          {confirming ? (
+            <p className="panel-note">Press the bin again to take this stone off the grove. The folder and its sessions stay as they are.</p>
+          ) : null}
+          {error ? <p className="panel-error">{error}</p> : null}
           <div className="panel-actions">
             <button type="button" className="panel-row" onClick={openAgents}>
               <User size={18} weight="thin" />

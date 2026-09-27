@@ -19,7 +19,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
-import { addAgent, addProject, loadGrove, grovePath, removeAgent } from '../core/state/grove.ts'
+import { addAgent, addProject, loadGrove, grovePath, removeAgent, removeProject } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
 import { GROK_HOME, defaultGrove, isHttpsUrl } from '../core/state/schema.ts'
 import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type ProjectResult } from './bridge.ts'
@@ -296,6 +296,13 @@ function registerHandlers(): void {
       glyph: text(fields.glyph),
       link: text(fields.link),
     }).catch((error: unknown) => ({ ok: false, error: String(error) }))
+    if (result.ok) await restartScanning()
+    return result
+  })
+
+  ipcMain.handle(CHANNELS.removeProject, async (_event, stoneId: unknown): Promise<ProjectResult> => {
+    if (typeof stoneId !== 'string') return { ok: false, error: 'Not a stone' }
+    const result = await removeProject(stoneId).catch((error: unknown) => ({ ok: false, error: String(error) }))
     if (result.ok) await restartScanning()
     return result
   })

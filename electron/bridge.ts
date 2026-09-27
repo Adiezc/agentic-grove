@@ -116,6 +116,12 @@ export interface GroveApi {
   browseProject(): Promise<ProjectResult>
   /** Name a new folder with the system save panel; it is created, then added. */
   createProject(): Promise<ProjectResult>
+  /**
+   * Take a stone off the grove, by its id (the project path). The node side accepts only the path
+   * of a stone that is in `grove.json`, and removes that entry and nothing else: the folder and
+   * its sessions are never touched.
+   */
+  removeProject(stoneId: string): Promise<ProjectResult>
 
   /**
    * Grow an agent on the tree. The node side makes the id and checks every field with the same
@@ -164,6 +170,7 @@ export const CHANNELS = {
   connectSuggested: 'grove:connect-suggested',
   browseProject: 'grove:browse-project',
   createProject: 'grove:create-project',
+  removeProject: 'grove:remove-project',
   addAgent: 'grove:add-agent',
   removeAgent: 'grove:remove-agent',
   openAgentLink: 'grove:open-agent-link',

@@ -129,6 +129,24 @@ export async function addProject(folder: string): Promise<{ ok: boolean; error?:
   return { ok: true }
 }
 
+/**
+ * Take a project off the grove. Only its entry in `grove.json` goes: the folder, its files and
+ * every session in it are untouched, and connecting the folder again brings the stone back.
+ * Anything written on the entry by hand (a new name, runes) goes with it, which the interface
+ * says before the second press.
+ */
+export async function removeProject(stonePath: string): Promise<{ ok: boolean; error?: string }> {
+  const loaded = await loadGrove()
+  if (loaded.problems.length) {
+    return { ok: false, error: 'grove.json has an error; fix it before removing projects' }
+  }
+  const kept = loaded.grove.stones.filter((stone) => stone.path !== stonePath)
+  if (kept.length === loaded.grove.stones.length) return { ok: false, error: 'No stone for that folder' }
+  loaded.grove.stones = kept
+  await saveGrove(loaded.grove)
+  return { ok: true }
+}
+
 /** What the "grow an agent" form sends. The id is made here, from the name, not by page code. */
 export interface AgentDraft {
   name: string
