@@ -48,15 +48,20 @@ export function Intro({ hidden = false }: { hidden?: boolean }) {
 
   const next = () => (step !== null && step < STEPS.length - 1 ? setStep(step + 1) : done())
 
-  // Right arrow moves on; Esc is the grove-wide "back", which here means skip.
+  // Right arrow moves on; Esc is the grove-wide "back", which here means skip. Listening in the
+  // capture phase, and marking the arrow as handled, is what stops the same press also moving
+  // the keyboard grove's focus to a stone while the card is still talking.
   useEffect(() => {
     if (step === null || hidden) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') done()
-      if (event.key === 'ArrowRight') next()
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        next()
+      }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   })
 
   if (step === null) return null

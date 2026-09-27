@@ -10,21 +10,46 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X } from '@phosphor-icons/react'
 import '@fontsource-variable/geist'
 import { GroveScene, SPIKE_STONES, type PerfSample, type QualityPreset } from './scene/Grove'
-import { Counts, HarnessRow, HoverReadout, Rail, RuneConsole, usePrefersReducedMotion } from './hud/Hud'
+import { Announcer, Counts, HarnessRow, Rail, RuneConsole, usePrefersReducedMotion } from './hud/Hud'
 import { SessionList } from './SessionList'
-import { AgentCard, DeployToast, GrowCard, PickHint, StonePanel } from './hud/Flow'
+import { AgentCard, DeployToast, GrowCard, PickHint, STATE_LABEL, StonePanel } from './hud/Flow'
 import { Intro } from './hud/Intro'
 import { SettingsPanel } from './hud/Settings'
 import { useFlow } from './store/flow'
 import { useGrove } from './store/grove'
 import { Crystal } from './hud/Crystal'
 import { emptyPlaces, layoutStones } from './scene/layout'
+import { step, type Direction, type Target } from './scene/navigation'
 import { DEMO } from './demo'
 import { useTree } from './agents/tree'
 import './hud/hud.css'
 
 /** Who the demo shows working on its running stones, as in the concept art's frame 1. */
 const DEMO_WORKERS: Record<string, string> = { research: 'researcher', build: 'builder', connect: 'researcher' }
+
+const ARROWS: Record<string, Direction | undefined> = {
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  ArrowUp: 'up',
+  ArrowDown: 'down',
+}
+
+/**
+ * Move keyboard focus into something that has only just been asked to open. A panel stays
+ * `inert` until React has re-rendered it, and a focus call on an inert element is silently
+ * ignored, so this keeps trying for about half a second until focus has actually arrived. A timer
+ * rather than animation frames, because frames stop while the window is hidden.
+ */
+function focusSoon(selector: string): void {
+  let tries = 0
+  const attempt = () => {
+    const element = document.querySelector<HTMLElement>(selector)
+    element?.focus()
+    if (element && document.activeElement === element) return
+    if ((tries += 1) < 20) window.setTimeout(attempt, 25)
+  }
+  window.setTimeout(attempt, 0)
+}
 
 /** Shared, so an empty grove is the same value from one render to the next. */
 const NO_STONES: never[] = []
@@ -84,10 +109,94 @@ export function App() {
   }
   const showDebug = new URLSearchParams(window.location.search).has('debug')
 
+  /* ---- Keyboard grove: arrows move between stones and empty circles, Enter opens. ---- */
+
+  const targets = useMemo<Target[]>(
+    () => [
+      ...stones.map((stone) => ({ id: stone.id, at: stone.at })),
+      ...empty.map((place) => ({ id: `place-${place.index}`, at: place.at })),
+    ],
+    [stones, empty]
+  )
+  const focused = useFlow((state) => state.focused)
+  const [announcement, setAnnouncement] = useState('')
+
+  // Whatever the pointer rests on is announced, as it always was.
+  useEffect(() => {
+    const name = hovered ? stones.find((stone) => stone.id === hovered)?.name : undefined
+    if (name) setAnnouncement(`${name} runestone`)
+  }, [hovered, stones])
+
+  /** One sentence about a target, in the words the labels and the stone panel already use. */
+  const describe = useCallback(
+    (id: string): string => {
+      if (id.startsWith('place-')) return 'Empty place. Enter to create or connect a project.'
+      const stone = stones.find((candidate) => candidate.id === id)
+      return stone ? `${stone.name} runestone, ${STATE_LABEL[stone.status].toLowerCase()}. Enter to open.` : ''
+    },
+    [stones]
+  )
+
+  // A stone that disappears (hidden, disconnected) takes the keyboard focus with it.
+  useEffect(() => {
+    if (focused && !targets.some((target) => target.id === focused)) useFlow.getState().focus(null)
+  }, [focused, targets])
+
   // The scan keeps running behind the scene even though the spike does not draw it, so opening
   // the data panel shows something immediately rather than scanning from cold.
   const connect = useGrove((state) => state.connect)
   useEffect(() => connect(), [connect])
+
+  /**
+   * The keyboard grove's keys. Returns true when it handled the key.
+   *
+   * Enter and R act only when nothing else has keyboard focus: a focused button already owns
+   * Enter, and taking it would break every button on screen. The arrows work from anywhere but
+   * the agents view, whose card has its own controls.
+   */
+  const moveFocus = useCallback(
+    (event: KeyboardEvent): boolean => {
+      const flow = useFlow.getState()
+      if (flow.view === 'agents' || flow.deployment) return false
+      const direction = ARROWS[event.key]
+      if (direction) {
+        event.preventDefault()
+        const next = step(targets, flow.focused, direction)
+        if (next && next !== flow.focused) {
+          flow.focus(next)
+          // The first move also says how the keys work, once, in the same breath.
+          setAnnouncement(describe(next) + (flow.focused ? '' : ' Arrow keys move between places. Escape goes back.'))
+        }
+        return true
+      }
+      const free = document.activeElement === document.body || document.activeElement === null
+      if (!free || !flow.focused) return false
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        if (flow.focused.startsWith('place-')) {
+          flow.openPlace(Number(flow.focused.slice('place-'.length)))
+          focusSoon('.place-menu button:not(:disabled)')
+        } else {
+          flow.selectStone(flow.focused)
+          focusSoon('.stone-panel.is-open .panel-row:not(:disabled)')
+        }
+        return true
+      }
+      if (event.key === 'r' && !flow.focused.startsWith('place-')) {
+        const stone = real.find((candidate) => candidate.id === flow.focused)
+        const runes = stone?.runes ?? []
+        const name = stones.find((candidate) => candidate.id === flow.focused)?.name ?? 'This stone'
+        setAnnouncement(
+          runes.length
+            ? `${name} has ${runes.length} ${runes.length === 1 ? 'rune' : 'runes'}: ${runes.map((rune) => rune.name).join(', ')}.`
+            : `${name} has no runes yet.`
+        )
+        return true
+      }
+      return false
+    },
+    [targets, describe, real, stones]
+  )
 
   /* Two keys, both for judging the spike rather than for the finished app:
    *   d  the real session data, the same as the rail's pulse icon
@@ -96,12 +205,16 @@ export function App() {
     const onKey = (event: KeyboardEvent) => {
       // Esc steps back out of the flow, and works from inside the console too.
       if (event.key === 'Escape') {
-        if (event.target instanceof HTMLInputElement) event.target.blur()
+        // Let go of whatever has focus, not only the console. Otherwise a button inside the menu
+        // being closed keeps focus for a moment, and an Enter pressed straight after lands on it.
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
         setSettingsOpen(false)
         useFlow.getState().back()
         return
       }
       if (event.target instanceof HTMLInputElement) return
+      if (event.defaultPrevented) return
+      if (moveFocus(event)) return
       if (event.key === 'd') setDataOpen((open) => !open)
       if (event.key === 'b') setPost((on) => !on)
       if (event.key === 's') void window.grove?.captureStill()
@@ -111,7 +224,7 @@ export function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [moveFocus])
 
   const reported = useRef(false)
   const onPerf = useCallback((sample: PerfSample) => {
@@ -184,7 +297,7 @@ export function App() {
         <DeployToast stones={stones} />
         <PickHint />
         <Intro hidden={settingsOpen} />
-        <HoverReadout name={hovered ? (stones.find((s) => s.id === hovered)?.name ?? null) : null} />
+        <Announcer message={announcement} />
         <button
           type="button"
           className="view-home"

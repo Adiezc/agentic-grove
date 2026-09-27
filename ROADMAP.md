@@ -36,7 +36,7 @@ Before the public release:
 
 Picked on 27 September 2026, after step 6. Ranked, most important first.
 
-1. **Keyboard grove (about one session). Can be built now; needed before the public release.** Arrow
+1. **Keyboard grove. Done 27 September 2026.** Arrow
    keys walk between stones, Enter opens one, R lists its runes, Esc goes back. The whole grove is
    usable without a mouse. Each move is announced through the existing live region, which
    `HoverReadout` in `src/hud/Hud.tsx` already flags as the half-answer waiting for this. Ranked

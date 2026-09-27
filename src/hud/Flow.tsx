@@ -24,7 +24,7 @@ const STONE_LINES: Record<string, string> = {
   archive: 'Finished work.',
 }
 
-const STATE_LABEL: Record<StoneSpec['status'], string> = {
+export const STATE_LABEL: Record<StoneSpec['status'], string> = {
   idle: 'Idle',
   running: 'Running',
   waiting: 'Needs you',

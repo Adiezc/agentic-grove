@@ -40,6 +40,8 @@ export function EmptyPlace({ place }: { place: Place }) {
   const [hovered, setHovered] = useState(false)
   const [showPlus, setShowPlus] = useState(false)
   const open = useFlow((state) => state.placeIndex === place.index)
+  // Reached with the arrow keys: warm the circle and show its plus, exactly as a resting pointer does.
+  const focused = useFlow((state) => state.focused === `place-${place.index}`)
   const openPlace = useFlow((state) => state.openPlace)
   const material = useMemo(
     () =>
@@ -66,7 +68,7 @@ export function EmptyPlace({ place }: { place: Place }) {
 
   // Eased, so the circle warms when you come near rather than switching on.
   useFrame((_, delta) => {
-    glow.current = THREE.MathUtils.damp(glow.current, hovered || open ? 1 : 0, 6, delta)
+    glow.current = THREE.MathUtils.damp(glow.current, hovered || focused || open ? 1 : 0, 6, delta)
     material.opacity = 0.24 + glow.current * 0.4
   })
 
@@ -96,7 +98,7 @@ export function EmptyPlace({ place }: { place: Place }) {
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
-      {showPlus && !open ? (
+      {(showPlus || focused) && !open ? (
         <Html position={[0, 0.45, 0]} center zIndexRange={[15, 10]} style={{ pointerEvents: 'none' }}>
           <span className="place-plus" aria-hidden="true">
             <Plus size={18} weight="thin" />

@@ -255,6 +255,7 @@ export function GroveScene({
   const settings = QUALITY[quality]
   const view = useFlow((state) => state.view)
   const stoneId = useFlow((state) => state.stoneId)
+  const focused = useFlow((state) => state.focused)
   const deployment = useFlow((state) => state.deployment)
   const selectStone = useFlow((state) => state.selectStone)
   const land = useFlow((state) => state.land)
@@ -384,6 +385,7 @@ export function GroveScene({
           // While picking a target every name shows, because that moment is a choice between them.
           showLabel={
             hovered === stone.id ||
+            focused === stone.id ||
             stoneId === stone.id ||
             view === 'picking' ||
             stone.status === 'waiting' ||

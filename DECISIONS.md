@@ -769,3 +769,25 @@ readout and the menu bar cannot disagree.
 `scripts/make-tray-icon.swift`, with the same figures in its menu, plus Open and Quit. Text
 beside it only when an official limit is under 10% left. Closing the window no longer quits the
 app: the Grove keeps listening from the menu bar, as the brief intended.
+
+## Keyboard grove: arrows by what the screen shows, Enter only when nothing else wants it
+
+*27 September 2026*
+
+The grove has no rows, so an arrow means "the nearest place that way on screen"
+(`src/scene/navigation.ts`): ground x is left and right, ground z is up and down, and sideways
+drift counts double so right does not jump to something mostly above. Empty circles are targets
+too, because they are where projects are made. Keyboard focus (`focused` in the flow store) is
+separate from the chosen stone, as hovering is from clicking; the focused stone shows its label
+and an empty circle warms and shows its plus.
+
+Enter and R act only when no button or field has focus, since a focused button already owns
+Enter. Opening moves focus into the panel or menu, retried on a timer because a panel is `inert`
+for a frame and frames stop while the window is hidden. Esc now drops focus from whatever holds
+it, so a closing menu cannot keep a button focused for the next Enter. The intro listens in the
+capture phase and claims its right arrow, so one press does not also move the grove.
+
+Announcements go through one live region (`Announcer`), in the words the labels and stone panel
+use; the first move adds how the keys work. R reports runes honestly, which today is "no runes
+yet". Tested in the packaged app by driving Chromium's own input over its debugging port: macOS
+key injection does not deliver Esc to Electron windows, which looked like a bug and was not.

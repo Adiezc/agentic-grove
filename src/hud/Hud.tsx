@@ -198,17 +198,17 @@ export function RuneConsole({
 }
 
 /**
- * The name of whatever the pointer is over, shown where the art shows stone labels.
+ * What a screen reader hears about the grove: the stone under the pointer, or where the arrow keys
+ * have moved to.
  *
- * In the scene itself the labels are sprites on the stones. This is the accessible counterpart:
- * a live region, so a screen reader hears which stone is focused even though the labels
- * themselves are drawn on the GPU and invisible to it. Flagged as the honest half-answer it is —
- * the full one is a keyboard-navigable list of stones, which belongs in a later session.
+ * The stones' labels are drawn on the GPU and are invisible to assistive technology, so this live
+ * region is their accessible counterpart. It says one short thing per move, in the same words the
+ * labels and the stone panel use.
  */
-export function HoverReadout({ name }: { name: string | null }) {
+export function Announcer({ message }: { message: string }) {
   return (
     <div className="sr-only" role="status" aria-live="polite">
-      {name ? `${name} runestone` : ''}
+      {message}
     </div>
   )
 }

@@ -43,6 +43,12 @@ interface FlowStore {
   statusOverrides: Record<string, SessionStatus>
   /** The empty circle whose create-or-connect menu is open. */
   placeIndex: number | null
+  /**
+   * What the arrow keys are resting on: a stone id, or `place-N` for an empty circle. Separate
+   * from `stoneId`, because looking at a stone and choosing it are different acts, the same way
+   * hovering and clicking are.
+   */
+  focused: string | null
 
   selectStone: (id: string) => void
   openAgents: () => void
@@ -55,7 +61,8 @@ interface FlowStore {
   land: () => void
   finish: () => void
   openPlace: (index: number) => void
-  /** One step back: agents → stone → home. What Esc and the close buttons do. */
+  focus: (id: string | null) => void
+  /** One step back: agents → stone → home → nothing focused. What Esc and the close buttons do. */
   back: () => void
 }
 
@@ -68,12 +75,15 @@ export const useFlow = create<FlowStore>((set, get) => ({
   deployment: null,
   statusOverrides: {},
   placeIndex: null,
+  focused: null,
 
   // Choosing an empty circle closes any stone panel: one question on screen at a time.
   openPlace: (index) => {
     if (get().deployment) return
     set({ placeIndex: index, view: 'home', stoneId: null })
   },
+
+  focus: (id) => set({ focused: id }),
 
   selectStone: (id) => {
     const { view, deployment, pendingAgentId } = get()
@@ -122,6 +132,7 @@ export const useFlow = create<FlowStore>((set, get) => ({
     if (placeIndex !== null) set({ placeIndex: null })
     else if (growing) set({ growing: false })
     else if (view === 'agents') set({ view: stoneId ? 'stone' : 'home' })
+    else if (view === 'home' && !stoneId) set({ focused: null })
     else set({ view: 'home', stoneId: null, pendingAgentId: null })
   },
 }))
