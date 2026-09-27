@@ -1452,6 +1452,13 @@
   color: var(--text);
   pointer-events: auto;
   animation: intro-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Settings opens over this corner; the card steps aside rather than show through the glass. */
+.intro.is-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .intro-head {

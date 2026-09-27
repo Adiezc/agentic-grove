@@ -182,7 +182,7 @@ export function App() {
         <GrowCard />
         <DeployToast stones={stones} />
         <PickHint />
-        <Intro />
+        <Intro hidden={settingsOpen} />
         <HoverReadout name={hovered ? (stones.find((s) => s.id === hovered)?.name ?? null) : null} />
         <button
           type="button"

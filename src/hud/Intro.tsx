@@ -32,7 +32,8 @@ function alreadySeen(): boolean {
   }
 }
 
-export function Intro() {
+/** `hidden` steps the card aside while a rail panel (Settings) opens over the same corner; it keeps its place. */
+export function Intro({ hidden = false }: { hidden?: boolean }) {
   // Never in demo mode, which exists for judging the scene, not for being greeted by it.
   const [step, setStep] = useState<number | null>(() => (DEMO || alreadySeen() ? null : 0))
 
@@ -49,7 +50,7 @@ export function Intro() {
 
   // Right arrow moves on; Esc is the grove-wide "back", which here means skip.
   useEffect(() => {
-    if (step === null) return
+    if (step === null || hidden) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') done()
       if (event.key === 'ArrowRight') next()
@@ -64,7 +65,13 @@ export function Intro() {
   const last = step === STEPS.length - 1
 
   return (
-    <aside className="intro" role="dialog" aria-label="Welcome to the grove">
+    <aside
+      className={`intro${hidden ? ' is-hidden' : ''}`}
+      role="dialog"
+      aria-label="Welcome to the grove"
+      aria-hidden={hidden || undefined}
+      inert={hidden || undefined}
+    >
       <header className="intro-head">
         <span className="agent-face" aria-hidden="true">
           <Face size={22} weight="light" />
@@ -84,7 +91,7 @@ export function Intro() {
             <span key={index} className={`pager-dot${index === step ? ' is-on' : ''}`} />
           ))}
         </span>
-        <button type="button" className="intro-next" onClick={next} autoFocus>
+        <button type="button" className="intro-next" onClick={next} autoFocus={!hidden}>
           <span>{last ? 'Begin' : 'Next'}</span>
           <ArrowRight size={14} weight="thin" />
         </button>
