@@ -14,6 +14,7 @@ import { Counts, Crystal, HarnessRow, HoverReadout, Rail, RuneConsole, usePrefer
 import { SessionList } from './SessionList'
 import { AgentCard, DeployToast, GrowCard, PickHint, StonePanel } from './hud/Flow'
 import { Intro } from './hud/Intro'
+import { SettingsPanel } from './hud/Settings'
 import { useFlow } from './store/flow'
 import { useGrove } from './store/grove'
 import { emptyPlaces, layoutStones } from './scene/layout'
@@ -29,6 +30,7 @@ const NO_STONES: never[] = []
 
 export function App() {
   const [dataOpen, setDataOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [perf, setPerf] = useState<PerfSample | null>(null)
   const [post, setPost] = useState(true)
   const [hovered, setHovered] = useState<string | null>(null)
@@ -94,6 +96,7 @@ export function App() {
       // Esc steps back out of the flow, and works from inside the console too.
       if (event.key === 'Escape') {
         if (event.target instanceof HTMLInputElement) event.target.blur()
+        setSettingsOpen(false)
         useFlow.getState().back()
         return
       }
@@ -160,7 +163,10 @@ export function App() {
           onHome={goHome}
           onAgents={openAgents}
           inAgents={view === 'agents'}
+          onSettings={() => setSettingsOpen((open) => !open)}
+          settingsOpen={settingsOpen}
         />
+        <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         <HarnessRow />
         <Crystal />
         {/* Agents are the tree's definitions; tasks are the runes carved on stones, honestly zero

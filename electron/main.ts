@@ -22,7 +22,10 @@ import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
 import { addAgent, addProject, loadGrove, grovePath, removeAgent } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
 import { GROK_HOME, defaultGrove, isHttpsUrl } from '../core/state/schema.ts'
-import { CHANNELS, type AgentResult, type GroveSnapshot, type ProjectResult } from './bridge.ts'
+import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type ProjectResult } from './bridge.ts'
+import { LiveState } from '../core/hooks/live.ts'
+import { startHookServer, type HookServer } from '../core/hooks/server.ts'
+import { applyHooks, hookToken, hooksState, planHooks, type HooksAction } from '../core/hooks/install.ts'
 import { ipcMain } from 'electron'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -39,6 +42,12 @@ const devServerUrl = process.env.VITE_DEV_SERVER_URL
  */
 let latest: GroveSnapshot | null = null
 let stopScanning: (() => void) | undefined
+
+/** The last raw scan, kept so a hook call can redraw at once without waiting for the next one. */
+let lastScan: ScanResult | null = null
+/** What the hooks have said, laid over each scan. See `core/hooks/live.ts`. */
+const live = new LiveState()
+let hookServer: HookServer | null = null
 
 /** Every open window that wants snapshots. Plural already, because the mini-window is coming. */
 const windows = new Set<BrowserWindow>()
@@ -75,9 +84,16 @@ function broadcast(snapshot: GroveSnapshot): void {
 async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
   const loaded = await loadGrove().catch(() => null)
   const grove = loaded?.grove ?? defaultGrove()
+  const installed = await hooksState().catch((error: unknown) => ({ state: 'unreadable' as const, error: String(error) }))
+  const hooks: HooksStatus = {
+    ...installed,
+    listening: hookServer?.listening ?? false,
+    listenError: hookServer?.error,
+    lastCallAt: live.lastCallAt,
+  }
   return {
     at: Date.now(),
-    grove: deriveStones(result.sessions, grove),
+    grove: deriveStones(live.apply(result.sessions), grove),
     settings: grove.settings,
     agents: grove.agents,
     harnesses: result.harnesses,
@@ -85,7 +101,39 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
     groveProblems: loaded?.problems ?? [],
     grovePath: loaded?.path ?? grovePath(),
     scanMs: result.durationMs,
+    hooks,
   }
+}
+
+/**
+ * Start listening for Claude Code's hooks. Always, whether or not they are installed: an idle
+ * listener costs nothing, and it means installing them works at once without a restart.
+ */
+async function startListening(): Promise<void> {
+  hookServer = await startHookServer(await hookToken(), (call) => {
+    const changed = live.record(call)
+    const known = lastScan?.sessions.some((session) => session.id === `claude-code:${call.sessionId}`)
+    // A session the scan has never seen needs a scan to learn which folder it is in. Anything
+    // else redraws straight from the last scan: that is the sub-second path this all exists for.
+    if (!known) scheduleRescan()
+    else if (changed && lastScan) void toSnapshot(lastScan).then(broadcast)
+  })
+  if (!hookServer.listening) {
+    console.warn(`agentic-grove: hooks listener not started: ${hookServer.error}`)
+    // Usually another copy of the Grove holding the port. Try again later rather than stay deaf
+    // until a restart: when that copy quits, this one should pick the hooks up by itself.
+    setTimeout(() => void startListening(), 30_000)
+  }
+}
+
+/** Several hook calls from a brand-new session arrive together; they only need one scan. */
+let rescanTimer: ReturnType<typeof setTimeout> | undefined
+function scheduleRescan(): void {
+  if (rescanTimer) return
+  rescanTimer = setTimeout(() => {
+    rescanTimer = undefined
+    void restartScanning()
+  }, 250)
 }
 
 function createWindow(): void {
@@ -263,6 +311,28 @@ function registerHandlers(): void {
     return { ok: true }
   })
 
+  // Both take only a word from the page: which action. The file and the change are worked out here.
+  const asAction = (value: unknown): HooksAction | null => (value === 'install' || value === 'remove' ? value : null)
+  ipcMain.handle(CHANNELS.planHooks, async (_event, action: unknown) => {
+    const which = asAction(action)
+    if (!which) return { ok: false, error: 'Unknown action', action: 'install', lines: [], baseline: '', changes: false }
+    return planHooks(which).catch((error: unknown) => ({
+      ok: false,
+      error: String(error),
+      action: which,
+      lines: [],
+      baseline: '',
+      changes: false,
+    }))
+  })
+  ipcMain.handle(CHANNELS.applyHooks, async (_event, action: unknown, baseline: unknown) => {
+    const which = asAction(action)
+    if (!which || typeof baseline !== 'string') return { ok: false, error: 'Unknown action' }
+    const result = await applyHooks(which, baseline).catch((error: unknown) => ({ ok: false, error: String(error) }))
+    if (result.ok) await restartScanning()
+    return result
+  })
+
   ipcMain.handle(CHANNELS.revealGroveFile, async () => {
     const file = grovePath()
     // `showItemInFolder` on a file that does not exist yet opens nothing at all, which reads as
@@ -276,12 +346,14 @@ async function restartScanning(): Promise<void> {
   stopScanning?.()
   const { grove } = await loadGrove()
   stopScanning = startScanLoop((result) => {
+    lastScan = result
     void toSnapshot(result).then(broadcast)
   }, grove.settings.scanIntervalMs)
 }
 
 void app.whenReady().then(async () => {
   registerHandlers()
+  await startListening()
   await restartScanning()
   createWindow()
 
@@ -301,4 +373,5 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   stopScanning?.()
+  hookServer?.close()
 })

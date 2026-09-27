@@ -695,3 +695,40 @@ the folder picker when there is nothing to suggest.
 Downloads, and choosing a folder in its picker counts as permission for that folder. The scan
 reads `~/.claude` and `~/.codex`, which macOS does not protect. A second, home-made prompt in
 front of the real one would be friction with nothing behind it.
+
+## Hooks: curl to a loopback listener, installed only from Settings
+
+*27 September 2026, session 6*
+
+Claude Code runs a command at each moment of a session and hands it a JSON description on stdin.
+The Grove's hook is one line of `curl` that forwards that JSON to a listener inside the Grove on
+`127.0.0.1:47819`. Seven events: SessionStart, UserPromptSubmit, PreToolUse, PostToolUse,
+Notification, Stop, SessionEnd.
+
+**The hook must never get in Claude Code's way.** `-s -o /dev/null` because a PreToolUse hook's
+output can be read as an instruction; `-m 1` so a stuck Grove costs a session at most a second;
+`|| true` so a closed Grove is not an error. Measured: about 33ms a call, most of it starting
+curl, and 34ms with the Grove shut.
+
+**The listener takes only what it expects.** Loopback only; a random token in the path, kept in
+`~/.agentic-grove/hook-token`; and any request with an `Origin` header is refused, because a web
+page can send requests to localhost and browsers always mark them. It answers before it parses.
+
+**Hook state corrects the scan, it does not replace it.** A session's hook status wins unless the
+transcript is more than ten seconds newer than the last call (the Grove missed something) or the
+hook said "running" over two minutes ago and the scan disagrees (a crash sends no SessionEnd).
+Held in memory only. A call from a session the scan has not seen yet triggers one rescan; any
+other call redraws from the last scan straight away, which is the sub-second path.
+`Notification` is the one thing only hooks can know: a permission prompt writes nothing to disk.
+
+**Installing follows the consent rules from session 1.** Settings, from the rail's gear, shows
+the exact lines that will be added or removed before anything is written. Applying is refused
+if the file changed since it was shown. Our entries are found by `/agentic-grove/` in their
+address, so Turn off removes ours and leaves everything else, including hooks added since. A
+backup goes to `~/.agentic-grove/backups/` before every write. Checked against a copy of the
+real settings: the existing SessionStart hook survives install, reinstall changes nothing, and
+removal restores the file exactly.
+
+**Not in this session:** the statusline hook, which is where official rate limits come from.
+It belongs with the crystal (next), and it needs its own consent flow because Claude Code allows
+only one statusline and a person may already have one.

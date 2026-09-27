@@ -50,12 +50,16 @@ export function Rail({
   onHome,
   onAgents,
   inAgents,
+  onSettings,
+  settingsOpen = false,
 }: {
   onToggleData: () => void
   dataOpen: boolean
   onHome: () => void
   onAgents: () => void
   inAgents: boolean
+  onSettings?: () => void
+  settingsOpen?: boolean
 }) {
   const items = [
     { key: 'grove', Icon: Record, label: 'Grove', action: onHome, on: !inAgents && !dataOpen },
@@ -63,7 +67,7 @@ export function Rail({
     { key: 'runes', Icon: BookOpen, label: 'Runes' },
     { key: 'projects', Icon: Cube, label: 'Projects' },
     { key: 'activity', Icon: Pulse, label: 'Session data', action: onToggleData, on: dataOpen },
-    { key: 'settings', Icon: Gear, label: 'Settings' },
+    { key: 'settings', Icon: Gear, label: 'Settings', action: onSettings, on: settingsOpen },
   ]
 
   return (

@@ -17,6 +17,7 @@ import type { HarnessStatus, ScanProblem } from '../core/scan.ts'
 import type { DerivedGrove } from '../core/state/stones.ts'
 import type { AgentDefinition, GroveProblem, GroveSettings } from '../core/state/schema.ts'
 import type { AgentDraft } from '../core/state/grove.ts'
+import type { HooksAction, HooksPlan, HooksState } from '../core/hooks/install.ts'
 
 /**
  * One complete picture of the grove, sent after every scan.
@@ -44,6 +45,19 @@ export interface GroveSnapshot {
   grovePath: string
   /** How long the last scan pass took. Worth surfacing: this runs all day. */
   scanMs: number
+  /** Claude Code hooks: whether they are installed, and whether the Grove is hearing them. */
+  hooks: HooksStatus
+}
+
+export interface HooksStatus {
+  state: HooksState
+  /** Why the settings file could not be read, when `state` is `unreadable`. */
+  error?: string
+  /** False when the listener could not start, usually because another Grove holds the port. */
+  listening: boolean
+  listenError?: string
+  /** Epoch ms of the last hook call heard, or 0. Proof the connection actually works. */
+  lastCallAt: number
 }
 
 /**
@@ -113,6 +127,15 @@ export interface GroveApi {
    * up in `grove.json` itself, so page code never chooses what the system opener is handed.
    */
   openAgentLink(id: string): Promise<AgentResult>
+
+  /**
+   * Work out what installing or removing the Claude Code hooks would change in its settings, line
+   * by line, without changing anything. The plan carries a fingerprint of the file it was made
+   * from; `applyHooks` refuses unless the file still matches it, so what you approved is what is
+   * written.
+   */
+  planHooks(action: HooksAction): Promise<HooksPlan>
+  applyHooks(action: HooksAction, baseline: string): Promise<{ ok: boolean; error?: string }>
 }
 
 export interface AgentResult {
@@ -141,4 +164,6 @@ export const CHANNELS = {
   addAgent: 'grove:add-agent',
   removeAgent: 'grove:remove-agent',
   openAgentLink: 'grove:open-agent-link',
+  planHooks: 'grove:plan-hooks',
+  applyHooks: 'grove:apply-hooks',
 } as const

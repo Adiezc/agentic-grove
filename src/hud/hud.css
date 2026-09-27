@@ -1002,6 +1002,139 @@
   padding: 0;
 }
 
+/* ---- Settings: opens beside the rail, since it belongs to the rail's gear, not to the scene. ---- */
+
+.settings-panel {
+  top: 10%;
+  right: auto;
+  left: 4.6rem;
+  width: min(25rem, 40vw);
+  transform: translateX(-1.5rem);
+}
+
+.settings-panel.is-open {
+  transform: none;
+}
+
+.setting {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgb(46 111 72 / 0.22);
+}
+
+.setting-head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.setting-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  border: 1px solid rgb(114 246 162 / 0.5);
+  color: var(--text);
+}
+
+.setting-name {
+  margin: 0.1rem 0 0;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.setting-head .panel-state {
+  margin-top: 0.25rem;
+}
+
+.setting-line {
+  margin: 0.75rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #8fa197;
+}
+
+.setting-fine {
+  margin: 0.5rem 0 0;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+
+.setting-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.setting-button {
+  height: 2.2rem;
+  padding: 0 1rem;
+  border: 1px solid rgb(46 111 72 / 0.35);
+  border-radius: 10px;
+  background: rgb(2 9 4 / 0.45);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.12s ease-out;
+}
+
+.setting-button.is-primary {
+  border-color: rgb(66 178 110 / 0.7);
+  background: rgb(9 43 21 / 0.7);
+  color: var(--glow);
+}
+
+.setting-button:hover:not(:disabled),
+.setting-button:focus-visible {
+  border-color: var(--live);
+  outline: none;
+}
+
+.setting-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.setting-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The change itself, exactly as it will be written. Monospace, because this is the one place
+   the grove shows you a file, and the lines have to line up the way they will on disk. */
+.hooks-diff {
+  max-height: 15rem;
+  margin: 0.6rem 0 0;
+  padding: 0.6rem 0.7rem;
+  overflow: auto;
+  border: 1px solid rgb(46 111 72 / 0.25);
+  border-radius: 10px;
+  background: rgb(1 5 2 / 0.75);
+  font: 10.5px/1.55 var(--font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  white-space: pre;
+  color: var(--text-dim);
+}
+
+.hooks-diff:focus-visible {
+  border-color: var(--live);
+  outline: none;
+}
+
+.diff-add {
+  color: var(--glow);
+}
+
+.diff-remove {
+  color: var(--wait);
+}
+
+.diff-gap {
+  color: var(--vein);
+}
+
 /* ---- Deploying toast, bottom centre above the console. ---- */
 
 .deploy-toast {

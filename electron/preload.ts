@@ -40,6 +40,8 @@ const api: GroveApi = {
   addAgent: (draft) => ipcRenderer.invoke(CHANNELS.addAgent, draft),
   removeAgent: (id) => ipcRenderer.invoke(CHANNELS.removeAgent, id),
   openAgentLink: (id) => ipcRenderer.invoke(CHANNELS.openAgentLink, id),
+  planHooks: (action) => ipcRenderer.invoke(CHANNELS.planHooks, action),
+  applyHooks: (action, baseline) => ipcRenderer.invoke(CHANNELS.applyHooks, action, baseline),
 }
 
 contextBridge.exposeInMainWorld('grove', api)
