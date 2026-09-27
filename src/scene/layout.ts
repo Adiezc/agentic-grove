@@ -103,6 +103,7 @@ export function layoutStones(stones: DerivedStone[]): StoneSpec[] {
       scale: 0.92 + h * 0.14,
       turn: (h - 0.5) * 0.44,
       line: lastWork(stone) ?? 'Nothing yet.',
+      tells: stone.tells,
       workers: [
         ...new Set(
           stone.sessions

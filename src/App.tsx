@@ -132,7 +132,9 @@ export function App() {
     (id: string): string => {
       if (id.startsWith('place-')) return 'Empty place. Enter to create or connect a project.'
       const stone = stones.find((candidate) => candidate.id === id)
-      return stone ? `${stone.name} runestone, ${STATE_LABEL[stone.status].toLowerCase()}. Enter to open.` : ''
+      if (!stone) return ''
+      const check = stone.tells?.[0] ? ` Worth checking: ${stone.tells[0].detail}.` : ''
+      return `${stone.name} runestone, ${STATE_LABEL[stone.status].toLowerCase()}.${check} Enter to open.`
     },
     [stones]
   )

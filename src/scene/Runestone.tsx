@@ -27,6 +27,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
+import type { Tell } from '../../core/harnesses/types.ts'
 import * as THREE from 'three'
 import { palette } from '../theme/palette'
 import { crystal, groundRing, seededRandom, type CrystalSpec } from './geometry'
@@ -211,6 +212,8 @@ export interface StoneSpec {
    * stone, which is how two agents on two projects stay tellable apart inside one heartbeat.
    */
   workers?: string[]
+  /** Signs the work here may need checking, newest first. See `core/harnesses/claude-tells.ts`. */
+  tells?: Tell[]
 }
 
 /**
@@ -367,6 +370,10 @@ function settle(t: number): number {
 /** The ring of light thrown across the floor as the stone breaks through. */
 const SHOCK_RING = groundRing(0.5, 0.012, 96)
 
+/** A tell only flickers if it happened within this long; older ones wait quietly in the panel. */
+const TELL_NEWS_MS = 5 * 60 * 1000
+const FLICKER_SECONDS = 0.9
+
 export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, selected = false, rising = false }: RunestoneProps) {
   const scale = spec.scale ?? 1
   const status = spec.status
@@ -515,6 +522,20 @@ export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, select
   /** Eased 0 to 1, so choosing a stone brightens it over half a second rather than switching. */
   const lift = useRef(0)
 
+  /* A tell flickers the stone's light once, when it is new. Not on launch for tells already
+   * there, and not for one found long after it happened: a flag that shows up late should be
+   * readable in the panel, not announced as if it just occurred. `flickerAt` is the clock time the
+   * flicker started, or -1. */
+  const newestTell = spec.tells?.[0]?.at ?? 0
+  const seenTell = useRef(newestTell)
+  const flickerAt = useRef(-1)
+  const [flickerDue, setFlickerDue] = useState(false)
+  useEffect(() => {
+    if (newestTell <= seenTell.current) return
+    seenTell.current = newestTell
+    if (Date.now() - newestTell < TELL_NEWS_MS) setFlickerDue(true)
+  }, [newestTell])
+
   useFrame((state, delta) => {
     lift.current = THREE.MathUtils.damp(lift.current, selected ? 1 : 0, 5, delta)
     // Rune and beam wait until the stone has nearly stopped, so it arrives dark and then wakes.
@@ -526,7 +547,11 @@ export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, select
      * blinks because it needs a person. */
     const pulse =
       status === 'waiting' ? 0.65 + 0.35 * (Math.sin(state.clock.elapsedTime * 2.1) * 0.5 + 0.5) : 1
-    const intensity = base * pulse
+    if (flickerDue && flickerAt.current < 0) {
+      flickerAt.current = state.clock.elapsedTime
+      setFlickerDue(false)
+    }
+    const intensity = base * pulse * flicker(state.clock.elapsedTime)
 
     if (runeRef.current) {
       const runeFace = runeRef.current.material as THREE.MeshBasicMaterial
@@ -543,6 +568,17 @@ export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, select
     beamMaterial.uniforms.uColour!.value.setStyle(RUNE_COLOUR[status])
     beamMaterial.uniforms.uAmount!.value = Math.min(0.18 + intensity * 0.28, 0.95) * reveal
   })
+
+  /** The flicker's brightness multiplier: three quick dips over under a second, then steady. */
+  function flicker(time: number): number {
+    if (flickerAt.current < 0) return 1
+    const t = time - flickerAt.current
+    if (t > FLICKER_SECONDS) {
+      flickerAt.current = -1
+      return 1
+    }
+    return 1 - 0.75 * Math.abs(Math.sin((t / FLICKER_SECONDS) * Math.PI * 3)) * (1 - t / FLICKER_SECONDS)
+  }
 
   /**
    * One frame of the rise, if it is still going. Returns how awake the stone should look, 0 to 1.

@@ -791,3 +791,24 @@ Announcements go through one live region (`Announcer`), in the words the labels 
 use; the first move adds how the keys work. R reports runes honestly, which today is "no runes
 yet". Tested in the packaged app by driving Chromium's own input over its debugging port: macOS
 key injection does not deliver Esc to Electron windows, which looked like a bug and was not.
+
+## Tells come from transcripts, not hooks
+
+*27 September 2026*
+
+The roadmap had Tells coming from hooks. Claude Code reports a failed tool call only through
+`PostToolUseFailure`, which the Grove does not install, so hooks would have meant a second
+settings change. Transcripts already record every failure (`is_error`) and every edit, for desktop
+and terminal sessions, and they survive a restart. `core/harnesses/claude-tells.ts` reads the last
+256KB of each Claude Code transcript touched in the last day, re-reading only when it grows.
+
+Three tells: the same tool failing three times running, an edit exactly reversed by a later one,
+and a turn ending straight after a failed call. Failures a person caused (a rejection, an
+interruption, a permission rule's refusal) are not tells. Each carries one sentence saying what
+triggered it. A stone keeps its three newest from the last day; its panel lists them in grey, not
+amber, because amber means something needs you and a tell only might. The stone's light flickers
+once when a tell is new (under five minutes old), never on launch for ones already there.
+
+`npm run verify:tells` checks the reader against hand-written transcripts, since a quiet day has
+no real tells and "found nothing" looks the same whether the reader works or not. Codex is not
+read for tells yet.

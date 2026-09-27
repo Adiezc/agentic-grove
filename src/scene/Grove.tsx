@@ -47,7 +47,17 @@ export const SPIKE_STONES: StoneSpec[] = [
   { id: 'data', name: 'Data', rune: 'maqi', status: 'idle', at: [-5.25, 0.3], scale: 1.02, turn: -0.24 },
   { id: 'compute', name: 'Compute', rune: 'celi', status: 'idle', at: [-3.35, 3.1], scale: 1.06, turn: 0.09 },
   { id: 'connect', name: 'Connect', rune: 'mucoi', status: 'waiting', at: [2.9, 3.2], scale: 1.05, turn: -0.13 },
-  { id: 'build', name: 'Build', rune: 'neta', status: 'running', at: [3.9, -2.05], scale: 0.92, turn: 0.21 },
+  {
+    id: 'build',
+    name: 'Build',
+    rune: 'neta',
+    status: 'running',
+    at: [3.9, -2.05],
+    scale: 0.92,
+    turn: 0.21,
+    // A sample tell, so the demo shows what one looks like in the stone's panel.
+    tells: [{ kind: 'repeated-failure', at: Date.now() - 12 * 60_000, detail: 'Bash failed 3 times in a row' }],
+  },
   { id: 'archive', name: 'Archive', rune: 'avi', status: 'idle', at: [5.3, 0.7], scale: 0.98, turn: -0.18 },
 ]
 

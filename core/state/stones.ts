@@ -21,7 +21,7 @@
  */
 import path from 'node:path'
 import os from 'node:os'
-import type { Provenance, Session, SessionStatus } from '../harnesses/types.ts'
+import type { Provenance, Session, SessionStatus, Tell } from '../harnesses/types.ts'
 import type { GroveFile, Rune, StoneConfig } from './schema.ts'
 
 /**
@@ -90,6 +90,11 @@ export interface Runestone {
   lastActivityAt: number
   /** Repeatable tasks carved here. */
   runes: Rune[]
+  /**
+   * Signs from this stone's sessions that the work may need checking, newest first, at most
+   * three. Each is a flag with its reason, never a status: a stone with a tell is not "failed".
+   */
+  tells: Tell[]
 }
 
 /** A folder with agent work in it that is not a stone yet, offered when connecting a project. */
@@ -181,6 +186,10 @@ function buildStone(config: StoneConfig, group: Session[], now: number): Runesto
     attentionCount: ordered.filter((session) => wantsYou(session, now)).length,
     lastActivityAt: ordered[0]?.lastActivityAt ?? 0,
     runes: config.runes ?? [],
+    tells: ordered
+      .flatMap((session) => session.tells ?? [])
+      .sort((a, b) => b.at - a.at)
+      .slice(0, 3),
   }
 }
 

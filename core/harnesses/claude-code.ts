@@ -21,7 +21,8 @@
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
-import type { HarnessAdapter, OpenResult, Provenance, Session, SessionStatus } from './types.ts'
+import { readTells } from './claude-tells.ts'
+import type { HarnessAdapter, OpenResult, Provenance, Session, SessionStatus, Tell } from './types.ts'
 import {
   exists,
   isRecord,
@@ -590,9 +591,29 @@ async function scanSessions(): Promise<Session[]> {
         ? await awaitingReply(draft.transcriptFile)
         : false
     const { status, statusProvenance } = statusOf(draft, waiting, fresh)
-    sessions.push(toSession(draft, status, statusProvenance))
+    const session = toSession(draft, status, statusProvenance)
+    if (draft.transcriptFile && now - draft.lastActivityAt < TELLS_WINDOW_MS) {
+      session.tells = await cachedTells(draft.transcriptFile, draft.sizeBytes, now)
+    }
+    sessions.push(session)
   }
   return sessions
+}
+
+/**
+ * Tells are looked for only in sessions touched in the last day, and re-read only when the file
+ * has grown. A tell older than the window is dropped: yesterday's retries are not news.
+ */
+const TELLS_WINDOW_MS = 24 * 60 * 60 * 1000
+const tellsCache = new Map<string, { size: number; tells: Tell[] }>()
+
+async function cachedTells(file: string, size: number, now: number): Promise<Tell[]> {
+  let cached = tellsCache.get(file)
+  if (!cached || cached.size !== size) {
+    cached = { size, tells: await readTells(file) }
+    tellsCache.set(file, cached)
+  }
+  return cached.tells.filter((tell) => now - tell.at < TELLS_WINDOW_MS)
 }
 
 /* -------------------------------------------------------------------------------------------

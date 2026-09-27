@@ -7,11 +7,12 @@
  * glow, never a sentence.
  */
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowSquareOut, CaretLeft, CaretRight, Check, Cube, Plus, Trash, User, X } from '@phosphor-icons/react'
+import { ArrowSquareOut, CaretLeft, CaretRight, Check, Cube, Eye, Plus, Trash, User, X } from '@phosphor-icons/react'
 import type { AgentGlyph, AgentHarness } from '../../core/state/schema.ts'
 import { GLYPH_CHOICES, GLYPHS } from '../agents/glyphs'
 import { HARNESS_MARK, kindOf, ROOM, useTree } from '../agents/tree'
 import type { StoneSpec } from '../scene/Runestone'
+import { ago } from '../../core/usage/format.ts'
 import { useFlow } from '../store/flow'
 
 /** One line per fixture stone. Real stones will take theirs from the project's README or name. */
@@ -58,6 +59,19 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
               </p>
             </div>
           </header>
+          {/* Tells: quiet flags with their reasons, so they can be judged rather than trusted.
+              Grey, not amber: amber means something needs you, and a tell only might. */}
+          {stone.tells?.length ? (
+            <ul className="panel-tells" aria-label="Worth checking">
+              {stone.tells.map((tell) => (
+                <li key={`${tell.kind}-${tell.at}`} className="panel-tell">
+                  <Eye size={13} weight="thin" aria-hidden="true" />
+                  <span>{tell.detail}</span>
+                  <span className="tell-when">{ago(tell.at, Date.now())}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <div className="panel-actions">
             <button type="button" className="panel-row" onClick={openAgents}>
               <User size={18} weight="thin" />

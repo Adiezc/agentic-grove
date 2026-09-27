@@ -41,7 +41,7 @@ Picked on 27 September 2026, after step 6. Ranked, most important first.
    usable without a mouse. Each move is announced through the existing live region, which
    `HoverReadout` in `src/hud/Hud.tsx` already flags as the half-answer waiting for this. Ranked
    first because accessibility is a requirement for release, not a nice-to-have.
-2. **Tells (about half a session). Can be built now.** When an agent's work looks unsure, its light
+2. **Tells. Done 27 September 2026, from transcripts rather than hooks.** When an agent's work looks unsure, its light
    flickers once. Signals, all from hooks: the same tool call failing several times in a row, an edit
    undone by a later edit, or a session that ends straight after an error. A quiet flag for work worth
    checking, never an alarm. Say what triggered it on hover, so the flag can be judged, not trusted.

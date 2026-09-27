@@ -40,6 +40,19 @@ export type Provenance = 'official' | 'measured' | 'inferred' | 'unknown'
  */
 export type SessionStatus = 'running' | 'waiting' | 'idle' | 'errored'
 
+/**
+ * A sign that a session's work may be worth a second look: repeated failures, an edit undone,
+ * a turn that ended on an error. A flag, never a verdict; `detail` says what triggered it so a
+ * person can judge it. Adapters that cannot tell simply leave `tells` off.
+ */
+export interface Tell {
+  kind: 'repeated-failure' | 'undone-edit' | 'ended-on-error'
+  /** Epoch ms of the record that triggered it. */
+  at: number
+  /** One plain sentence, such as "Bash failed 3 times in a row". */
+  detail: string
+}
+
 /** One agent session, from any tool. Epoch-millisecond timestamps throughout. */
 export interface Session {
   /**
@@ -94,6 +107,9 @@ export interface Session {
   archived: boolean
   /** Adapter bookkeeping — the Claude adapter uses `desktop` / `cli`. Free-form. */
   source: string
+
+  /** Signs the work may need checking, newest last. Absent where the adapter cannot tell. */
+  tells?: Tell[]
 
   /** Whether this session can be handed back to its own tool. The UI greys the button out. */
   canOpen: boolean
