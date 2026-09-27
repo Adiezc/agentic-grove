@@ -732,3 +732,40 @@ removal restores the file exactly.
 **Not in this session:** the statusline hook, which is where official rate limits come from.
 It belongs with the crystal (next), and it needs its own consent flow because Claude Code allows
 only one statusline and a person may already have one.
+
+## The crystal: official where a provider says so, counted where it does not
+
+*27 September 2026, session 7*
+
+**The statusline cannot reach the Grove from the desktop app.** Tested, not assumed: a
+`statusLine` command that copied its input to a file was added to `~/.claude/settings.json` (with
+consent and a backup), and a fresh desktop session ran its `SessionStart` hook but never the
+statusline. Settings were then restored byte for byte. The official Claude five-hour and weekly
+percentages only exist for people running Claude Code in a terminal, so the statusline route is
+deferred to before the public release, for them. Reading the desktop app's private caches or its
+login token was ruled out: undocumented, fragile, and it means handling credentials.
+
+**What the crystal shows instead** (`core/usage/`, on its own one-minute timer, outside the scan):
+
+- **Codex, official.** Every `token_count` event in a Codex rollout carries the five-hour and
+  weekly `rate_limits` OpenAI reported. Better than the brief expected. The figure is true as of
+  the last Codex turn, so its age travels with it, and once a window's reset time passes it
+  becomes `unknown` rather than a stale percentage.
+- **Claude Code, measured.** Tokens per message, summed over five hours and seven days from the
+  transcripts, including subagents. Input, cache writes and output; cache reads left out, because
+  they dwarf everything and cost a tenth as much. Messages are counted once by id (they are
+  written several times while streaming, and resumed sessions can repeat them). Each file is read
+  once, then only from where the last read stopped: a week here is 133MB and a refresh reads the
+  new lines only. No percentage, ever: the limit is not visible, and dividing by a guess would be
+  inventing the number. Checked against an independent count in Python: equal.
+
+**How it looks.** A rim round the hexagon: left half Claude, right half Codex. An official limit
+fills its half from the bottom with the headroom left, amber below 10%. A measured-only provider
+is a dotted line (activity known, ceiling not). Unknown stays dark. Hover or click opens a
+readout with every figure and its provenance; the wording lives in `core/usage/format.ts` so the
+readout and the menu bar cannot disagree.
+
+**The menu-bar shard** (`electron/tray.ts`). A template hexagon drawn by
+`scripts/make-tray-icon.swift`, with the same figures in its menu, plus Open and Quit. Text
+beside it only when an official limit is under 10% left. Closing the window no longer quits the
+app: the Grove keeps listening from the menu bar, as the brief intended.

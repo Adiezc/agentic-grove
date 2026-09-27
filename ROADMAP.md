@@ -15,7 +15,7 @@ the Grove already has (the scan plus Claude Code hooks). Decisions made along th
 | 4 | Real session data in the scene: a stone per project, lit when running | Done |
 | 5 | Heartbeat driven by real activity, mycelium, drifting motes | Done |
 | 6 | Hook installer and local listener, so changes arrive instantly | Done |
-| 7 | The crystal (usage and rate-limit headroom, with provenance), and a menu-bar shard | Next |
+| 7 | The crystal (usage and rate-limit headroom, with provenance), and a menu-bar shard | Done |
 | 8 | Agent definitions, the tree panel, the agent carousel | |
 | 9 | Spawning agents, deploy-to-runestone animation, live transcript view | |
 | 10 | The rune console: natural-language routing to an agent and a stone | |
@@ -24,7 +24,13 @@ the Grove already has (the scan plus Claude Code hooks). Decisions made along th
 | 14 | Packaging, notarised Mac build, DMG | |
 | 15 | README with an honest capability table, screenshots, a demo GIF | |
 
-Windows support comes before the public release.
+Before the public release:
+
+- **Windows support.**
+- **Official Claude limits for terminal users.** Claude Code's statusline carries the official
+  five-hour and weekly percentages, but only the terminal runs it; the desktop app does not
+  (tested). It needs its own consent step, because Claude Code allows one statusline and people
+  often have one already.
 
 ## Chosen for future sessions
 

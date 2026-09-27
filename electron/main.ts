@@ -24,6 +24,9 @@ import { deriveStones } from '../core/state/stones.ts'
 import { GROK_HOME, defaultGrove, isHttpsUrl } from '../core/state/schema.ts'
 import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type ProjectResult } from './bridge.ts'
 import { LiveState } from '../core/hooks/live.ts'
+import { startUsageLoop } from '../core/usage/index.ts'
+import { createShard, type Shard } from './tray.ts'
+import type { UsageReport } from '../core/usage/types.ts'
 import { startHookServer, type HookServer } from '../core/hooks/server.ts'
 import { applyHooks, hookToken, hooksState, planHooks, type HooksAction } from '../core/hooks/install.ts'
 import { ipcMain } from 'electron'
@@ -48,6 +51,10 @@ let lastScan: ScanResult | null = null
 /** What the hooks have said, laid over each scan. See `core/hooks/live.ts`. */
 const live = new LiveState()
 let hookServer: HookServer | null = null
+/** The crystal's figures. Refreshed once a minute on their own timer; see `core/usage/`. */
+let usage: UsageReport | null = null
+let stopUsage: (() => void) | undefined
+let shard: Shard | null = null
 
 /** Every open window that wants snapshots. Plural already, because the mini-window is coming. */
 const windows = new Set<BrowserWindow>()
@@ -102,6 +109,7 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
     grovePath: loaded?.path ?? grovePath(),
     scanMs: result.durationMs,
     hooks,
+    usage,
   }
 }
 
@@ -355,6 +363,16 @@ void app.whenReady().then(async () => {
   registerHandlers()
   await startListening()
   await restartScanning()
+  // A new usage report redraws from the last scan rather than waiting up to a scan interval.
+  shard = createShard(path.join(dirname, '..', 'assets', 'tray', 'crystalTemplate.png'), {
+    open: showWindow,
+    quit: () => app.quit(),
+  })
+  stopUsage = startUsageLoop((report) => {
+    usage = report
+    shard?.update(report)
+    if (lastScan) void toSnapshot(lastScan).then(broadcast)
+  })
   createWindow()
 
   // macOS convention: clicking the dock icon after closing every window reopens one rather than
@@ -364,14 +382,25 @@ void app.whenReady().then(async () => {
   })
 })
 
-// On macOS, closing the last window normally leaves the app running in the dock. The Grove will
-// eventually want exactly that — it lives in the menu bar and watches in the background — but
-// until there is a tray icon to get back in through, quitting is the honest behaviour.
+// Closing the window leaves the Grove running, as macOS apps normally do: it keeps listening for
+// hooks and keeps the menu-bar shard current. The shard's "Open the Grove", or the Dock icon,
+// brings the window back; Quit in either place stops it.
 app.on('window-all-closed', () => {
-  app.quit()
+  /* stay running in the menu bar */
 })
+
+/** Bring the window forward, or open a new one if it was closed. */
+function showWindow(): void {
+  const open = BrowserWindow.getAllWindows()[0]
+  if (!open) return createWindow()
+  if (open.isMinimized()) open.restore()
+  open.show()
+  open.focus()
+}
 
 app.on('before-quit', () => {
   stopScanning?.()
+  stopUsage?.()
+  shard?.destroy()
   hookServer?.close()
 })

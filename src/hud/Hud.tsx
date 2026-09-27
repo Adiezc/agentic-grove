@@ -124,29 +124,6 @@ export function HarnessRow() {
 }
 
 /**
- * The crystal: usage and rate-limit headroom.
- *
- * The logo mark sits inside it in the art, so the real logo is used rather than a redrawing of
- * it. In the spike it shows nothing — there is no number here, and that is the honest state
- * before the statusline hook exists. Per principle two, a facet that stays dark beats one that
- * lies, and this is what that looks like at this stage.
- */
-export function Crystal() {
-  return (
-    <div className="crystal" title="Usage headroom (not measured yet)">
-      <span className="crystal-thread" aria-hidden="true" />
-      <div className="crystal-body">
-        {/* The 256px copy, not the 1.6MB original: this renders at about 50px and the full
-            resolution was being bundled whole. `assets/logo.png` stays the source of truth and
-            is what the app icon will be cut from. */}
-        <img src={new URL('../../assets/logo-mark.png', import.meta.url).href} alt="" className="crystal-mark" />
-      </div>
-      <span className="crystal-drop" aria-hidden="true" />
-    </div>
-  )
-}
-
-/**
  * The counts, bottom left. Three lines, two words each, exactly as in the art.
  *
  * The dots are the one place the project allows a decorative-looking status dot, and they are not

@@ -18,6 +18,7 @@ import type { DerivedGrove } from '../core/state/stones.ts'
 import type { AgentDefinition, GroveProblem, GroveSettings } from '../core/state/schema.ts'
 import type { AgentDraft } from '../core/state/grove.ts'
 import type { HooksAction, HooksPlan, HooksState } from '../core/hooks/install.ts'
+import type { UsageReport } from '../core/usage/types.ts'
 
 /**
  * One complete picture of the grove, sent after every scan.
@@ -47,6 +48,8 @@ export interface GroveSnapshot {
   scanMs: number
   /** Claude Code hooks: whether they are installed, and whether the Grove is hearing them. */
   hooks: HooksStatus
+  /** What the crystal shows. `null` until the first usage pass, which runs on its own timer. */
+  usage: UsageReport | null
 }
 
 export interface HooksStatus {

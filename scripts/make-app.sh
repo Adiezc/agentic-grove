@@ -38,6 +38,9 @@ cp "$WORK/AppIcon.icns" "$RES/electron.icns"
 rm -f "$RES/default_app.asar"
 mkdir -p "$RES/app"
 cp -R dist dist-electron "$RES/app/"
+# The menu-bar icon is read from disk by the main process, so it ships beside the code.
+mkdir -p "$RES/app/assets"
+cp -R assets/tray "$RES/app/assets/"
 # Only what Electron needs to find and start the code.
 cat > "$RES/app/package.json" <<JSON
 { "name": "agentic-grove", "productName": "$NAME", "version": "$(node -p "require('./package.json').version")", "type": "module", "main": "dist-electron/main.js" }
