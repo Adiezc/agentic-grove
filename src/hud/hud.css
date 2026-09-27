@@ -1135,6 +1135,7 @@
 /* ---- Empty places: the plus on hover, and the create-or-connect menu. ---- */
 
 .place-plus {
+  animation: plus-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   display: grid;
   place-items: center;
   width: 2.2rem;
@@ -1204,10 +1205,67 @@
 .place-suggestions {
   display: grid;
   gap: 0.1rem;
-  margin: 0.6rem 0 0;
-  padding: 0.5rem 0 0;
+  max-height: 14rem;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  overflow-y: auto;
   list-style: none;
+}
+
+/* The folders arrive one after another rather than all at once, so the step reads as the menu
+   opening further rather than being replaced. */
+.place-suggestions li {
+  animation: row-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.place-back {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.place-back:hover:not(:disabled),
+.place-back:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.place-browse {
+  margin-top: 0.4rem;
+  padding-top: 0.55rem;
   border-top: 1px solid rgb(46 111 72 / 0.25);
+  border-radius: 0 0 7px 7px;
+  color: var(--glow);
+}
+
+@keyframes plus-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.8);
+  }
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .place-plus,
+  .place-menu,
+  .place-suggestions li {
+    animation: none;
+  }
 }
 
 .place-suggestion {

@@ -230,7 +230,15 @@ interface GroveSceneProps {
   onHoverStone?: (id: string | null) => void
   /** Increment to return the orbit camera to the supplied Grove composition. */
   viewResetKey?: number
+  /**
+   * True once the first real list of stones has arrived. Stones present at that moment were
+   * already there and simply stand; any that appear afterwards arrived while you watched, and
+   * those grow their roots and rise out of the ground.
+   */
+  ready?: boolean
 }
+
+const NONE_ARRIVING: ReadonlySet<string> = new Set()
 
 export function GroveScene({
   stones = [],
@@ -241,6 +249,7 @@ export function GroveScene({
   onPerf,
   onHoverStone,
   viewResetKey = 0,
+  ready = true,
 }: GroveSceneProps) {
   const [hovered, setHovered] = useState<string | null>(null)
   const settings = QUALITY[quality]
@@ -254,6 +263,22 @@ export function GroveScene({
     [view, stoneId, stones]
   )
   const tree = useTree()
+
+  /* Which stones are new. `known` is only written after a render has been committed, so a
+   * render React throws away (StrictMode does this on purpose) cannot mark a stone as seen
+   * before it has actually been drawn rising. The stone itself latches the answer on mount. */
+  const known = useRef<Set<string> | null>(null)
+  const arriving = useMemo(() => {
+    const seen = known.current
+    if (!ready || !seen || !animate) return NONE_ARRIVING
+    const fresh = stones.filter((stone) => !seen.has(stone.id)).map((stone) => stone.id)
+    return fresh.length ? new Set(fresh) : NONE_ARRIVING
+  }, [ready, stones, animate])
+  useEffect(() => {
+    if (!ready) return
+    known.current ??= new Set()
+    for (const stone of stones) known.current.add(stone.id)
+  }, [ready, stones])
   const deployFrom = deployment ? tree.agents.find((agent) => agent.id === deployment.agentId)?.at : undefined
   const deployTo = deployment ? stones.find((stone) => stone.id === deployment.stoneId)?.at : undefined
   const activity = activityOf(stones)
@@ -341,7 +366,7 @@ export function GroveScene({
       <directionalLight position={[5, 3, 6]} intensity={0.08} color={palette.bone} />
 
       <Ground reflect={settings.reflect} reflectionResolution={settings.reflectionRes} />
-      <Mycelium network={network} active={active} attention={attention} failed={failed} activity={activity} animate={animate} />
+      <Mycelium network={network} arriving={arriving} active={active} attention={attention} failed={failed} activity={activity} animate={animate} />
       {/* Scaled up a touch. Measured against the art the tree should fill rather more of the
           frame than a one-to-one build of the coordinates gives, because the art's camera is
           slightly closer than the ring ellipse alone implies. */}
@@ -366,6 +391,7 @@ export function GroveScene({
           }
           onHover={handleHover}
           onSelect={selectStone}
+          rising={arriving.has(stone.id)}
           selected={stoneId === stone.id && view !== 'home'}
         />
       ))}

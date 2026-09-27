@@ -149,6 +149,7 @@ export function App() {
           onPerf={onPerf}
           onHoverStone={setHovered}
           viewResetKey={viewResetKey}
+          ready={DEMO || snapshot !== null}
         />
       </div>
 

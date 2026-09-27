@@ -2,17 +2,18 @@
  * An empty circle in the grove: a place where a project's stone can stand.
  *
  * At rest it is two faint rings on the floor, the footprint a stone would leave, so a new grove
- * reads as a clearing waiting to be filled rather than an unfinished scene. Hovering lifts it and
- * shows a plus; clicking opens two choices beside it, create a new project or connect one you
- * already have, with the folders your agents have been busy in offered first.
+ * reads as a clearing waiting to be filled rather than an unfinished scene. Hovering warms the
+ * rings at once and shows a plus a moment later; clicking opens two choices, New or Connect.
+ * Connect is where the folders your agents have been busy in are offered, one step in, so the
+ * first thing you see is a choice of two rather than a list.
  *
  * The menu is DOM, through drei's `<Html>`, for the same reason the agent orbs are: it is a few
  * buttons that need focus, a keyboard and a screen-reader name, and it only exists while open.
  */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
-import { FolderOpen, FolderSimple, Plus } from '@phosphor-icons/react'
+import { CaretLeft, FolderOpen, FolderSimple, FolderSimplePlus, Plus } from '@phosphor-icons/react'
 import * as THREE from 'three'
 import type { ProjectResult } from '../../electron/bridge.ts'
 import { useFlow } from '../store/flow'
@@ -27,8 +28,17 @@ const NO_SUGGESTIONS: never[] = []
 
 const RINGS = [0.45, 0.74].map((radius) => groundRing(radius, radius > 0.6 ? 0.006 : 0.009, 96))
 
+/**
+ * How long the pointer has to rest on a circle before its plus appears.
+ *
+ * Long enough that sweeping the pointer across the floor does not make pluses blink on and off
+ * under it, short enough that someone who means it never feels they are waiting.
+ */
+const PLUS_DELAY_MS = 350
+
 export function EmptyPlace({ place }: { place: Place }) {
   const [hovered, setHovered] = useState(false)
+  const [showPlus, setShowPlus] = useState(false)
   const open = useFlow((state) => state.placeIndex === place.index)
   const openPlace = useFlow((state) => state.openPlace)
   const material = useMemo(
@@ -44,6 +54,15 @@ export function EmptyPlace({ place }: { place: Place }) {
     []
   )
   const glow = useRef(0)
+
+  useEffect(() => {
+    if (!hovered) {
+      setShowPlus(false)
+      return
+    }
+    const timer = window.setTimeout(() => setShowPlus(true), PLUS_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [hovered])
 
   // Eased, so the circle warms when you come near rather than switching on.
   useFrame((_, delta) => {
@@ -77,7 +96,7 @@ export function EmptyPlace({ place }: { place: Place }) {
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
-      {hovered && !open ? (
+      {showPlus && !open ? (
         <Html position={[0, 0.45, 0]} center zIndexRange={[15, 10]} style={{ pointerEvents: 'none' }}>
           <span className="place-plus" aria-hidden="true">
             <Plus size={18} weight="thin" />
@@ -93,11 +112,18 @@ export function EmptyPlace({ place }: { place: Place }) {
   )
 }
 
-/** The two choices, and the folders your agents have already been working in. */
+/**
+ * The menu, in two steps.
+ *
+ *   choose   New or Connect, and nothing else.
+ *   connect  The folders your agents have been busy in, and "Choose folder" for anything else.
+ *            Skipped straight to the folder picker when there is nothing to suggest.
+ */
 function PlaceMenu() {
   const suggestions = useGrove((state) => state.snapshot?.grove.suggestions ?? NO_SUGGESTIONS)
   const bridge = typeof window !== 'undefined' ? window.grove : undefined
   const back = useFlow((state) => state.back)
+  const [step, setStep] = useState<'choose' | 'connect'>('choose')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -110,22 +136,22 @@ function PlaceMenu() {
     else if (!result.cancelled) setError(result.error ?? 'That did not work')
   }
 
-  return (
-    <div className="place-menu" role="dialog" aria-label="New runestone">
-      <div className="place-choices">
-        <button type="button" className="place-choice" disabled={!bridge || busy} onClick={() => bridge && run(bridge.createProject)}>
-          <Plus size={20} weight="thin" />
-          <span>Create</span>
-        </button>
-        <button type="button" className="place-choice" disabled={!bridge || busy} onClick={() => bridge && run(bridge.browseProject)}>
-          <FolderOpen size={20} weight="thin" />
+  const connect = () => {
+    if (!bridge) return
+    if (suggestions.length) setStep('connect')
+    else void run(bridge.browseProject)
+  }
+
+  if (step === 'connect') {
+    return (
+      <div className="place-menu is-step" role="dialog" aria-label="Connect a project">
+        <button type="button" className="place-back" onClick={() => setStep('choose')} disabled={busy}>
+          <CaretLeft size={12} weight="thin" />
           <span>Connect</span>
         </button>
-      </div>
-      {suggestions.length ? (
-        <ul className="place-suggestions" aria-label="Recent folders">
-          {suggestions.map((suggestion) => (
-            <li key={suggestion.path}>
+        <ul className="place-suggestions" aria-label="Folders your agents have worked in">
+          {suggestions.map((suggestion, index) => (
+            <li key={suggestion.path} style={{ animationDelay: `${index * 35}ms` }}>
               <button
                 type="button"
                 className="place-suggestion"
@@ -139,7 +165,32 @@ function PlaceMenu() {
             </li>
           ))}
         </ul>
-      ) : null}
+        <button
+          type="button"
+          className="place-suggestion place-browse"
+          disabled={!bridge || busy}
+          onClick={() => bridge && run(bridge.browseProject)}
+        >
+          <FolderOpen size={14} weight="thin" />
+          <span>Choose folder</span>
+        </button>
+        {error ? <p className="place-error">{error}</p> : null}
+      </div>
+    )
+  }
+
+  return (
+    <div className="place-menu" role="dialog" aria-label="New runestone">
+      <div className="place-choices">
+        <button type="button" className="place-choice" disabled={!bridge || busy} onClick={() => bridge && run(bridge.createProject)}>
+          <FolderSimplePlus size={20} weight="thin" />
+          <span>New</span>
+        </button>
+        <button type="button" className="place-choice" disabled={!bridge || busy} onClick={connect}>
+          <FolderOpen size={20} weight="thin" />
+          <span>Connect</span>
+        </button>
+      </div>
       {error ? <p className="place-error">{error}</p> : null}
     </div>
   )

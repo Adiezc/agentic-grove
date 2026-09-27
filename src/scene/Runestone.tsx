@@ -25,7 +25,7 @@
  * tells them apart. That is what lets twenty-five of these sit on screen without the scene
  * becoming a fairground.
  */
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { palette } from '../theme/palette'
@@ -340,9 +340,34 @@ interface RunestoneProps {
   onSelect?: (id: string) => void
   /** The stone the panel is open on. Its body lights from within, as frame 2 of the art shows. */
   selected?: boolean
+  /**
+   * True for a stone that has just been created or connected. Read once, when the stone first
+   * appears: it waits for its roots to reach it, then rises out of the ground. A stone that was
+   * already there when the grove opened simply stands.
+   */
+  rising?: boolean
 }
 
-export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, selected = false }: RunestoneProps) {
+/**
+ * How long a new stone waits before breaking the ground: the time the light takes to run down
+ * the mycelium to it (see `GROW_SECONDS` in `Mycelium.tsx`), less a little so the two overlap and
+ * read as one movement, the roots arriving and the stone answering.
+ */
+const RISE_DELAY = 1.1
+/** From breaking the ground to standing still. Slow enough to watch; it only happens once. */
+const RISE_SECONDS = 1.7
+
+/** Decelerates into place with a slight settle past the end, as a heavy thing does. */
+function settle(t: number): number {
+  const overshoot = 0.9
+  const u = t - 1
+  return 1 + (overshoot + 1) * u * u * u + overshoot * u * u
+}
+
+/** The ring of light thrown across the floor as the stone breaks through. */
+const SHOCK_RING = groundRing(0.5, 0.012, 96)
+
+export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, selected = false, rising = false }: RunestoneProps) {
   const scale = spec.scale ?? 1
   const status = spec.status
 
@@ -459,13 +484,42 @@ export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, select
 
   const runeRef = useRef<THREE.Mesh>(null)
   const glowRef = useRef<THREE.PointLight>(null)
+  const riserRef = useRef<THREE.Group>(null)
+  const footRef = useRef<THREE.Group>(null)
+  const shockRef = useRef<THREE.Mesh>(null)
+  const burstRef = useRef<THREE.PointLight>(null)
+
+  /* Seconds into the rise. Starts negative while the roots are still growing towards the stone,
+   * and a stone that was already standing starts at the end. Latched on mount, so the prop
+   * changing afterwards cannot restart it. */
+  const rise = useRef(rising ? -RISE_DELAY : RISE_SECONDS)
+  const [hasRisen] = useState(!rising)
+  /* The name and worker badges are DOM and sprites floating above the stone, so they would hang in
+   * empty air while it is still underground. They wait until the stone is nearly up. */
+  const [awake, setAwake] = useState(!rising)
+  const awakeRef = useRef(!rising)
+  const shockMaterial = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: palette.energy,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    []
+  )
+  useEffect(() => () => shockMaterial.dispose(), [shockMaterial])
 
   /** Eased 0 to 1, so choosing a stone brightens it over half a second rather than switching. */
   const lift = useRef(0)
 
   useFrame((state, delta) => {
     lift.current = THREE.MathUtils.damp(lift.current, selected ? 1 : 0, 5, delta)
-    const base = RUNE_INTENSITY[status]
+    // Rune and beam wait until the stone has nearly stopped, so it arrives dark and then wakes.
+    const reveal = advanceRise(delta, state.clock.elapsedTime)
+    const base = RUNE_INTENSITY[status] * reveal
     /* Only `waiting` pulses, and this is the most deliberate decision in the file. A stone that
      * wants you should be findable by peripheral vision, which means movement; a stone that is
      * merely working should not move, or the grove is never still. One thing blinks, and it
@@ -487,8 +541,48 @@ export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, select
     companionMaterial.uniforms.uGlow!.value = 0.04 + Math.min(intensity, 2.7) * 0.03
     if (glowRef.current) glowRef.current.intensity = intensity * 1.5 + lift.current * 2.5
     beamMaterial.uniforms.uColour!.value.setStyle(RUNE_COLOUR[status])
-    beamMaterial.uniforms.uAmount!.value = Math.min(0.18 + intensity * 0.28, 0.95)
+    beamMaterial.uniforms.uAmount!.value = Math.min(0.18 + intensity * 0.28, 0.95) * reveal
   })
+
+  /**
+   * One frame of the rise, if it is still going. Returns how awake the stone should look, 0 to 1.
+   *
+   * Everything moves as transforms on groups that already exist, so a stone that has finished
+   * rising costs exactly what it did before this was added.
+   */
+  function advanceRise(delta: number, time: number): number {
+    if (rise.current >= RISE_SECONDS + 1) return 1
+    rise.current += delta
+    const t = THREE.MathUtils.clamp(rise.current / RISE_SECONDS, 0, 1)
+    const riser = riserRef.current
+    if (riser) {
+      riser.visible = rise.current > 0
+      // From fully below the floor to standing, in the stone's own units.
+      riser.position.y = -(height + 0.12) * (1 - settle(t))
+      // A tremor while it pushes through, dying away as it settles.
+      const tremor = rise.current > 0 ? (1 - t) ** 2 * 0.016 : 0
+      riser.position.x = Math.sin(time * 71) * tremor
+      riser.position.z = Math.cos(time * 53) * tremor
+    }
+    // The plinth and its rings open out on the floor as the point breaks through.
+    footRef.current?.scale.setScalar(Math.max(0.001, THREE.MathUtils.smoothstep(t, 0, 0.35)))
+
+    const shock = THREE.MathUtils.clamp(rise.current / 1.3, 0, 1)
+    const fading = rise.current > 0 ? (1 - shock) ** 2 : 0
+    if (shockRef.current) {
+      shockRef.current.visible = fading > 0.001
+      shockRef.current.scale.setScalar(1 + shock * 5)
+    }
+    shockMaterial.opacity = fading * 0.8
+    if (burstRef.current) burstRef.current.intensity = fading * 7
+
+    const reveal = THREE.MathUtils.smoothstep(t, 0.72, 1)
+    if (!awakeRef.current && reveal > 0.3) {
+      awakeRef.current = true
+      setAwake(true)
+    }
+    return reveal
+  }
 
   const [x, z] = spec.at
   // Face the viewer, then deviate by `turn`.
@@ -523,6 +617,7 @@ export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, select
       }}
     >
       <group scale={[scale, scale, scale]}>
+        <group ref={riserRef} visible={hasRisen}>
         <mesh geometry={body} material={material} />
         {/* Depth-tested, so only the seams facing the viewer draw. The art shows a hint of the
             far edges through the body as well, but drawing those means turning depth testing off,
@@ -580,7 +675,9 @@ export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, select
           distance={2.0}
           decay={2}
         />
+        </group>
 
+        <group ref={footRef}>
         <mesh geometry={PLINTH} material={PLINTH_MATERIAL} position={[0, 0.011, 0]} />
 
         {/* A soft dark disc where the stone meets its plinth: the occlusion a real object casts
@@ -598,10 +695,18 @@ export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, select
             position={[0, i < 2 ? 0.024 : 0.004, 0]}
           />
         ))}
+        </group>
+
+        {hasRisen ? null : (
+          <>
+            <mesh ref={shockRef} geometry={SHOCK_RING} material={shockMaterial} position={[0, 0.012, 0]} visible={false} />
+            <pointLight ref={burstRef} position={[0, 0.25, 0]} color={palette.energy} intensity={0} distance={3.2} decay={2} />
+          </>
+        )}
       </group>
 
-      {showLabel ? <RuneLabel name={spec.name} /> : null}
-      {spec.workers?.length ? (
+      {showLabel && awake ? <RuneLabel name={spec.name} /> : null}
+      {spec.workers?.length && awake ? (
         <WorkerBadges workers={spec.workers} height={(cut.shaftHeight + cut.capHeight) * scale} alert={status === 'waiting' || status === 'errored'} />
       ) : null}
     </group>

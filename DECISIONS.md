@@ -672,3 +672,26 @@ sees it. Page code never names what gets opened, which is the same rule `openSes
 **Not done, on purpose:** importing Claude Code subagents from `~/.claude/agents/`. There are
 none on this machine, so it could not be tested against anything real, and connecting one only
 means something once session nine can spawn it.
+
+## A new stone arrives: roots first, then the stone
+
+*27 September 2026, session 6*
+
+Creating or connecting a project used to make its stone appear between one frame and the next.
+Now light runs from the trunk out along the new stone's roots (1.5s), and as it arrives the stone
+pushes up out of the floor with a slight tremor and settles (1.7s), throwing a ring of light
+across the ground. Its rune and beam wake only once it has stopped; its name and worker badges
+wait too, so nothing floats over an empty spot.
+
+Only stones that appear **while you watch** do this. The scene records which stones were already
+there when the first real snapshot arrived, and those simply stand, so launching the app does not
+replay every stone's arrival. Off under reduced motion.
+
+The empty circle's plus now waits 350ms before appearing, and its menu is two choices, New and
+Connect. The suggested folders moved one step in, behind Connect, and Connect goes straight to
+the folder picker when there is nothing to suggest.
+
+**No permission screen of our own.** macOS already asks before an app reads Documents, Desktop or
+Downloads, and choosing a folder in its picker counts as permission for that folder. The scan
+reads `~/.claude` and `~/.codex`, which macOS does not protect. A second, home-made prompt in
+front of the real one would be friction with nothing behind it.

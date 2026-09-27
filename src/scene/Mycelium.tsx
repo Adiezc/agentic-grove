@@ -18,6 +18,11 @@
  * stone's journey in their `v` coordinate, so one travelling window in the fragment shader lights
  * the root, then the forks it passes, then the forks off those, all in sequence, with no state
  * anywhere and one uniform per stone per frame.
+ *
+ * **A new stone's roots fill with light first.** When a project is created or connected, a bright
+ * front runs from the trunk out along that stone's roots, leaving them lit behind it, and the
+ * stone rises out of the ground as it arrives (`Runestone.tsx`). The same `v` coordinate does it:
+ * one more uniform, `uGrow`, saying how far the front has got.
  */
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
@@ -29,6 +34,9 @@ import { heartbeatFrame } from './heartbeat'
 
 /** How much wider than its core a strand's floor wash is. Generous: it is a wash, not an outline. */
 const HALO_WIDTH = 18
+
+/** How long the light takes to run from the trunk to a new stone. */
+const GROW_SECONDS = 1.5
 
 const VERTEX = /* glsl */ `
   varying vec2 vUv;
@@ -53,6 +61,7 @@ const FRAGMENT = /* glsl */ `
   uniform float uHeartbeat;
   uniform float uFailed;
   uniform float uAttention;
+  uniform float uGrow;
   uniform vec3 uAmber;
   uniform vec3 uColour;
   uniform vec3 uHot;
@@ -72,11 +81,20 @@ const FRAGMENT = /* glsl */ `
 
     float amount = uRest * (1.0 + uHeartbeat * 1.15) + travelling;
 
+    // A new stone's roots: dim ahead of the growth front, lit behind it, and a hot band at the
+    // front itself. The front runs a little past 1 so the band clears the stone's end before
+    // it goes out. Once uGrow reaches 1 all three terms collapse to the plain resting network.
+    float front = uGrow * 1.2;
+    float growing = 1.0 - step(1.0, uGrow);
+    float behind = smoothstep(front, front - 0.1, vUv.y);
+    float band = exp(-pow((vUv.y - front) * 16.0, 2.0)) * growing;
+    amount = amount * mix(0.18, 1.0, max(behind, 1.0 - growing)) + band * 1.6;
+
     // Across the strand, for the wash only.
     float across = 1.0 - abs(vUv.x * 2.0 - 1.0);
     float fade = mix(1.0, pow(across, 2.2) * 0.32, uHalo);
 
-    vec3 living = mix(uColour, uHot, clamp(core * uActive * 1.6 + uHeartbeat * 0.24, 0.0, 1.0));
+    vec3 living = mix(uColour, uHot, clamp(core * uActive * 1.6 + uHeartbeat * 0.24 + band, 0.0, 1.0));
     vec3 colour = mix(living, uFailure, uFailed * 0.62);
     // Something needs you: the whole organism leans amber, and each beat pushes it further.
     colour = mix(colour, uAmber, clamp(uAttention, 0.0, 1.0));
@@ -99,6 +117,7 @@ function makeMaterial(halo: boolean, rest: number): THREE.ShaderMaterial {
       uHeartbeat: { value: 0 },
       uFailed: { value: 0 },
       uAttention: { value: 0 },
+      uGrow: { value: 1 },
       uAmber: { value: new THREE.Color(palette.waiting) },
       uColour: { value: new THREE.Color(halo ? palette.vein : palette.live) },
       uHot: { value: new THREE.Color(palette.energy) },
@@ -265,6 +284,8 @@ function starTexture(): THREE.CanvasTexture {
 
 interface MyceliumProps {
   network: Network
+  /** Stones that have just appeared. Their roots fill with light from the trunk outwards. */
+  arriving: ReadonlySet<string>
   /** Stone ids with something happening on them, which is what sends light down a root. */
   active: ReadonlySet<string>
   /** Stone ids holding a turn back. These receive the subtle second attention beat. */
@@ -275,7 +296,7 @@ interface MyceliumProps {
   animate: boolean
 }
 
-export function Mycelium({ network, active, attention, failed, activity, animate }: MyceliumProps) {
+export function Mycelium({ network, arriving, active, attention, failed, activity, animate }: MyceliumProps) {
   /* Grouped by owner, because a pulse belongs to a stone: everything one stone's light travels
    * through is one mesh with one uniform, and everything owned by nobody is one more. That is
    * about fifteen draw calls for the entire floor. */
@@ -293,7 +314,11 @@ export function Mycelium({ network, active, attention, failed, activity, animate
       // the ground right under the trunk is the brightest part of the floor by a wide margin.
       coreMaterial: makeMaterial(false, owner === null ? 0.58 : 0.5),
       haloMaterial: makeMaterial(true, owner === null ? 0.46 : 0.38),
+      // Read when the network is rebuilt, which is exactly when a stone is added: its roots are
+      // part of the new network and start unlit. Everything else starts fully grown.
+      grow: owner !== null && arriving.has(owner) ? 0 : 1,
     }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [network])
 
   /* Disposed on unmount. Three does not free GPU buffers when a React tree goes away, and this
@@ -332,7 +357,9 @@ export function Mycelium({ network, active, attention, failed, activity, animate
       const isFailed = owner ? failed.has(owner) : false
       const attentionLift = needsAttention ? organismBeat * 0.48 : 0
       const time = state.clock.elapsedTime * motion.myceliumFlow * (0.72 + activity * 0.7) + index * 0.37
+      if (group.grow < 1) group.grow = animate ? Math.min(1, group.grow + delta / GROW_SECONDS) : 1
       for (const material of [group.coreMaterial, group.haloMaterial]) {
+        material.uniforms.uGrow!.value = group.grow
         material.uniforms.uActive!.value = next + attentionLift
         material.uniforms.uTime!.value = time
         material.uniforms.uHeartbeat!.value = organismBeat * (0.28 + activity * 0.72) + attentionLift
