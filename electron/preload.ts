@@ -37,6 +37,9 @@ const api: GroveApi = {
   connectSuggested: (folder) => ipcRenderer.invoke(CHANNELS.connectSuggested, folder),
   browseProject: () => ipcRenderer.invoke(CHANNELS.browseProject),
   createProject: () => ipcRenderer.invoke(CHANNELS.createProject),
+  addAgent: (draft) => ipcRenderer.invoke(CHANNELS.addAgent, draft),
+  removeAgent: (id) => ipcRenderer.invoke(CHANNELS.removeAgent, id),
+  openAgentLink: (id) => ipcRenderer.invoke(CHANNELS.openAgentLink, id),
 }
 
 contextBridge.exposeInMainWorld('grove', api)

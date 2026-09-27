@@ -12,13 +12,13 @@ import '@fontsource-variable/geist'
 import { GroveScene, SPIKE_STONES, type PerfSample, type QualityPreset } from './scene/Grove'
 import { Counts, Crystal, HarnessRow, HoverReadout, Rail, RuneConsole, usePrefersReducedMotion } from './hud/Hud'
 import { SessionList } from './SessionList'
-import { AgentCard, DeployToast, PickHint, StonePanel } from './hud/Flow'
+import { AgentCard, DeployToast, GrowCard, PickHint, StonePanel } from './hud/Flow'
 import { Intro } from './hud/Intro'
 import { useFlow } from './store/flow'
 import { useGrove } from './store/grove'
 import { emptyPlaces, layoutStones } from './scene/layout'
 import { DEMO } from './demo'
-import { TREE_AGENTS } from './agents/fixtures'
+import { useTree } from './agents/tree'
 import './hud/hud.css'
 
 /** Who the demo shows working on its running stones, as in the concept art's frame 1. */
@@ -43,6 +43,7 @@ export function App() {
   })
   const reducedMotion = usePrefersReducedMotion()
   const consoleInput = useRef<HTMLInputElement>(null)
+  const tree = useTree()
   const view = useFlow((state) => state.view)
   const stoneId = useFlow((state) => state.stoneId)
   const statusOverrides = useFlow((state) => state.statusOverrides)
@@ -164,13 +165,14 @@ export function App() {
         {/* Agents are the tree's definitions; tasks are the runes carved on stones, honestly zero
             until runes can be made. 12 is the art's number, for the demo. */}
         <Counts
-          agents={TREE_AGENTS.length}
+          agents={tree.agents.length}
           running={running}
           tasks={DEMO ? 12 : real.reduce((sum, stone) => sum + stone.runes.length, 0)}
         />
         <RuneConsole inputRef={consoleInput} placeholder={selectedName ? `Task for ${selectedName}...` : undefined} />
         <StonePanel stones={stones} onAddTask={() => consoleInput.current?.focus()} />
         <AgentCard stones={stones} />
+        <GrowCard />
         <DeployToast stones={stones} />
         <PickHint />
         <Intro />

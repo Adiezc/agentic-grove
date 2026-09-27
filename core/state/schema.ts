@@ -76,12 +76,44 @@ export interface StoneConfig {
 }
 
 /**
+ * Which tool an agent in the tree belongs to, and so what the Grove can do with it.
+ *
+ *   claude-code, codex  Hang from the branches. The Grove can send them to a stone.
+ *   grok-bot            A firefly. Lives in xAI's own app with no API (checked September 2026),
+ *                       so the Grove can open it and nothing else. Re-check before v1 ships.
+ */
+export type AgentHarness = 'claude-code' | 'codex' | 'grok-bot'
+export const AGENT_HARNESSES: readonly AgentHarness[] = ['claude-code', 'codex', 'grok-bot']
+
+/**
+ * The glyph on an agent's orb: what it does, at a glance.
+ *
+ * Words rather than icon names, so a person editing the file by hand can guess them, and so
+ * `core/` stays free of anything the interface draws with. The renderer maps each word to an icon
+ * in `src/agents/glyphs.ts`; a word it does not know is reported here rather than drawn blank.
+ */
+export const AGENT_GLYPHS = ['search', 'build', 'review', 'write', 'data', 'mail', 'calendar', 'spark'] as const
+export type AgentGlyph = (typeof AGENT_GLYPHS)[number]
+
+/** Where a Grok Bot's orb goes when it has no link of its own. */
+export const GROK_HOME = 'https://grok.com'
+
+/**
+ * Researcher is built into every grove and is not written here, so no definition may take its id.
+ * If one did, `Rune.agent: "researcher"` would mean two different agents depending on who asked.
+ */
+export const BUILT_IN_AGENT_IDS = ['researcher'] as const
+
+/**
  * An agent definition — one of the shapes living in the world tree.
  *
  * Note what this is not: a session. The tree holds *definitions*, and sending one to a runestone
  * *spawns* a session there. A definition is reusable across every project; a session is bound to
  * one working directory forever. Blurring those two is the mistake the mycelium metaphor exists
  * to avoid, so the types cannot be confused.
+ *
+ * Where the orb hangs is deliberately not stored. It is worked out from the agent's place in this
+ * list, so the file stays intent and never has to be kept in step with the scene.
  */
 export interface AgentDefinition {
   /** Short, kebab-case. Referenced by `Rune.agent`. */
@@ -90,6 +122,12 @@ export interface AgentDefinition {
   name: string
   /** One line, shown when the definition is selected. Keep it short; the grove is not wordy. */
   description: string
+  /** Which tool runs it. Missing in a hand-written entry means Claude Code, the common case. */
+  harness: AgentHarness
+  /** The face on its orb. Missing means the interface picks a plain one. */
+  glyph?: AgentGlyph
+  /** Grok Bots only: the page their orb opens. Must be https. Missing means `GROK_HOME`. */
+  link?: string
   /** Model to run it on. Empty means "whatever the harness defaults to" — never a guess. */
   model?: string
   /** Prepended to every prompt this agent runs. Optional. */
@@ -122,7 +160,7 @@ export interface GroveFile {
   settings: GroveSettings
   /** Only projects you have an opinion about. Normally empty. */
   stones: StoneConfig[]
-  /** The definitions in the tree. Empty until session eight gives them somewhere to be. */
+  /** The agents you have connected to the tree, in the order they grew. Researcher is built in and not listed. */
   agents: AgentDefinition[]
 }
 
@@ -278,26 +316,19 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
       problems.push({ where: 'agents', message: 'Should be a list, like [ ].' })
     } else {
       grove.agents = raw.agents.flatMap((entry, index) => {
-        const at = `agents[${index}]`
-        if (!isRecord(entry)) {
-          problems.push({ where: at, message: 'Should be an object.' })
-          return []
+        const agent = parseAgent(entry, `agents[${index}]`, problems)
+        return agent ? [agent] : []
+      })
+      // Same reasoning as stones: two definitions with one id means runes would pick one by
+      // accident of order.
+      const ids = new Set<string>()
+      grove.agents = grove.agents.filter((agent) => {
+        if (!ids.has(agent.id)) {
+          ids.add(agent.id)
+          return true
         }
-        const id = asString(entry.id)
-        if (!id) {
-          problems.push({ where: `${at}.id`, message: 'Needs an "id" so runes can refer to it.' })
-          return []
-        }
-        const agent: AgentDefinition = {
-          id,
-          name: asString(entry.name) || id,
-          description: asString(entry.description),
-        }
-        const model = asString(entry.model)
-        if (model) agent.model = model
-        const systemPrompt = asString(entry.systemPrompt)
-        if (systemPrompt) agent.systemPrompt = systemPrompt
-        return [agent]
+        problems.push({ where: 'agents', message: `Two agents called "${agent.id}". Only the first is used.` })
+        return false
       })
     }
   }
@@ -316,4 +347,76 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
   }
 
   return { grove, problems }
+}
+
+/**
+ * Read one agent definition, reporting anything wrong with it into `problems`.
+ *
+ * Separate from `parseGrove` because the Grove's own "grow an agent" form goes through exactly the
+ * same rules as a hand-typed entry. One set of rules, so the form can never write something the
+ * loader would then refuse.
+ */
+export function parseAgent(entry: unknown, at: string, problems: GroveProblem[]): AgentDefinition | null {
+  if (!isRecord(entry)) {
+    problems.push({ where: at, message: 'Should be an object.' })
+    return null
+  }
+  const id = asString(entry.id)
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
+    problems.push({ where: `${at}.id`, message: 'Needs an "id" in lower-case letters, digits and dashes, like "builder".' })
+    return null
+  }
+  if ((BUILT_IN_AGENT_IDS as readonly string[]).includes(id)) {
+    problems.push({ where: `${at}.id`, message: `"${id}" is built into the Grove. Choose another id.` })
+    return null
+  }
+
+  const harness = asString(entry.harness) || 'claude-code'
+  if (!(AGENT_HARNESSES as readonly string[]).includes(harness)) {
+    problems.push({
+      where: `${at}.harness`,
+      message: `"${harness}" is not a tool the Grove knows. Use "claude-code", "codex" or "grok-bot".`,
+    })
+    return null
+  }
+
+  const agent: AgentDefinition = {
+    id,
+    name: asString(entry.name) || id,
+    description: asString(entry.description),
+    harness: harness as AgentHarness,
+  }
+
+  const glyph = asString(entry.glyph)
+  if (glyph) {
+    if ((AGENT_GLYPHS as readonly string[]).includes(glyph)) agent.glyph = glyph as AgentGlyph
+    else problems.push({ where: `${at}.glyph`, message: `"${glyph}" is not a glyph. Use one of: ${AGENT_GLYPHS.join(', ')}.` })
+  }
+
+  const link = asString(entry.link)
+  if (link) {
+    // https only: this string is handed to the system opener, and a file: or custom-scheme link
+    // there would run something rather than show a page.
+    if (agent.harness !== 'grok-bot') {
+      problems.push({ where: `${at}.link`, message: 'Only a Grok Bot has a link. The Grove runs the others itself.' })
+    } else if (!isHttpsUrl(link)) {
+      problems.push({ where: `${at}.link`, message: 'Should be a web address starting with "https://".' })
+    } else {
+      agent.link = link
+    }
+  }
+
+  const model = asString(entry.model)
+  if (model) agent.model = model
+  const systemPrompt = asString(entry.systemPrompt)
+  if (systemPrompt) agent.systemPrompt = systemPrompt
+  return agent
+}
+
+export function isHttpsUrl(text: string): boolean {
+  try {
+    return new URL(text).protocol === 'https:'
+  } catch {
+    return false
+  }
 }

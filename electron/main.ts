@@ -19,10 +19,10 @@ import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
-import { addProject, loadGrove, grovePath } from '../core/state/grove.ts'
+import { addAgent, addProject, loadGrove, grovePath, removeAgent } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
-import { defaultGrove } from '../core/state/schema.ts'
-import { CHANNELS, type GroveSnapshot, type ProjectResult } from './bridge.ts'
+import { GROK_HOME, defaultGrove, isHttpsUrl } from '../core/state/schema.ts'
+import { CHANNELS, type AgentResult, type GroveSnapshot, type ProjectResult } from './bridge.ts'
 import { ipcMain } from 'electron'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -79,6 +79,7 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
     at: Date.now(),
     grove: deriveStones(result.sessions, grove),
     settings: grove.settings,
+    agents: grove.agents,
     harnesses: result.harnesses,
     problems: result.problems,
     groveProblems: loaded?.problems ?? [],
@@ -225,6 +226,41 @@ function registerHandlers(): void {
       return { ok: false, error: error instanceof Error ? error.message : String(error) }
     }
     return addAndRescan(picked.filePath)
+  })
+
+  ipcMain.handle(CHANNELS.addAgent, async (_event, draft: unknown): Promise<AgentResult> => {
+    // Only plain fields are read off the draft; `addAgent` then checks each one like a hand edit.
+    if (typeof draft !== 'object' || draft === null) return { ok: false, error: 'Not an agent' }
+    const fields = draft as Record<string, unknown>
+    const text = (value: unknown) => (typeof value === 'string' ? value : undefined)
+    const result = await addAgent({
+      name: text(fields.name) ?? '',
+      description: text(fields.description) ?? '',
+      harness: text(fields.harness) ?? '',
+      glyph: text(fields.glyph),
+      link: text(fields.link),
+    }).catch((error: unknown) => ({ ok: false, error: String(error) }))
+    if (result.ok) await restartScanning()
+    return result
+  })
+
+  ipcMain.handle(CHANNELS.removeAgent, async (_event, id: unknown): Promise<AgentResult> => {
+    if (typeof id !== 'string') return { ok: false, error: 'Not an agent id' }
+    const result = await removeAgent(id).catch((error: unknown) => ({ ok: false, error: String(error) }))
+    if (result.ok) await restartScanning()
+    return result
+  })
+
+  ipcMain.handle(CHANNELS.openAgentLink, async (_event, id: unknown): Promise<AgentResult> => {
+    const { grove } = await loadGrove()
+    const agent = grove.agents.find((each) => each.id === id)
+    if (!agent || agent.harness !== 'grok-bot') return { ok: false, error: 'Not a Grok Bot' }
+    const link = agent.link ?? GROK_HOME
+    // Checked again here even though the loader already did: this is the line that hands a string
+    // to the system opener, and it should not depend on some other file staying correct.
+    if (!isHttpsUrl(link)) return { ok: false, error: 'Link is not https' }
+    await shell.openExternal(link)
+    return { ok: true }
   })
 
   ipcMain.handle(CHANNELS.revealGroveFile, async () => {

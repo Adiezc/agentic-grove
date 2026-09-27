@@ -26,7 +26,7 @@ import { ReferenceTree } from './ReferenceTree'
 import { Canopy, DeployWisp } from './Canopy'
 import { EmptyPlace } from './EmptyPlace'
 import type { EmptyPlace as Place } from './layout'
-import { TREE_AGENTS } from '../agents/fixtures'
+import { useTree } from '../agents/tree'
 import { useFlow, type FlowView } from '../store/flow'
 
 /**
@@ -253,7 +253,8 @@ export function GroveScene({
     () => shotFor(view, stones.find((stone) => stone.id === stoneId)),
     [view, stoneId, stones]
   )
-  const deployFrom = deployment ? TREE_AGENTS.find((agent) => agent.id === deployment.agentId)?.at : undefined
+  const tree = useTree()
+  const deployFrom = deployment ? tree.agents.find((agent) => agent.id === deployment.agentId)?.at : undefined
   const deployTo = deployment ? stones.find((stone) => stone.id === deployment.stoneId)?.at : undefined
   const activity = activityOf(stones)
 

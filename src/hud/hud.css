@@ -455,6 +455,9 @@
 
 .flow-panel {
   position: absolute;
+  /* Above everything drei's <Html> floats over the scene (orbs, worker badges, the circle menu,
+     which top out at 30). A panel is what you are reading; a badge behind it must not show through. */
+  z-index: 40;
   top: 12%;
   right: 3.2%;
   width: min(22rem, 30vw);
@@ -812,7 +815,21 @@
   box-shadow: 0 0 12px rgb(66 178 110 / 0.25);
   background: rgb(2 9 4 / 0.75);
   color: var(--text-dim);
+  transition: color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.orb.is-bud:disabled {
   cursor: default;
+}
+
+/* The bud warms under the pointer and stays warm while its form is open, but never scales like
+   an agent does: it is a place, not something that lives there yet. */
+.orb.is-bud:hover:not(:disabled),
+.orb.is-bud:focus-visible,
+.orb.is-bud.is-selected {
+  color: var(--glow);
+  border-color: var(--live);
+  box-shadow: 0 0 16px rgb(66 178 110 / 0.5);
 }
 
 .orb.is-bud::before {
@@ -823,7 +840,8 @@
   filter: none;
 }
 
-.orb.is-bud:hover {
+.orb.is-bud:hover,
+.orb.is-bud:focus-visible {
   transform: none;
 }
 
@@ -859,6 +877,129 @@
     opacity: 0;
     transform: scale(0.6);
   }
+}
+
+/* ---- Removing an agent, and the grow form. ----
+   Same glass, same 10px inner radius as the panel rows. Amber appears only on the second press of
+   the bin, because that is the one moment here that genuinely needs you. */
+
+.panel-remove {
+  position: absolute;
+  top: 0.9rem;
+  right: 2.4rem;
+  display: grid;
+  place-items: center;
+  padding: 0.2rem;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.panel-remove:hover,
+.panel-remove:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.panel-remove.is-confirming {
+  color: var(--wait);
+}
+
+.panel-error {
+  margin: 0.6rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--wait);
+}
+
+/* A little wider than the agent card it replaces, so the three tool names fit on one line. */
+.grow-card {
+  top: 24%;
+  width: min(19rem, 30vw);
+}
+
+.grow-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+}
+
+.grow-kind,
+.grow-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 2.1rem;
+  padding: 0 0.4rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 10px;
+  background: rgb(2 9 4 / 0.45);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.grow-kind:hover,
+.grow-glyph:hover,
+.grow-kind:focus-visible,
+.grow-glyph:focus-visible {
+  color: var(--text);
+  border-color: rgb(66 178 110 / 0.55);
+  outline: none;
+}
+
+.grow-kind.is-on,
+.grow-glyph.is-on {
+  color: var(--glow);
+  border-color: var(--live);
+  background: rgb(9 43 21 / 0.6);
+}
+
+.grow-field {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+  font-size: 0.7rem;
+  color: #8fa197;
+}
+
+.grow-field input {
+  height: 2.3rem;
+  padding: 0 0.8rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 10px;
+  background: rgb(2 9 4 / 0.55);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  transition: border-color 0.2s ease;
+}
+
+.grow-field input::placeholder {
+  color: var(--text-dim);
+}
+
+.grow-field input:focus-visible {
+  border-color: var(--live);
+  outline: none;
+}
+
+.grow-glyphs {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.3rem;
+  margin-top: 1rem;
+}
+
+.grow-glyph {
+  padding: 0;
 }
 
 /* ---- Deploying toast, bottom centre above the console. ---- */

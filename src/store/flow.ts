@@ -32,8 +32,10 @@ interface FlowStore {
   view: FlowView
   /** The stone the panel is about, and the one "send to runestone" will target. */
   stoneId: string | null
-  /** Which agent the canopy card is showing. */
-  agentIndex: number
+  /** Which agent the canopy card is showing, by id, so it survives agents being added or removed. */
+  agentId: string
+  /** True while the grow form is open in place of the agent card. */
+  growing: boolean
   /** An agent waiting for a stone to be picked, in `picking` view. */
   pendingAgentId: string | null
   deployment: Deployment | null
@@ -44,7 +46,11 @@ interface FlowStore {
 
   selectStone: (id: string) => void
   openAgents: () => void
-  showAgent: (index: number) => void
+  showAgent: (id: string) => void
+  /** Open the grow form, from the bud in the canopy. */
+  grow: () => void
+  /** Close the form; with an id, turn to face the agent that just grew. */
+  grown: (id?: string) => void
   deploy: (agentId: string) => void
   land: () => void
   finish: () => void
@@ -56,7 +62,8 @@ interface FlowStore {
 export const useFlow = create<FlowStore>((set, get) => ({
   view: 'home',
   stoneId: null,
-  agentIndex: 0,
+  agentId: 'researcher',
+  growing: false,
   pendingAgentId: null,
   deployment: null,
   statusOverrides: {},
@@ -79,9 +86,13 @@ export const useFlow = create<FlowStore>((set, get) => ({
     else set({ view: 'stone' })
   },
 
-  openAgents: () => set({ view: 'agents' }),
+  openAgents: () => set({ view: 'agents', growing: false }),
 
-  showAgent: (index) => set({ agentIndex: index }),
+  showAgent: (id) => set({ agentId: id, growing: false }),
+
+  grow: () => set({ view: 'agents', growing: true }),
+
+  grown: (id) => set((state) => ({ growing: false, agentId: id ?? state.agentId })),
 
   deploy: (agentId) => {
     const { stoneId } = get()
@@ -107,8 +118,9 @@ export const useFlow = create<FlowStore>((set, get) => ({
   finish: () => set({ deployment: null, stoneId: null }),
 
   back: () => {
-    const { view, stoneId, placeIndex } = get()
+    const { view, stoneId, placeIndex, growing } = get()
     if (placeIndex !== null) set({ placeIndex: null })
+    else if (growing) set({ growing: false })
     else if (view === 'agents') set({ view: stoneId ? 'stone' : 'home' })
     else set({ view: 'home', stoneId: null, pendingAgentId: null })
   },

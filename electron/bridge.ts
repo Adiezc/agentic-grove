@@ -15,7 +15,8 @@
  */
 import type { HarnessStatus, ScanProblem } from '../core/scan.ts'
 import type { DerivedGrove } from '../core/state/stones.ts'
-import type { GroveProblem, GroveSettings } from '../core/state/schema.ts'
+import type { AgentDefinition, GroveProblem, GroveSettings } from '../core/state/schema.ts'
+import type { AgentDraft } from '../core/state/grove.ts'
 
 /**
  * One complete picture of the grove, sent after every scan.
@@ -31,6 +32,8 @@ export interface GroveSnapshot {
   at: number
   grove: DerivedGrove
   settings: GroveSettings
+  /** The agents you have connected to the tree, as `grove.json` has them. Researcher is not listed. */
+  agents: AgentDefinition[]
   /** Which tools are installed, and anything each wants to say about itself. */
   harnesses: HarnessStatus[]
   /** A harness that failed to scan. Shown, not swallowed. */
@@ -96,6 +99,26 @@ export interface GroveApi {
   browseProject(): Promise<ProjectResult>
   /** Name a new folder with the system save panel; it is created, then added. */
   createProject(): Promise<ProjectResult>
+
+  /**
+   * Grow an agent on the tree. The node side makes the id and checks every field with the same
+   * rules as a hand-typed `grove.json` entry, so page code cannot write anything the loader would
+   * refuse. Resolves with the new id, so the interface can turn to face it.
+   */
+  addAgent(draft: AgentDraft): Promise<AgentResult>
+  /** Take one of your agents off the tree. Researcher cannot be removed. */
+  removeAgent(id: string): Promise<AgentResult>
+  /**
+   * Open a Grok Bot in the browser. Takes the agent's id, not a URL: the node side looks the link
+   * up in `grove.json` itself, so page code never chooses what the system opener is handed.
+   */
+  openAgentLink(id: string): Promise<AgentResult>
+}
+
+export interface AgentResult {
+  ok: boolean
+  id?: string
+  error?: string
 }
 
 /** `cancelled` when the person closed the picker, which is a choice, not a failure. */
@@ -115,4 +138,7 @@ export const CHANNELS = {
   connectSuggested: 'grove:connect-suggested',
   browseProject: 'grove:browse-project',
   createProject: 'grove:create-project',
+  addAgent: 'grove:add-agent',
+  removeAgent: 'grove:remove-agent',
+  openAgentLink: 'grove:open-agent-link',
 } as const

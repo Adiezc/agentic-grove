@@ -12,7 +12,7 @@
 import { useEffect, useState } from 'react'
 import type { Icon } from '@phosphor-icons/react'
 import { ArrowRight, CircleDashed, Heartbeat, TreeEvergreen, UsersThree } from '@phosphor-icons/react'
-import { RESEARCHER } from '../agents/fixtures'
+import { RESEARCHER } from '../agents/tree'
 import { DEMO } from '../demo'
 
 const SEEN_KEY = 'grove:intro-seen'

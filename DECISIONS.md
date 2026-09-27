@@ -645,3 +645,30 @@ retired until something needs it. The concept art's six stones survive only as `
 Amber is the grove's one non-green colour and means "needs you", for both a waiting agent and a
 recent failure. The heartbeat stays single; when two agents work on two projects, each stone
 shows the working agent's face above it rather than the pulse splitting in two.
+
+## Agents grow from the bud, and their place on the tree is worked out, not stored
+
+*27 September 2026, session 6*
+
+The bud in the canopy now opens a small form: tool (Claude Code, Codex or Grok Bot), name, one
+line, a face from eight glyphs, and for a Grok Bot an optional https link. It writes an entry to
+`grove.json`'s `agents` list through `parseAgent`, the same function that reads a hand-typed
+entry, so the form cannot write something the loader would then refuse.
+
+**Where an orb hangs is not in the file.** Each kind has a short list of places read off the
+canopy by eye (seven on the branches, six in the air), and agents take them in the order they
+grew. Storing coordinates would be state in a file meant for intent, and every new canopy would
+need a migration. The cost is a limit: seven branch agents including Researcher, six fireflies.
+A bonsai carrying more lanterns than that stops reading as a tree, and the form says so when a
+kind is full rather than piling orbs on top of each other.
+
+**Researcher is built in, not written.** It cannot be removed by accident, and no entry may take
+the id `researcher`, so `Rune.agent: "researcher"` always means the same agent.
+
+**A Grok Bot's link is looked up on the node side.** "Open in Grok" sends the agent's id, and the
+main process reads the link from `grove.json` and checks it is https before the system opener
+sees it. Page code never names what gets opened, which is the same rule `openSession` follows.
+
+**Not done, on purpose:** importing Claude Code subagents from `~/.claude/agents/`. There are
+none on this machine, so it could not be tested against anything real, and connecting one only
+means something once session nine can spawn it.

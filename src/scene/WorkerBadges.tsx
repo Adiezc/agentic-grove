@@ -11,10 +11,10 @@
  */
 import { Html } from '@react-three/drei'
 import { Robot } from '@phosphor-icons/react'
-import { HARNESS_MARK, TREE_AGENTS, type Harness } from '../agents/fixtures'
+import { HARNESS_MARK, useTree, type Harness, type TreeAgent } from '../agents/tree'
 
-function faceFor(worker: string) {
-  const agent = TREE_AGENTS.find((each) => each.id === worker)
+function faceFor(worker: string, agents: TreeAgent[]) {
+  const agent = agents.find((each) => each.id === worker)
   if (agent) return { Glyph: agent.Glyph, label: agent.name }
   const harness = HARNESS_MARK[worker as Harness]
   // An installed tool the Grove has no mark for yet, such as Cursor: a generic agent, not a guess.
@@ -22,11 +22,12 @@ function faceFor(worker: string) {
 }
 
 export function WorkerBadges({ workers, height, alert }: { workers: string[]; height: number; alert: boolean }) {
+  const { agents } = useTree()
   return (
     <Html position={[0, height + 0.42, 0]} center zIndexRange={[12, 5]} style={{ pointerEvents: 'none' }}>
-      <div className="workers" aria-label={`Working here: ${workers.map((w) => faceFor(w).label).join(', ')}`}>
+      <div className="workers" aria-label={`Working here: ${workers.map((w) => faceFor(w, agents).label).join(', ')}`}>
         {workers.slice(0, 3).map((worker) => {
-          const { Glyph } = faceFor(worker)
+          const { Glyph } = faceFor(worker, agents)
           return (
             <span key={worker} className={`worker${alert ? ' is-alert' : ''}`}>
               <Glyph size={14} weight="light" />

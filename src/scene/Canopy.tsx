@@ -13,7 +13,8 @@ import { useFrame } from '@react-three/fiber'
 import { Html, Line } from '@react-three/drei'
 import { Plus } from '@phosphor-icons/react'
 import * as THREE from 'three'
-import { BUD_AT, HARNESS_MARK, kindOf, TREE_AGENTS, type TreeAgent } from '../agents/fixtures'
+import { HARNESS_MARK, kindOf, useTree, type TreeAgent } from '../agents/tree'
+import { DEMO } from '../demo'
 import { useFlow } from '../store/flow'
 import { palette } from '../theme/palette'
 
@@ -21,26 +22,33 @@ import { palette } from '../theme/palette'
 const THREAD = 0.55
 
 export function Canopy({ animate }: { animate: boolean }) {
-  const agentIndex = useFlow((state) => state.agentIndex)
+  const agentId = useFlow((state) => state.agentId)
+  const growing = useFlow((state) => state.growing)
   const showAgent = useFlow((state) => state.showAgent)
+  const { agents, bud } = useTree()
 
   return (
     <group>
-      {TREE_AGENTS.map((agent, index) =>
+      {agents.map((agent, index) =>
         kindOf(agent) === 'grove' ? (
-          <HangingOrb key={agent.id} agent={agent} selected={index === agentIndex} onSelect={() => showAgent(index)} />
+          <HangingOrb
+            key={agent.id}
+            agent={agent}
+            selected={!growing && agent.id === agentId}
+            onSelect={() => showAgent(agent.id)}
+          />
         ) : (
           <Firefly
             key={agent.id}
             agent={agent}
             seed={index}
             animate={animate}
-            selected={index === agentIndex}
-            onSelect={() => showAgent(index)}
+            selected={!growing && agent.id === agentId}
+            onSelect={() => showAgent(agent.id)}
           />
         )
       )}
-      <Bud />
+      <Bud at={bud} open={growing} />
     </group>
   )
 }
@@ -134,9 +142,18 @@ function Orb({
   )
 }
 
-/** Where a new agent will grow. Dim and inert until agents can be made from here. */
-function Bud() {
-  const [x, y, z] = BUD_AT
+/**
+ * Where a new agent will grow. Clicking it opens the grow form in place of the agent card.
+ *
+ * It moves to the next free branch as agents are added, so it always shows where the next one
+ * will hang. Disabled in a plain browser tab, where there is no `grove.json` to write to, except
+ * in demo mode, where the form opens so it can be judged but its Grow button stays off.
+ */
+function Bud({ at, open }: { at: [number, number, number]; open: boolean }) {
+  const grow = useFlow((state) => state.grow)
+  const canWrite = typeof window !== 'undefined' && Boolean(window.grove)
+  const [x, y, z] = at
+  const label = canWrite || DEMO ? 'New agent' : 'New agent (needs the app)'
   return (
     <group>
       <Line
@@ -144,13 +161,21 @@ function Bud() {
           [x, y, z],
           [x - 0.06, y - THREAD * 0.8, z - 0.05],
         ]}
-        color={palette.vein}
+        color={open ? palette.energy : palette.vein}
         lineWidth={1}
         transparent
-        opacity={0.35}
+        opacity={open ? 0.8 : 0.35}
       />
-      <Html position={BUD_AT} center zIndexRange={[20, 10]}>
-        <button type="button" className="orb is-bud" disabled aria-label="New agent (coming soon)" title="New agent (coming soon)">
+      <Html position={at} center zIndexRange={[20, 10]}>
+        <button
+          type="button"
+          className={`orb is-bud${open ? ' is-selected' : ''}`}
+          disabled={!canWrite && !DEMO}
+          onClick={grow}
+          aria-label={label}
+          aria-pressed={open}
+          title={label}
+        >
           <Plus size={18} weight="thin" />
         </button>
       </Html>

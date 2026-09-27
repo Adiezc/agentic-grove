@@ -20,7 +20,7 @@
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
-import { type GroveFile, type GroveProblem, defaultGrove, parseGrove } from './schema.ts'
+import { type GroveFile, type GroveProblem, BUILT_IN_AGENT_IDS, defaultGrove, parseAgent, parseGrove } from './schema.ts'
 
 /** `AGENTIC_GROVE_HOME` exists so tests can point somewhere disposable. */
 export const groveHome = (): string =>
@@ -127,4 +127,83 @@ export async function addProject(folder: string): Promise<{ ok: boolean; error?:
     await saveGrove(loaded.grove)
   }
   return { ok: true }
+}
+
+/** What the "grow an agent" form sends. The id is made here, from the name, not by page code. */
+export interface AgentDraft {
+  name: string
+  description: string
+  harness: string
+  glyph?: string
+  link?: string
+}
+
+/**
+ * Add an agent definition to the tree.
+ *
+ * Runs through `parseAgent`, the same rules as a hand-typed entry, so the form can never write
+ * something the loader would refuse. Re-reads the file first, for the same reason `addProject`
+ * does: an edit made by hand a moment ago is kept, not overwritten.
+ */
+export async function addAgent(draft: AgentDraft): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const name = typeof draft.name === 'string' ? draft.name.trim() : ''
+  if (!name) return { ok: false, error: 'Give it a name' }
+  if (name.length > 40) return { ok: false, error: 'Keep the name under 40 characters' }
+
+  const loaded = await loadGrove()
+  if (loaded.problems.length) {
+    return { ok: false, error: 'grove.json has an error; fix it before adding agents' }
+  }
+
+  const taken = new Set<string>([...BUILT_IN_AGENT_IDS, ...loaded.grove.agents.map((agent) => agent.id)])
+  const id = uniqueId(slugify(name) || 'agent', taken)
+  const problems: GroveProblem[] = []
+  const agent = parseAgent(
+    {
+      id,
+      name,
+      description: typeof draft.description === 'string' ? draft.description.slice(0, 120) : '',
+      harness: draft.harness,
+      glyph: draft.glyph,
+      link: draft.link,
+    },
+    'new agent',
+    problems
+  )
+  if (!agent || problems.length) return { ok: false, error: problems[0]?.message ?? 'That agent could not be made' }
+
+  loaded.grove.agents.push(agent)
+  await saveGrove(loaded.grove)
+  return { ok: true, id }
+}
+
+/** Take an agent off the tree. Its runes, if any, stay: they are yours, and say which agent they wanted. */
+export async function removeAgent(id: string): Promise<{ ok: boolean; error?: string }> {
+  const loaded = await loadGrove()
+  if (loaded.problems.length) {
+    return { ok: false, error: 'grove.json has an error; fix it before removing agents' }
+  }
+  const kept = loaded.grove.agents.filter((agent) => agent.id !== id)
+  if (kept.length === loaded.grove.agents.length) return { ok: false, error: 'No agent with that id' }
+  loaded.grove.agents = kept
+  await saveGrove(loaded.grove)
+  return { ok: true }
+}
+
+/** "Inbox Sorter!" becomes "inbox-sorter". Readable aloud, which is the schema's rule for ids. */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32)
+}
+
+/** Two agents called "Builder" become `builder` and `builder-2`, rather than one replacing the other. */
+function uniqueId(base: string, taken: Set<string>): string {
+  if (!taken.has(base)) return base
+  let n = 2
+  while (taken.has(`${base}-${n}`)) n += 1
+  return `${base}-${n}`
 }
