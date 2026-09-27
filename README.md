@@ -65,6 +65,7 @@ guessed.
 
 - [CREDITS.md](CREDITS.md) — every project this borrows from, what was taken, under which licence
 - [DECISIONS.md](DECISIONS.md) — append-only log of architectural decisions and why
+- [ROADMAP.md](ROADMAP.md) — the build plan, and ranked ideas for future sessions
 - `core/harnesses/README.md` — the adapter contract, if you want to add support for another tool
 
 ## Licence
