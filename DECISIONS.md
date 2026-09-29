@@ -953,3 +953,15 @@ agent's own safety check refused to continue work that reads another app's keych
 is parked in a git stash ("official Claude limits via keychain") rather than committed. To resume,
 Adrian allows it in the agent's permission settings (or applies the stash himself), then the
 Settings switch is one small addition.
+
+## Uninstall goes to the Trash, and undoes the hooks first
+
+*30 September 2026*
+
+Settings ends with Uninstall, in two steps: a list of exactly what will happen on this Mac, then
+the button. In order: take the Grove's lines out of Claude Code's settings (the one change it made
+to another tool; a backup is kept), optionally move `~/.agentic-grove` and the window's own storage
+to the Trash (off by default, so coming back is painless), move the app bundle to the Trash, quit.
+Trash rather than delete throughout, so a regretted uninstall is one drag to undo. It stops at the
+first failure. Project folders, sessions, Claude Code and Codex are never touched. Running from
+source there is no app bundle, so it only cleans up and quits.

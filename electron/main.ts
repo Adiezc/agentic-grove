@@ -19,10 +19,10 @@ import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
-import { addAgent, addProject, loadGrove, grovePath, removeAgent, removeProject, saveSettings } from '../core/state/grove.ts'
+import { addAgent, addProject, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
 import { LINK_HOME, defaultGrove, isHttpsUrl, isLinkOnly } from '../core/state/schema.ts'
-import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type ProjectResult } from './bridge.ts'
+import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type ProjectResult, type UninstallPlan } from './bridge.ts'
 import { LiveState } from '../core/hooks/live.ts'
 import { startUsageLoop } from '../core/usage/index.ts'
 import { createShard, type Shard } from './tray.ts'
@@ -464,6 +464,13 @@ function registerHandlers(): void {
     if (which === 'claude' || which === 'chatgpt') await shell.openExternal(APP_DOWNLOADS[which])
   })
 
+  ipcMain.handle(CHANNELS.planUninstall, async (): Promise<UninstallPlan> => planUninstall())
+
+  ipcMain.handle(CHANNELS.uninstall, async (_event, options: unknown) => {
+    const removeGrove = typeof options === 'object' && options !== null && (options as { removeGrove?: unknown }).removeGrove === true
+    return uninstall(removeGrove)
+  })
+
   ipcMain.handle(CHANNELS.revealGroveFile, async () => {
     const file = grovePath()
     // `showItemInFolder` on a file that does not exist yet opens nothing at all, which reads as
@@ -471,6 +478,62 @@ function registerHandlers(): void {
     // folder is created on the first save rather than here — this handler writes nothing.
     shell.showItemInFolder(file)
   })
+}
+
+/**
+ * The app bundle this copy is running from, or `null` when running from source, where there is no
+ * app to remove. The binary sits at `<bundle>.app/Contents/MacOS/<name>`.
+ */
+function appBundle(): string | null {
+  if (devServerUrl || !app.isPackaged) return null
+  const bundle = path.resolve(process.execPath, '..', '..', '..')
+  return bundle.endsWith('.app') ? bundle : null
+}
+
+async function planUninstall(): Promise<UninstallPlan> {
+  const installed = await hooksState().catch(() => ({ state: 'off' as const }))
+  return {
+    hooks: installed.state === 'on' || installed.state === 'outdated',
+    appPath: appBundle(),
+    grovePath: groveHome(),
+  }
+}
+
+/**
+ * Uninstall, in the order that leaves nothing half-done:
+ *
+ *   1. Take the Grove's lines out of Claude Code's settings. First, because it is the one change
+ *      the Grove made to another tool, and leaving it would have Claude Code calling a Grove that
+ *      is no longer there. A backup of the file is kept, as with every hooks change.
+ *   2. If asked, move `~/.agentic-grove` and the window's own storage to the Trash.
+ *   3. Move the app to the Trash, and quit.
+ *
+ * The Trash rather than deleting, throughout: an uninstall you regret should be one drag to undo.
+ * Stops at the first failure and says which step, so nothing is removed after something went wrong.
+ */
+async function uninstall(removeGrove: boolean): Promise<{ ok: boolean; error?: string }> {
+  const plan = await planUninstall()
+  if (plan.hooks) {
+    const hooks = await planHooks('remove')
+    const applied = hooks.ok ? await applyHooks('remove', hooks.baseline) : { ok: false, error: hooks.error }
+    if (!applied.ok) return { ok: false, error: `Could not take the hooks out of Claude Code's settings: ${applied.error ?? 'unknown'}` }
+  }
+  stopScanning?.()
+  stopUsage?.()
+  hookServer?.close()
+  try {
+    if (removeGrove) {
+      // Nothing there yet is not a failure: there was simply nothing to remove.
+      const exists = await fsp.access(groveHome()).then(() => true, () => false)
+      if (exists) await shell.trashItem(groveHome())
+      await shell.trashItem(app.getPath('userData')).catch(() => {})
+    }
+    if (plan.appPath) await shell.trashItem(plan.appPath)
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
+  setTimeout(() => app.quit(), 400)
+  return { ok: true }
 }
 
 async function restartScanning(): Promise<void> {

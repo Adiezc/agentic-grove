@@ -11,10 +11,10 @@
  * change too.
  */
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowsClockwise, Asterisk, Eye, Monitor, Plugs, X } from '@phosphor-icons/react'
+import { ArrowsClockwise, Asterisk, Eye, Monitor, Plugs, Trash, X } from '@phosphor-icons/react'
 import { ToolSetup } from './Setup'
 import type { HooksAction, HooksPlan } from '../../core/hooks/install.ts'
-import type { HooksStatus } from '../../electron/bridge.ts'
+import type { HooksStatus, UninstallPlan } from '../../electron/bridge.ts'
 import { GRAPHICS_MODES, type GraphicsMode, type GroveSettings } from '../../core/state/schema.ts'
 import { ago } from '../../core/usage/format.ts'
 import { useGrove } from '../store/grove'
@@ -216,7 +216,81 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       <Showing settings={settings} />
       <Updates settings={settings} />
       <LiveUpdates open={open} />
+      <Uninstall open={open} />
     </aside>
+  )
+}
+
+/**
+ * Uninstall, at the bottom of Settings where nobody presses it by accident. Two steps: the first
+ * lists exactly what will happen on this Mac, the second does it. Your grove is kept unless you tick
+ * the box, and everything removed goes to the Trash.
+ */
+function Uninstall({ open }: { open: boolean }) {
+  const [plan, setPlan] = useState<UninstallPlan | null>(null)
+  const [removeGrove, setRemoveGrove] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open) return
+    setPlan(null)
+    setRemoveGrove(false)
+    setError(null)
+  }, [open])
+
+  const review = async () => {
+    if (!window.grove) return
+    setError(null)
+    setPlan(await window.grove.planUninstall())
+  }
+
+  const run = async () => {
+    if (!window.grove) return
+    setBusy(true)
+    const result = await window.grove.uninstall({ removeGrove })
+    setBusy(false)
+    if (!result.ok) setError(result.error ?? 'Could not uninstall')
+  }
+
+  return (
+    <Section icon={<Trash size={14} weight="regular" />} name="Uninstall">
+      {plan ? (
+        <>
+          <p className="setting-line">This will:</p>
+          <ul className="uninstall-steps">
+            {plan.hooks ? <li>Take the Grove’s lines out of Claude Code’s settings (a backup is kept)</li> : null}
+            <li>{plan.appPath ? 'Move Agentic Grove to the Trash and quit' : 'Quit (running from source, so there is no app to remove)'}</li>
+            {removeGrove ? <li>Move your grove ({plan.grovePath}) to the Trash</li> : null}
+          </ul>
+          <Switch
+            label="Also remove my grove"
+            detail="Your list of projects, agents and settings. Keep it if you might come back."
+            on={removeGrove}
+            onChange={setRemoveGrove}
+          />
+          <p className="setting-fine">
+            Your project folders, their files and sessions, and Claude Code and Codex themselves are never touched.
+            Everything removed goes to the Trash, so it can be put back.
+          </p>
+          <div className="setting-actions">
+            <button type="button" className="setting-button is-danger" onClick={() => void run()} disabled={busy}>
+              {busy ? 'Uninstalling…' : 'Uninstall'}
+            </button>
+            <button type="button" className="setting-button" onClick={() => setPlan(null)} disabled={busy}>
+              Cancel
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="setting-actions">
+          <button type="button" className="setting-button" disabled={!window.grove} onClick={() => void review()}>
+            Uninstall Agentic Grove…
+          </button>
+        </div>
+      )}
+      {error ? <p className="panel-error">{error}</p> : null}
+    </Section>
   )
 }
 

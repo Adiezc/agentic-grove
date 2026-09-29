@@ -76,6 +76,13 @@ you choose.
 Your grove (projects, agents, settings) lives in `~/.agentic-grove/grove.json`, outside the app,
 so an update never touches it. It is plain JSON and meant to be edited by hand if you like.
 
+## Uninstalling
+
+Settings → Uninstall. It takes the Grove's lines out of Claude Code's settings (if you turned live
+updates on), moves the app to the Trash and quits. Your grove in `~/.agentic-grove` is kept unless
+you tick "Also remove my grove". Your project folders, and Claude Code and Codex themselves, are
+never touched, and everything removed goes to the Trash.
+
 ## For contributors
 
 ```bash

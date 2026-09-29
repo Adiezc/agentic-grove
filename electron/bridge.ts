@@ -179,6 +179,22 @@ export interface GroveApi {
   setUpTool(tool: SetupTool): Promise<{ ok: boolean; opened?: 'terminal' | 'page'; error?: string }>
   /** Open the Claude or ChatGPT desktop app's official download page. The address is fixed here. */
   getApp(app: DesktopApp): Promise<void>
+  /** What uninstalling would do on this Mac, so the confirmation can list it before anything happens. */
+  planUninstall(): Promise<UninstallPlan>
+  /**
+   * Uninstall the Grove, then quit. Everything goes to the Trash rather than being deleted, so any
+   * of it can be put back. Your project folders, and Claude Code and Codex themselves, are never touched.
+   */
+  uninstall(options: { removeGrove: boolean }): Promise<{ ok: boolean; error?: string }>
+}
+
+export interface UninstallPlan {
+  /** The Grove's lines are in Claude Code's settings and will be taken out. */
+  hooks: boolean
+  /** The app bundle that will go to the Trash, or `null` when running from source. */
+  appPath: string | null
+  /** Your grove: projects list, agents, settings and backups. Kept unless you choose otherwise. */
+  grovePath: string
 }
 
 export interface AgentResult {
@@ -217,4 +233,6 @@ export const CHANNELS = {
   setUpTool: 'grove:set-up-tool',
   browseSubProject: 'grove:browse-sub-project',
   getApp: 'grove:get-app',
+  planUninstall: 'grove:plan-uninstall',
+  uninstall: 'grove:uninstall',
 } as const

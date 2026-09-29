@@ -2337,3 +2337,23 @@
 .tool-ready {
   color: var(--live);
 }
+
+/* ---- Uninstall. Amber on the final button only: the one moment here that genuinely needs you. ---- */
+
+.uninstall-steps {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  color: #8fa197;
+}
+
+.setting-button.is-danger {
+  border-color: rgb(242 180 76 / 0.6);
+  color: var(--wait);
+}
+
+.setting-button.is-danger:hover:not(:disabled),
+.setting-button.is-danger:focus-visible {
+  border-color: var(--wait);
+}
