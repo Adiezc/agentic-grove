@@ -174,3 +174,10 @@ button:hover {
 code {
   color: var(--ink);
 }
+
+/* Full screen: the interface a touch larger (about an eighth), so it reads from further away on a
+   display given over to the grove. Everything in the HUD is sized in rem, so this one number
+   scales all of it; the icons follow through the rules in hud.css. */
+html.is-fullscreen {
+  font-size: 112.5%;
+}

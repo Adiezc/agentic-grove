@@ -78,12 +78,24 @@ export interface StoneConfig {
 /**
  * Which tool an agent in the tree belongs to, and so what the Grove can do with it.
  *
- *   claude-code, codex  Hang from the branches. The Grove can send them to a stone.
- *   grok-bot            A firefly. Lives in xAI's own app with no API (checked September 2026),
- *                       so the Grove can open it and nothing else. Re-check before v1 ships.
+ * Two families, and the difference is what the Grove can honestly do:
+ *
+ *   claude-code, codex   Agents that work *in your folders*. They hang from the branches and can
+ *                        be sent to a stone, because both have a local program the Grove can run.
+ *   chatgpt-dot          OpenAI's always-on agents (Dots, announced 29 September 2026). They live
+ *                        in ChatGPT's cloud with no API, so the Grove opens them and nothing else.
+ *   claude-cowork        Claude's everyday coworker in the Claude app. Also cloud-only, also opened.
+ *   grok-bot             xAI's bots. Kept so older files still load; no longer offered, because
+ *                        far more people use ChatGPT and Claude (Adrian's call, 30 September 2026).
+ *
+ * The link-only ones drift round the canopy as fireflies. See `LINK_HARNESSES`.
  */
-export type AgentHarness = 'claude-code' | 'codex' | 'grok-bot'
-export const AGENT_HARNESSES: readonly AgentHarness[] = ['claude-code', 'codex', 'grok-bot']
+export type AgentHarness = 'claude-code' | 'codex' | 'chatgpt-dot' | 'claude-cowork' | 'grok-bot'
+export const AGENT_HARNESSES: readonly AgentHarness[] = ['claude-code', 'codex', 'chatgpt-dot', 'claude-cowork', 'grok-bot']
+
+/** Tools the Grove can only open in their own app. Everything else it can run on a project. */
+export const LINK_HARNESSES: readonly AgentHarness[] = ['chatgpt-dot', 'claude-cowork', 'grok-bot']
+export const isLinkOnly = (harness: AgentHarness): boolean => LINK_HARNESSES.includes(harness)
 
 /**
  * The glyph on an agent's orb: what it does, at a glance.
@@ -92,17 +104,22 @@ export const AGENT_HARNESSES: readonly AgentHarness[] = ['claude-code', 'codex',
  * `core/` stays free of anything the interface draws with. The renderer maps each word to an icon
  * in `src/agents/glyphs.ts`; a word it does not know is reported here rather than drawn blank.
  */
-export const AGENT_GLYPHS = ['search', 'build', 'review', 'write', 'data', 'mail', 'calendar', 'spark'] as const
+export const AGENT_GLYPHS = ['search', 'build', 'plan', 'review', 'write', 'data', 'mail', 'calendar', 'spark'] as const
 export type AgentGlyph = (typeof AGENT_GLYPHS)[number]
 
-/** Where a Grok Bot's orb goes when it has no link of its own. */
-export const GROK_HOME = 'https://grok.com'
+/** Where a link-only agent's orb goes when it has no link of its own. */
+export const LINK_HOME: Record<string, string> = {
+  'chatgpt-dot': 'https://chatgpt.com',
+  'claude-cowork': 'https://claude.ai',
+  'grok-bot': 'https://grok.com',
+}
 
 /**
- * Researcher is built into every grove and is not written here, so no definition may take its id.
- * If one did, `Rune.agent: "researcher"` would mean two different agents depending on who asked.
+ * Researcher, Builder and Manager are built into every grove and are not written here, so no
+ * definition may take their ids. If one did, `Rune.agent: "builder"` would mean two different
+ * agents depending on who asked.
  */
-export const BUILT_IN_AGENT_IDS = ['researcher'] as const
+export const BUILT_IN_AGENT_IDS = ['researcher', 'builder', 'manager'] as const
 
 /**
  * An agent definition — one of the shapes living in the world tree.
@@ -126,7 +143,7 @@ export interface AgentDefinition {
   harness: AgentHarness
   /** The face on its orb. Missing means the interface picks a plain one. */
   glyph?: AgentGlyph
-  /** Grok Bots only: the page their orb opens. Must be https. Missing means `GROK_HOME`. */
+  /** Link-only agents only: the page their orb opens. Must be https. Missing means `LINK_HOME`. */
   link?: string
   /** Model to run it on. Empty means "whatever the harness defaults to" — never a guess. */
   model?: string
@@ -143,6 +160,20 @@ export interface AgentDefinition {
  */
 export type ClaudePlan = 'pro' | 'max-5x' | 'max-20x'
 
+/**
+ * How much the scene draws. Named for what you get rather than for the machine:
+ *
+ *   performance  no reflections, no bloom, and the frame rate held at 60. For slower Macs.
+ *   balanced     half-resolution reflections and bloom. Close to the full look for about half the cost.
+ *   grove        everything, at whatever refresh rate the screen runs (60, or 120 on ProMotion).
+ */
+export type GraphicsMode = 'performance' | 'balanced' | 'grove'
+export const GRAPHICS_MODES: readonly GraphicsMode[] = ['performance', 'balanced', 'grove']
+
+/**
+ * Settings live in `grove.json` under the home folder, never inside the app, so an update replaces
+ * the app and leaves every one of these as you left it.
+ */
 export interface GroveSettings {
   claudePlan: ClaudePlan
   /**
@@ -153,7 +184,49 @@ export interface GroveSettings {
    * transcripts may want it slower, not because the default is in doubt.
    */
   scanIntervalMs: number
+  /** The scene's detail. See `GraphicsMode`. */
+  graphics: GraphicsMode
+  /**
+   * Step the graphics down on their own when the Mac is busy or the frame rate drops, and back up
+   * when it recovers. Never above the mode you chose. Off means exactly your mode, always.
+   */
+  adaptiveGraphics: boolean
+  /** Ask GitHub once a day whether a newer Grove has been released. Nothing else is sent. */
+  checkForUpdates: boolean
+  /** The link-only coworkers drifting round the canopy (ChatGPT Dots, Claude Cowork). */
+  showFireflies: boolean
+  /** The three counts in the bottom-left corner. */
+  showCounts: boolean
+  /** Every stone's name, all the time, instead of on hover. */
+  alwaysShowNames: boolean
+  /** The motes drifting through the air. Purely atmosphere; off saves a little work. */
+  ambientMotion: boolean
 }
+
+/** The settings a brand-new grove starts with. One place, so the loader and the default agree. */
+export function defaultSettings(): GroveSettings {
+  return {
+    claudePlan: 'pro',
+    scanIntervalMs: 5000,
+    graphics: 'grove',
+    adaptiveGraphics: true,
+    checkForUpdates: true,
+    showFireflies: true,
+    showCounts: true,
+    alwaysShowNames: false,
+    ambientMotion: true,
+  }
+}
+
+/** The on-off settings, listed once so the loader and the settings form share one list. */
+export const SETTING_SWITCHES = [
+  'adaptiveGraphics',
+  'checkForUpdates',
+  'showFireflies',
+  'showCounts',
+  'alwaysShowNames',
+  'ambientMotion',
+] as const satisfies readonly (keyof GroveSettings)[]
 
 export interface GroveFile {
   version: number
@@ -174,7 +247,7 @@ export interface GroveFile {
 export function defaultGrove(): GroveFile {
   return {
     version: GROVE_SCHEMA_VERSION,
-    settings: { claudePlan: 'pro', scanIntervalMs: 5000 },
+    settings: defaultSettings(),
     stones: [],
     agents: [],
   }
@@ -252,6 +325,16 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
         where: 'settings.scanIntervalMs',
         message: 'Should be a number of milliseconds, at least 1000. Keeping the default of 5000.',
       })
+    }
+    const graphics = asString(raw.settings.graphics)
+    if (graphics) {
+      if ((GRAPHICS_MODES as readonly string[]).includes(graphics)) grove.settings.graphics = graphics as GraphicsMode
+      else problems.push({ where: 'settings.graphics', message: `"${graphics}" is not a mode. Use "performance", "balanced" or "grove".` })
+    }
+    for (const key of SETTING_SWITCHES) {
+      const value = raw.settings[key]
+      if (typeof value === 'boolean') grove.settings[key] = value
+      else if (value !== undefined) problems.push({ where: `settings.${key}`, message: 'Should be true or false.' })
     }
   }
 
@@ -375,7 +458,7 @@ export function parseAgent(entry: unknown, at: string, problems: GroveProblem[])
   if (!(AGENT_HARNESSES as readonly string[]).includes(harness)) {
     problems.push({
       where: `${at}.harness`,
-      message: `"${harness}" is not a tool the Grove knows. Use "claude-code", "codex" or "grok-bot".`,
+      message: `"${harness}" is not a tool the Grove knows. Use "claude-code", "codex", "chatgpt-dot" or "claude-cowork".`,
     })
     return null
   }
@@ -397,8 +480,8 @@ export function parseAgent(entry: unknown, at: string, problems: GroveProblem[])
   if (link) {
     // https only: this string is handed to the system opener, and a file: or custom-scheme link
     // there would run something rather than show a page.
-    if (agent.harness !== 'grok-bot') {
-      problems.push({ where: `${at}.link`, message: 'Only a Grok Bot has a link. The Grove runs the others itself.' })
+    if (!isLinkOnly(agent.harness)) {
+      problems.push({ where: `${at}.link`, message: 'Only an agent that opens in its own app has a link. The Grove runs the others itself.' })
     } else if (!isHttpsUrl(link)) {
       problems.push({ where: `${at}.link`, message: 'Should be a web address starting with "https://".' })
     } else {

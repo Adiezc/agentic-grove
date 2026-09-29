@@ -95,9 +95,27 @@ export interface Runestone {
    * three. Each is a flag with its reason, never a status: a stone with a tell is not "failed".
    */
   tells: Tell[]
+  /**
+   * The stone this one grew out of, when its folder sits inside another stone's folder. A sub-stone
+   * stands further out than its parent and is joined to it, not to the tree.
+   */
+  parent?: string
+  /** Parts of this project busy enough to be worth a stone of their own. See `splitsFor`. */
+  splits: SplitSuggestion[]
 }
 
 /** A folder with agent work in it that is not a stone yet, offered when connecting a project. */
+/**
+ * A part of a project that could stand as its own sub-stone: a subfolder or a git worktree where
+ * enough separate work happens. Offered, never made: one stone per project is the default.
+ */
+export interface SplitSuggestion {
+  path: string
+  name: string
+  kind: 'folder' | 'worktree'
+  sessionCount: number
+}
+
 export interface ProjectSuggestion {
   path: string
   name: string
@@ -156,16 +174,59 @@ function weakest(values: Provenance[]): Provenance {
  * sessions rather than letting the parent swallow them. The separator is appended before
  * comparing, or `~/Work/site-old` would count as being inside `~/Work/site`.
  */
-function owningConfig(projectPath: string, configs: StoneConfig[]): StoneConfig | undefined {
+function owningConfig(paths: string[], configs: StoneConfig[]): StoneConfig | undefined {
   let best: StoneConfig | undefined
   for (const config of configs) {
-    const inside = projectPath === config.path || projectPath.startsWith(config.path + path.sep)
+    const inside = paths.some((each) => each && (each === config.path || each.startsWith(config.path + path.sep)))
     if (inside && (!best || config.path.length > best.path.length)) best = config
   }
   return best
 }
 
-function buildStone(config: StoneConfig, group: Session[], now: number): Runestone {
+/** Where a session works, most specific first: a worktree's own folder, then the project root. */
+const placesOf = (session: Session): string[] => [session.cwd, session.projectPath].filter(Boolean)
+
+/**
+ * Parts of a stone big and separate enough to suggest as sub-stones.
+ *
+ * Adrian's example: a `Work` stone where the agents spend their time in two different places,
+ * `Work/Data` and `Work/Presentations`. That is two projects sharing a folder, and each deserves its
+ * own stone. The test, kept simple so it can be argued with:
+ *
+ *   - at least two parts (first-level subfolders, or git worktrees) with work in them,
+ *   - each with at least four sessions,
+ *   - each holding at least a fifth of the stone's sessions.
+ *
+ * One busy subfolder alone is not a split; it is just where the work is.
+ */
+const SPLIT_MIN_SESSIONS = 4
+const SPLIT_MIN_SHARE = 0.2
+
+export function splitsFor(stonePath: string, group: Session[], taken: Set<string>): SplitSuggestion[] {
+  const parts = new Map<string, SplitSuggestion>()
+  for (const session of group) {
+    let part: { path: string; name: string; kind: SplitSuggestion['kind'] } | null = null
+    if (session.worktree && session.cwd && session.cwd !== stonePath) {
+      part = { path: session.cwd, name: session.worktree, kind: 'worktree' }
+    } else {
+      const where = session.cwd || session.projectPath
+      if (where && where.startsWith(stonePath + path.sep)) {
+        const first = where.slice(stonePath.length + 1).split(path.sep)[0]!
+        part = { path: path.join(stonePath, first), name: first, kind: 'folder' }
+      }
+    }
+    if (!part || taken.has(part.path)) continue
+    const entry = parts.get(part.path) ?? { ...part, sessionCount: 0 }
+    entry.sessionCount += 1
+    parts.set(part.path, entry)
+  }
+  const big = [...parts.values()].filter(
+    (part) => part.sessionCount >= SPLIT_MIN_SESSIONS && part.sessionCount >= group.length * SPLIT_MIN_SHARE
+  )
+  return big.length >= 2 ? big.sort((a, b) => b.sessionCount - a.sessionCount).slice(0, 4) : []
+}
+
+function buildStone(config: StoneConfig, group: Session[], now: number, configs: StoneConfig[]): Runestone {
   const ordered = [...group].sort((a, b) => b.lastActivityAt - a.lastActivityAt)
   const statuses = ordered.map((session) => contributedStatus(session, now))
   const status = statuses.reduce<StoneStatus>(
@@ -190,6 +251,8 @@ function buildStone(config: StoneConfig, group: Session[], now: number): Runesto
       .flatMap((session) => session.tells ?? [])
       .sort((a, b) => b.at - a.at)
       .slice(0, 3),
+    parent: owningConfig([path.dirname(config.path)], configs.filter((other) => !other.hidden))?.path,
+    splits: splitsFor(config.path, ordered, new Set(configs.map((other) => other.path))),
   }
 }
 
@@ -208,7 +271,7 @@ export function deriveStones(
   const unconnected = new Map<string, Session[]>()
 
   for (const session of sessions) {
-    const config = session.projectPath ? owningConfig(session.projectPath, grove.stones) : undefined
+    const config = owningConfig(placesOf(session), grove.stones)
     if (config) {
       const list = bySession.get(config) ?? []
       list.push(session)
@@ -229,7 +292,7 @@ export function deriveStones(
       hidden.push({ path: config.path, name: config.name || path.basename(config.path), sessionCount: group.length })
     } else {
       // A connected project with no sessions yet is still a stone. It is yours; it stands.
-      stones.push(buildStone(config, group, now))
+      stones.push(buildStone(config, group, now, grove.stones))
     }
   }
 

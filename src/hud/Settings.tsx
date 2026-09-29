@@ -1,16 +1,177 @@
 /**
- * Settings, opened from the gear on the rail. For now it holds one thing: live updates from
- * Claude Code through its hooks.
+ * Settings, opened from the gear on the rail.
  *
- * This panel is where the Grove asks to edit another tool's file, so it follows DECISIONS.md to
- * the letter. Nothing is written until you have seen the exact lines that will change and pressed
- * Apply. The same review step guards Remove, because taking lines out is a change too.
+ * Everything here is saved in `grove.json` in `~/.agentic-grove`, outside the app, so updating the
+ * Grove never resets it. Four groups, most used first: how the grove draws, what it shows, updates,
+ * and live updates from Claude Code.
+ *
+ * The live-updates section is where the Grove asks to edit another tool's file, so it follows
+ * DECISIONS.md to the letter. Nothing is written until you have seen the exact lines that will
+ * change and pressed Apply. The same review step guards Remove, because taking lines out is a
+ * change too.
  */
-import { useEffect, useState } from 'react'
-import { Asterisk, X } from '@phosphor-icons/react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { ArrowsClockwise, Asterisk, Eye, Monitor, Plugs, X } from '@phosphor-icons/react'
+import { ToolSetup } from './Setup'
 import type { HooksAction, HooksPlan } from '../../core/hooks/install.ts'
 import type { HooksStatus } from '../../electron/bridge.ts'
+import { GRAPHICS_MODES, type GraphicsMode, type GroveSettings } from '../../core/state/schema.ts'
+import { ago } from '../../core/usage/format.ts'
 import { useGrove } from '../store/grove'
+import { saveSettings, useSettings, useSettingsError } from '../store/settings'
+import { useDrawing, type Reason } from '../scene/graphics'
+
+const MODE_NAME: Record<GraphicsMode, string> = { performance: 'Performance', balanced: 'Balanced', grove: 'Grove' }
+const MODE_LINE: Record<GraphicsMode, string> = {
+  performance: 'For slower Macs. No reflections or glow, held at 60 frames a second.',
+  balanced: 'Nearly the full look for about half the work.',
+  grove: 'Everything, at your screen’s full refresh rate.',
+}
+const REASON_LINE: Record<Reason, string> = {
+  chosen: '',
+  busy: 'because your Mac is busy',
+  slow: 'to keep it smooth',
+  away: 'while it is behind other windows',
+}
+
+function Switch({ label, detail, on, onChange }: { label: string; detail?: string; on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className="switch-row">
+      <span className="switch-text">
+        {label}
+        {detail ? <small>{detail}</small> : null}
+      </span>
+      <input type="checkbox" role="switch" checked={on} onChange={(event) => onChange(event.target.checked)} />
+      <span className="switch-track" aria-hidden="true" />
+    </label>
+  )
+}
+
+function Section({ icon, name, children }: { icon: ReactNode; name: string; children: ReactNode }) {
+  return (
+    <section className="setting">
+      <header className="setting-head">
+        <span className="setting-mark" aria-hidden="true">
+          {icon}
+        </span>
+        <p className="setting-name">{name}</p>
+      </header>
+      {children}
+    </section>
+  )
+}
+
+function Graphics({ settings }: { settings: GroveSettings }) {
+  const drawing = useDrawing()
+  const lowered = drawing.mode !== settings.graphics
+  return (
+    <Section icon={<Monitor size={14} weight="regular" />} name="Graphics">
+      <div className="segmented" role="radiogroup" aria-label="Graphics mode">
+        {GRAPHICS_MODES.map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            role="radio"
+            aria-checked={settings.graphics === mode}
+            className={`segment${settings.graphics === mode ? ' is-on' : ''}`}
+            onClick={() => void saveSettings({ graphics: mode })}
+          >
+            {MODE_NAME[mode]}
+          </button>
+        ))}
+      </div>
+      <p className="setting-line">{MODE_LINE[settings.graphics]}</p>
+      <Switch
+        label="Adapt automatically"
+        detail="Steps down when your Mac is busy or the grove is behind other windows, and back up after. Never above your choice."
+        on={settings.adaptiveGraphics}
+        onChange={(on) => void saveSettings({ adaptiveGraphics: on })}
+      />
+      <p className="setting-fine">
+        {lowered
+          ? `Drawing at ${MODE_NAME[drawing.mode]} for now, ${REASON_LINE[drawing.reason]}.`
+          : `Drawing at ${MODE_NAME[drawing.mode]}${drawing.refreshHz && drawing.mode !== 'performance' ? `, ${drawing.refreshHz} fps screen` : ''}.`}
+      </p>
+    </Section>
+  )
+}
+
+function Showing({ settings }: { settings: GroveSettings }) {
+  return (
+    <Section icon={<Eye size={14} weight="regular" />} name="In the grove">
+      <Switch
+        label="Everyday coworkers"
+        detail="ChatGPT Dots and Claude Cowork, drifting round the tree"
+        on={settings.showFireflies}
+        onChange={(on) => void saveSettings({ showFireflies: on })}
+      />
+      <Switch label="Counts" detail="Agents, running and tasks, bottom left" on={settings.showCounts} onChange={(on) => void saveSettings({ showCounts: on })} />
+      <Switch
+        label="Always show stone names"
+        detail="Otherwise names show on hover"
+        on={settings.alwaysShowNames}
+        onChange={(on) => void saveSettings({ alwaysShowNames: on })}
+      />
+      <Switch label="Drifting motes" on={settings.ambientMotion} onChange={(on) => void saveSettings({ ambientMotion: on })} />
+    </Section>
+  )
+}
+
+function Updates({ settings }: { settings: GroveSettings }) {
+  const update = useGrove((state) => state.snapshot?.update)
+  const version = useGrove((state) => state.snapshot?.version)
+  const [checking, setChecking] = useState(false)
+  const status = (() => {
+    if (!update) return 'Needs the app'
+    switch (update.state) {
+      case 'available':
+        return `Version ${update.latest} is out. You have ${update.current}.`
+      case 'current':
+        return `Up to date (${update.current})${update.checkedAt ? `, checked ${ago(update.checkedAt, Date.now())}` : ''}.`
+      case 'offline':
+        return 'Offline. Will check when you are back online.'
+      case 'error':
+        return `Could not check: ${update.error ?? 'no answer'}.`
+      case 'off':
+        return `Not checking. You have ${update.current}.`
+      default:
+        return `Checks a minute after launch. You have ${version ?? update.current}.`
+    }
+  })()
+  return (
+    <Section icon={<ArrowsClockwise size={14} weight="regular" />} name="Updates">
+      <Switch
+        label="Check for updates once a day"
+        on={settings.checkForUpdates}
+        onChange={(on) => void saveSettings({ checkForUpdates: on })}
+      />
+      <p className="setting-line">{status}</p>
+      <div className="setting-actions">
+        {update?.state === 'available' ? (
+          <button type="button" className="setting-button is-primary" onClick={() => void window.grove?.openRelease()}>
+            Download {update.latest}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="setting-button"
+          disabled={!window.grove || checking}
+          onClick={async () => {
+            setChecking(true)
+            await window.grove?.checkForUpdates()
+            setChecking(false)
+          }}
+        >
+          {checking ? 'Checking…' : 'Check now'}
+        </button>
+      </div>
+      <p className="setting-fine">
+        Only asks GitHub for the newest version number. Nothing about you or your projects is sent. Your settings and
+        grove live outside the app, so an update never touches them.
+      </p>
+    </Section>
+  )
+}
 
 /** Heard from within this long counts as "live". Longer is still connected, just quiet. */
 const LIVE_WINDOW_MS = 10 * 60_000
@@ -34,6 +195,32 @@ function describe(hooks: HooksStatus, now: number): { line: string; tone: Tone }
 }
 
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const settings = useSettings()
+  const saveError = useSettingsError()
+  return (
+    <aside
+      className={`flow-panel settings-panel${open ? ' is-open' : ''}`}
+      aria-hidden={!open}
+      inert={!open}
+      aria-label="Settings"
+    >
+      <button type="button" className="panel-close" onClick={onClose} aria-label="Close">
+        <X size={16} weight="thin" />
+      </button>
+      <h2 className="panel-title">Settings</h2>
+      {saveError ? <p className="panel-error">{saveError}</p> : null}
+      <Section icon={<Plugs size={14} weight="regular" />} name="AI tools">
+        <ToolSetup />
+      </Section>
+      <Graphics settings={settings} />
+      <Showing settings={settings} />
+      <Updates settings={settings} />
+      <LiveUpdates open={open} />
+    </aside>
+  )
+}
+
+function LiveUpdates({ open }: { open: boolean }) {
   const hooks = useGrove((state) => state.snapshot?.hooks)
   const [plan, setPlan] = useState<HooksPlan | null>(null)
   const [busy, setBusy] = useState(false)
@@ -77,17 +264,6 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   const canWrite = Boolean(window.grove) && hooks?.state !== 'unreadable'
 
   return (
-    <aside
-      className={`flow-panel settings-panel${open ? ' is-open' : ''}`}
-      aria-hidden={!open}
-      inert={!open}
-      aria-label="Settings"
-    >
-      <button type="button" className="panel-close" onClick={onClose} aria-label="Close">
-        <X size={16} weight="thin" />
-      </button>
-      <h2 className="panel-title">Settings</h2>
-
       <section className="setting">
         <header className="setting-head">
           <span className="setting-mark" aria-hidden="true">
@@ -155,6 +331,5 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         )}
         {error ? <p className="panel-error">{error}</p> : null}
       </section>
-    </aside>
   )
 }

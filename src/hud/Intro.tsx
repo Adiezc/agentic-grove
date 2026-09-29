@@ -1,8 +1,9 @@
 /**
  * The first-launch walkthrough, given by Researcher.
  *
- * Four cards, one idea each, a sentence or two apiece: what the grove is, what a runestone is,
- * where agents come from, and how to read the heartbeat. Told by an agent rather than by the app,
+ * Five cards, one idea each, a sentence or two apiece: what the grove is, connecting your AI tools
+ * (with a one-button setup for anything missing), what a runestone is, where agents come from, and
+ * how to read the heartbeat. Told by an agent rather than by the app,
  * because the grove's whole premise is that the agents live here, and meeting one first is the
  * quickest way to understand that.
  *
@@ -11,16 +12,22 @@
  */
 import { useEffect, useState } from 'react'
 import type { Icon } from '@phosphor-icons/react'
-import { ArrowRight, CircleDashed, Heartbeat, TreeEvergreen, UsersThree } from '@phosphor-icons/react'
+import { ArrowRight, CircleDashed, Heartbeat, Plugs, TreeEvergreen, UsersThree } from '@phosphor-icons/react'
 import { RESEARCHER } from '../agents/tree'
 import { DEMO } from '../demo'
+import { ToolSetup } from './Setup'
 
 const SEEN_KEY = 'grove:intro-seen'
 
-const STEPS: { Glyph: Icon; text: string }[] = [
+const STEPS: { Glyph: Icon; text: string; setup?: boolean }[] = [
   { Glyph: TreeEvergreen, text: "This is your grove. I'm Researcher. I live in the tree, with the agents you'll add." },
+  {
+    Glyph: Plugs,
+    text: 'First, your AI tools. I work through Claude Code and Codex. Anything missing is one button away; you can do this later in Settings too.',
+    setup: true,
+  },
   { Glyph: CircleDashed, text: 'Each runestone is a project. Choose an empty circle to create one or connect a folder.' },
-  { Glyph: UsersThree, text: 'Connect Claude Code or Codex for heavier work. Grok Bots drift round the tree as fireflies.' },
+  { Glyph: UsersThree, text: 'Builder and Manager live here too. Everyday coworkers from ChatGPT and Claude drift round the tree as fireflies.' },
   { Glyph: Heartbeat, text: 'The grove breathes slowly at rest and faster while we work. Amber means one of us needs you.' },
 ]
 
@@ -65,7 +72,7 @@ export function Intro({ hidden = false }: { hidden?: boolean }) {
   })
 
   if (step === null) return null
-  const { Glyph, text } = STEPS[step]!
+  const { Glyph, text, setup } = STEPS[step]!
   const Face = RESEARCHER.Glyph
   const last = step === STEPS.length - 1
 
@@ -90,6 +97,7 @@ export function Intro({ hidden = false }: { hidden?: boolean }) {
         <Glyph size={26} weight="thin" className="intro-glyph" aria-hidden="true" />
         <p className="intro-text">{text}</p>
       </div>
+      {setup ? <ToolSetup compact /> : null}
       <footer className="intro-foot">
         <span className="pager-dots" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
           {STEPS.map((_, index) => (

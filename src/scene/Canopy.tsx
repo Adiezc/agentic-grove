@@ -79,7 +79,7 @@ function HangingOrb({ agent, selected, onSelect }: { agent: TreeAgent; selected:
 }
 
 /**
- * A Grok Bot: loose in the air, tied to nothing.
+ * A firefly (a ChatGPT Dot or Claude Cowork): loose in the air, tied to nothing.
  *
  * The drift is slow and small on purpose. It only has to read as "not attached" at a glance; a
  * firefly that actually wanders makes a button you have to chase.

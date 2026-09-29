@@ -10,7 +10,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X } from '@phosphor-icons/react'
 import '@fontsource-variable/geist'
 import { GroveScene, SPIKE_STONES, type PerfSample, type QualityPreset } from './scene/Grove'
-import { Announcer, Counts, HarnessRow, Rail, RuneConsole, usePrefersReducedMotion } from './hud/Hud'
+import { Announcer, Counts, Rail, RuneConsole, useFullScreen, useIdle, usePrefersReducedMotion, type RailPanel } from './hud/Hud'
+import { ProjectsPanel, RunesPanel } from './hud/Panels'
+import { Providers } from './hud/Providers'
 import { SessionList } from './SessionList'
 import { AgentCard, DeployToast, GrowCard, PickHint, STATE_LABEL, StonePanel } from './hud/Flow'
 import { Intro } from './hud/Intro'
@@ -18,11 +20,27 @@ import { SettingsPanel } from './hud/Settings'
 import { useFlow } from './store/flow'
 import { useGrove } from './store/grove'
 import { Crystal } from './hud/Crystal'
-import { emptyPlaces, layoutStones } from './scene/layout'
+import { childPlace, emptyPlaces, layoutStones, topLevelCount } from './scene/layout'
 import { step, type Direction, type Target } from './scene/navigation'
 import { DEMO } from './demo'
 import { useTree } from './agents/tree'
+import { useSettings } from './store/settings'
+import { sceneFor, useAdaptiveGraphics, useDrawing } from './scene/graphics'
 import './hud/hud.css'
+
+/**
+ * `?demo&split` adds two sub-stones branching off Build, to judge how a project that splits looks.
+ * Kept out of plain `?demo`, which exists to compare against the concept art.
+ */
+const SPLIT = DEMO && new URLSearchParams(window.location.search).has('split')
+const buildAt = SPIKE_STONES.find((stone) => stone.id === 'build')!.at
+const DEMO_STONES = SPLIT
+  ? [
+      ...SPIKE_STONES,
+      { id: 'build/web', name: 'Web', rune: 'celi' as const, status: 'running' as const, at: childPlace(buildAt, 0), scale: 0.74, turn: 0.1, parent: 'build' },
+      { id: 'build/api', name: 'API', rune: 'avi' as const, status: 'idle' as const, at: childPlace(buildAt, 1), scale: 0.72, turn: -0.12, parent: 'build' },
+    ]
+  : SPIKE_STONES
 
 /** Who the demo shows working on its running stones, as in the concept art's frame 1. */
 const DEMO_WORKERS: Record<string, string> = { research: 'researcher', build: 'builder', connect: 'researcher' }
@@ -56,20 +74,26 @@ const NO_STONES: never[] = []
 
 export function App() {
   const [dataOpen, setDataOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [panel, setPanel] = useState<RailPanel>(null)
+  const settingsOpen = panel === 'settings'
   const [perf, setPerf] = useState<PerfSample | null>(null)
   const [post, setPost] = useState(true)
   const [hovered, setHovered] = useState<string | null>(null)
   const [viewResetKey, setViewResetKey] = useState(0)
-  /* Startable at a given preset, so each one's cost can be measured on a cold launch rather
-   * than by pressing `q` and hoping the reading settles:
+  /* The graphics mode comes from Settings, stepped down by `useAdaptiveGraphics` when the Mac is
+   * busy. A preset forced here, for measuring one preset's cost on a cold launch, wins over both:
    *     VITE_GROVE_QUALITY=low npm run dev
-   * Anything unrecognised falls through to 'high', which is what the look is judged at. */
-  const [quality, setQuality] = useState<QualityPreset>(() => {
+   * The `q` key cycles the forced preset while judging the look. */
+  const [forced, setForced] = useState<QualityPreset | null>(() => {
     const wanted = import.meta.env.VITE_GROVE_QUALITY
-    return wanted === 'low' || wanted === 'balanced' ? wanted : 'high'
+    return wanted === 'low' || wanted === 'balanced' || wanted === 'high' ? wanted : null
   })
+  const settings = useSettings()
+  const drawing = useDrawing((state) => state.mode)
+  const scene = sceneFor(drawing)
+  const quality = forced ?? scene.quality
   const reducedMotion = usePrefersReducedMotion()
+  const fullScreen = useFullScreen()
   const consoleInput = useRef<HTMLInputElement>(null)
   const tree = useTree()
   const view = useFlow((state) => state.view)
@@ -79,6 +103,13 @@ export function App() {
 
   const snapshot = useGrove((state) => state.snapshot)
   const deployment = useFlow((state) => state.deployment)
+  useAdaptiveGraphics({
+    chosen: settings.graphics,
+    adaptive: settings.adaptiveGraphics,
+    fps: perf?.fps ?? null,
+    cpu: snapshot?.system.cpu ?? null,
+    displays: snapshot?.displays ?? 1,
+  })
 
   /* Your projects, from the scan. A new grove has none, and that is the intended first sight: the
    * tree, Researcher, and three empty circles. The concept art's six stones appear only in demo
@@ -90,7 +121,7 @@ export function App() {
    * demo stones are pretend anyway, so there the deployment is allowed to stick. */
   const real = snapshot?.grove.stones ?? NO_STONES
   const stones = useMemo(() => {
-    const base = DEMO ? SPIKE_STONES : layoutStones(real)
+    const base = DEMO ? DEMO_STONES : layoutStones(real)
     return base.map((stone) => {
       const lit = DEMO ? statusOverrides[stone.id] : deployment?.stoneId === stone.id ? 'running' : undefined
       // While an agent is on its way, or (in the demo) once it has landed, its face joins the
@@ -100,7 +131,8 @@ export function App() {
       return { ...stone, status: lit ?? stone.status, workers }
     })
   }, [real, deployment, statusOverrides])
-  const empty = useMemo(() => (DEMO ? [] : emptyPlaces(real.length)), [real.length])
+  const topLevel = topLevelCount(real)
+  const empty = useMemo(() => (DEMO ? [] : emptyPlaces(topLevel)), [topLevel])
   const selectedName = stones.find((stone) => stone.id === stoneId)?.name
   const goHome = () => {
     useFlow.setState({ view: 'home', stoneId: null, pendingAgentId: null })
@@ -210,7 +242,7 @@ export function App() {
         // Let go of whatever has focus, not only the console. Otherwise a button inside the menu
         // being closed keeps focus for a moment, and an Enter pressed straight after lands on it.
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-        setSettingsOpen(false)
+        setPanel(null)
         useFlow.getState().back()
         return
       }
@@ -221,7 +253,7 @@ export function App() {
       if (event.key === 'b') setPost((on) => !on)
       if (event.key === 's') void window.grove?.captureStill()
       if (event.key === 'q') {
-        setQuality((current) => (current === 'high' ? 'balanced' : current === 'balanced' ? 'low' : 'high'))
+        setForced((current) => (current === 'high' ? 'balanced' : current === 'balanced' ? 'low' : current === 'low' ? null : 'high'))
       }
     }
     window.addEventListener('keydown', onKey)
@@ -249,6 +281,14 @@ export function App() {
     }
   }, [])
 
+  // In full screen, with nothing open, the interface fades back after a few quiet seconds.
+  const resting = useIdle(fullScreen && !panel && !dataOpen && view === 'home' && !deployment)
+
+  // The whole interface is sized in rem, so full screen scales it by changing one number.
+  useEffect(() => {
+    document.documentElement.classList.toggle('is-fullscreen', fullScreen)
+  }, [fullScreen])
+
   const running = stones.filter(
     (stone) => stone.status === 'running' || stone.status === 'waiting'
   ).length
@@ -264,7 +304,8 @@ export function App() {
           // motes, no parallax, no travelling light. It is still the same picture, which is the
           // test of whether the composition works rather than the movement.
           animate={!reducedMotion}
-          post={post}
+          post={post && (forced ? true : scene.post)}
+          maxFps={forced ? undefined : scene.maxFps}
           onPerf={onPerf}
           onHoverStone={setHovered}
           viewResetKey={viewResetKey}
@@ -272,33 +313,41 @@ export function App() {
         />
       </div>
 
-      <div className={`hud${view === 'stone' ? ' is-panel' : ''}`}>
+      <div className={`hud${view === 'stone' ? ' is-panel' : ''}${resting ? ' is-resting' : ''}`}>
         <Rail
+          panel={panel}
+          onPanel={setPanel}
           onToggleData={() => setDataOpen((open) => !open)}
           dataOpen={dataOpen}
-          onHome={goHome}
-          onAgents={openAgents}
+          onHome={() => {
+            setPanel(null)
+            goHome()
+          }}
+          onAgents={() => {
+            setPanel(null)
+            openAgents()
+          }}
           inAgents={view === 'agents'}
-          onSettings={() => setSettingsOpen((open) => !open)}
-          settingsOpen={settingsOpen}
         />
-        <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-        <HarnessRow />
+        <SettingsPanel open={settingsOpen} onClose={() => setPanel(null)} />
+        <ProjectsPanel open={panel === 'projects'} onClose={() => setPanel(null)} stones={stones} real={real} />
+        <RunesPanel open={panel === 'runes'} onClose={() => setPanel(null)} real={real} />
+        <Providers />
         <Crystal />
         {/* Agents are the tree's definitions; tasks are the runes carved on stones, honestly zero
             until runes can be made. 12 is the art's number, for the demo. */}
-        <Counts
+        {settings.showCounts ? <Counts
           agents={tree.agents.length}
           running={running}
           tasks={DEMO ? 12 : real.reduce((sum, stone) => sum + stone.runes.length, 0)}
-        />
+        /> : null}
         <RuneConsole inputRef={consoleInput} placeholder={selectedName ? `Task for ${selectedName}...` : undefined} />
         <StonePanel stones={stones} onAddTask={() => consoleInput.current?.focus()} />
         <AgentCard stones={stones} />
         <GrowCard />
         <DeployToast stones={stones} />
         <PickHint />
-        <Intro hidden={settingsOpen} />
+        <Intro hidden={panel !== null} />
         <Announcer message={announcement} />
         <button
           type="button"

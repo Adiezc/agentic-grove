@@ -812,3 +812,137 @@ once when a tell is new (under five minutes old), never on launch for ones alrea
 `npm run verify:tells` checks the reader against hand-written transcripts, since a quiet day has
 no real tells and "found nothing" looks the same whether the reader works or not. Codex is not
 read for tells yet.
+
+## ChatGPT Dots replace Grok Bots; two provider marks, not five
+
+*30 September 2026*
+
+OpenAI announced Dots at DevDay on 29 September 2026: always-on agents that live in ChatGPT, run
+on OpenAI's own machines, connect to thousands of apps, and do not count against ChatGPT limits.
+Pro, Business Premium and Enterprise plans only. Far more people use ChatGPT and Claude than Grok,
+so Adrian's call is to replace Grok Bots with Dots as the grove's always-on coworkers. Like Grok
+Bots, Dots have no public API (checked 30 September 2026), so they are link-only fireflies.
+`grok-bot` still loads from an older `grove.json` but is no longer offered.
+
+The harness row (five glyphs) became two provider marks, Claude and ChatGPT, nothing else. Each
+product lives under its company's mark: Claude Code and Cowork under Claude; Codex and Dots under
+ChatGPT. Re-check for a Dots API before v1.
+
+## Two kinds of work, drawn as two kinds of agent
+
+*30 September 2026*
+
+Claude Code and ChatGPT both have an everyday app and a coding agent, and the grove has to say
+which is which. The rule: **agents that work in your folders hang from the branches** (Claude Code,
+Codex) and can be sent to a stone; **everyday coworkers drift as fireflies** (Claude Cowork, ChatGPT
+Dots) and open in their own app. `LINK_HARNESSES` in `core/state/schema.ts` is the one list that
+decides it. Orb seals show the company, the label shows the product.
+
+## Builder and Manager are built in, beside Researcher
+
+*30 September 2026*
+
+Every grove now starts with three agents: Researcher, Builder (code and files) and Manager (plans
+the work and picks the tool for each job). Built in rather than written to `grove.json`, so they
+cannot be deleted by accident; their ids are reserved. They run on Claude Code, or Codex when that
+is the only one installed.
+
+The Manager's choice is a small rule book in `core/routing.ts`, not a prompt, so it can be read and
+tested (`npm run verify:routing`): project work to Claude Code or Codex, whichever has more
+five-hour headroom (Claude Code on a tie or an unknown); everyday work to Cowork, then ChatGPT;
+recurring work to a Dot, or a saved task without one; nothing that fits means saying what to
+connect. Wired to the console in step 10.
+
+## One-button setup opens Terminal
+
+*30 September 2026*
+
+A non-technical person should be able to start from nothing. Each missing tool (Claude Code, Codex)
+gets one Set up button, in the first-launch walkthrough and in Settings. It writes a short script
+to a private temp folder and opens it in Terminal: the maker's official installer (Anthropic's
+`install.sh`; Homebrew or npm for Codex), then the tool's own sign-in. Visible rather than silent,
+because sign-in needs the person and their browser anyway, and because a window that shows what
+runs is one they can trust and stop. With no package manager it opens the tool's page instead.
+Detection only checks the usual install locations; the Grove never reads sign-in details.
+
+## Updates: a daily question to GitHub, and a download link
+
+*30 September 2026*
+
+Adrian will not pay for an Apple Developer account, and without one macOS will not accept a
+self-installed update. So the Grove asks GitHub's public releases API once a day, only while
+online, and shows a download button when a newer version exists. One unauthenticated GET with no
+identifier: the no-telemetry principle holds, README.md says so plainly, and Settings can turn it
+off. Everything you have made lives in `~/.agentic-grove`, outside the app, so replacing the app
+never touches it. While the repository is private the check answers "Could not check".
+
+## Settings live in grove.json, and graphics has three modes
+
+*30 September 2026*
+
+New settings (graphics, adapt automatically, check for updates, fireflies, counts, stone names,
+motes) sit in `grove.json` beside the Claude plan, checked by the same parser as a hand edit, so
+they survive updates and can be edited by hand.
+
+Graphics modes: **Performance** (no reflections or bloom, 60 fps cap by drawing on a timer),
+**Balanced** (half-resolution reflections), **Grove** (everything, at the screen's own refresh:
+the renderer follows the display, so 120 on ProMotion). With "Adapt automatically" on, the grove
+steps down one level when the whole Mac's CPU is over 80% for ten seconds or the frame rate sits
+under three quarters of the target, and back up after a calm minute; with one screen only and the
+Grove behind other windows for two minutes, it holds at Balanced until you return. Never above
+your choice. Memory is not used: macOS keeps free memory near zero on purpose. A fully covered or
+minimised window already costs nothing, because Chromium stops drawing it.
+
+## Sub-stones: a big part of a project can stand as its own stone
+
+*30 September 2026*
+
+A project that is really two or three (Adrian's example: `Work` with big `Data` and
+`Presentations` folders, or branches in separate worktrees) can split. A sub-stone is simply a
+connected folder inside another stone's folder; the nearest folder already owns its sessions, and
+worktree sessions are now matched on their working folder as well as the project root. It stands
+further out than its parent, a little smaller, fanned either side of the line from the trunk, and
+its roots grow from the parent stone rather than the tree.
+
+One stone per project stays the default. The grove *offers* a split when at least two parts each
+hold four or more sessions and a fifth of the stone's work (`splitsFor` in `core/state/stones.ts`),
+in the stone's panel and the Projects list; "Split off a part" picks one by hand. `?demo&split`
+shows two sub-stones off Build.
+
+## The rail: six places that each do something
+
+*30 September 2026*
+
+Grove (home), Projects (every stone as a list, sub-stones under their parent, split offers,
+connect or create), Agents (the canopy), Saved tasks (every rune, with a Run button that says it
+waits for spawning), Activity (the raw session list), Settings. Each name slides out on hover.
+
+## Smaller changes from Adrian's notes
+
+*30 September 2026*
+
+- The crystal's readout stayed open after a click elsewhere: `:focus-within` held it after the pin
+  was released. Now a click outside or Esc closes it, and only keyboard focus keeps it open.
+- The sparkle beside the console had no job and went. The plus now attaches files (or drop them on
+  the console); they wait as chips until the console can send them (step 10).
+- The stone panel's Agents / Open / Task became "Send an agent", "Open folder" (now working) and
+  "New task", each with a line saying what it does.
+- Clicking the tree opens its agents, through two invisible shapes rather than the 1.2M-triangle
+  model, so the pointer test costs nothing.
+- Mycelium: main runs a fifth thicker, a finer second run to each stone from the next-nearest root,
+  and ten forks per run instead of seven.
+- Home view: centred a little right of and below the tree, about eight per cent further back.
+- Full screen: the interface is an eighth larger, and after six quiet seconds with nothing open the
+  chrome fades back so the grove fills the display; any input brings it back.
+
+## Official Claude five-hour figure: waiting on a decision
+
+*30 September 2026*
+
+The Claude app shows the five-hour and weekly percentages; the Grove still only counts tokens,
+because the desktop app never runs Claude Code's statusline. The source the Claude apps use is an
+account usage endpoint that needs the sign-in token Claude Code keeps in the macOS keychain.
+Reading another tool's credential is a bigger step than reading its transcripts, so it waits for
+Adrian's explicit decision. Options: (a) with consent, read the token and ask that endpoint every
+five minutes (macOS shows its own permission prompt); (b) the statusline route, official for
+terminal users only; (c) keep counting. The provider rings fill the moment an official figure exists.

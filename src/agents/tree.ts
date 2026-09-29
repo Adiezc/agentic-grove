@@ -1,20 +1,24 @@
 /**
- * The agents in the tree: Researcher, plus whatever you have connected in `grove.json`.
+ * The agents in the tree: the three built in, plus whatever you have connected in `grove.json`.
  *
  * Two kinds, and the difference is the whole reason `kindOf` exists:
  *
- *   grove  Agents the Grove can *run*: Claude Code or Codex. They hang from the branches on a
- *          thread of light, because they belong to the tree and the tree can send them down the
- *          mycelium to a stone.
- *   bot    Grok Bots. Day-to-day coworkers that live in xAI's own app, with no API to create,
- *          task or watch them (checked September 2026, see the brief). They drift loose around
- *          the canopy like fireflies: visible, but not tied to anything the Grove controls, and
- *          they cannot be sent to a stone. Tapping one opens Grok. That is the brief's
- *          "launcher, not cockpit" distinction drawn as a picture rather than written as a label.
+ *   grove  Agents the Grove can *run* on a project: Claude Code or Codex. They hang from the
+ *          branches on a thread of light, because they belong to the tree and the tree can send
+ *          them down the mycelium to a stone.
+ *   bot    Everyday coworkers that live in their own company's app: ChatGPT Dots and Claude
+ *          Cowork. Neither has an API to create, task or watch them (checked 30 September 2026).
+ *          They drift loose around the canopy like fireflies: visible, but not tied to anything
+ *          the Grove controls, and they cannot be sent to a stone. Tapping one opens its app.
+ *          That is the brief's "launcher, not cockpit" distinction drawn as a picture.
  *
- * Researcher is the one agent every grove starts with: everybody researches, so a new grove is
- * never empty of help, and it is Researcher who walks you through the grove the first time. It is
- * built in rather than written to `grove.json`, so it cannot be deleted by accident.
+ * Every grove starts with three agents, built in rather than written to `grove.json` so they
+ * cannot be deleted by accident:
+ *
+ *   Researcher  everybody researches. Also the one who walks you through the grove the first time.
+ *   Builder     writes and changes code and files.
+ *   Manager     the project manager. Decides which tool takes which job, from what you have
+ *               connected and how much of each allowance is left. See `core/routing.ts`.
  *
  * **Where an orb hangs is worked out, not stored.** Each kind has a short list of places on the
  * canopy, read off the scene by eye, and agents take them in the order they grew. `grove.json`
@@ -22,8 +26,8 @@
  */
 import { useMemo } from 'react'
 import type { Icon } from '@phosphor-icons/react'
-import { Asterisk, MagnifyingGlass, Spiral, X } from '@phosphor-icons/react'
-import type { AgentDefinition, AgentGlyph, AgentHarness } from '../../core/state/schema.ts'
+import { Asterisk, Compass, Hammer, MagnifyingGlass, OpenAiLogo, X } from '@phosphor-icons/react'
+import { isLinkOnly, type AgentDefinition, type AgentGlyph, type AgentHarness } from '../../core/state/schema.ts'
 import { DEMO } from '../demo'
 import { useGrove } from '../store/grove'
 import { DEFAULT_GLYPH, GLYPHS } from './glyphs'
@@ -42,17 +46,24 @@ export interface TreeAgent {
   running: boolean | null
   /** Where the orb hangs, in world units. Taken from the slot lists below. */
   at: [number, number, number]
-  /** True for agents you connected, which you may also take away. False for Researcher. */
+  /** True for agents you connected, which you may also take away. False for the built-in three. */
   own: boolean
 }
 
-export const HARNESS_MARK: Record<Harness, { Mark: Icon; label: string }> = {
+/**
+ * The seal on an orb says which company's tool it is; the label says which product. Claude Code
+ * and Claude Cowork share a seal, as Codex and ChatGPT Dots do, so the two companies read at a
+ * glance and the product is one word away.
+ */
+export const HARNESS_MARK: Record<Harness, { Mark: Icon; label: string; opens?: string }> = {
   'claude-code': { Mark: Asterisk, label: 'Claude Code' },
-  codex: { Mark: Spiral, label: 'Codex' },
-  'grok-bot': { Mark: X, label: 'Grok Bot' },
+  codex: { Mark: OpenAiLogo, label: 'Codex' },
+  'chatgpt-dot': { Mark: OpenAiLogo, label: 'ChatGPT Dot', opens: 'ChatGPT' },
+  'claude-cowork': { Mark: Asterisk, label: 'Claude Cowork', opens: 'Claude' },
+  'grok-bot': { Mark: X, label: 'Grok Bot', opens: 'Grok' },
 }
 
-export const kindOf = (agent: { harness: Harness }): 'grove' | 'bot' => (agent.harness === 'grok-bot' ? 'bot' : 'grove')
+export const kindOf = (agent: { harness: Harness }): 'grove' | 'bot' => (isLinkOnly(agent.harness) ? 'bot' : 'grove')
 
 /**
  * Places on the branches, nearest the viewer first. The first is Researcher's, where the concept
@@ -68,7 +79,7 @@ const HANGING: [number, number, number][] = [
   [0.0, 2.95, 1.0],
 ]
 
-/** Places in the air round the canopy for Grok Bots, higher and further out than the branches. */
+/** Places in the air round the canopy for the fireflies, higher and further out than the branches. */
 const DRIFTING: [number, number, number][] = [
   [1.25, 4.6, 0.4],
   [-2.1, 4.7, -0.2],
@@ -84,22 +95,35 @@ export const ROOM = { grove: HANGING.length, bot: DRIFTING.length }
 /** Where the bud sits once every branch is taken: low and in front, out of every orb's way. */
 const BUD_WHEN_FULL: [number, number, number] = [-0.8, 3.0, 1.0]
 
-const RESEARCHER_DEF: AgentDefinition = {
-  id: 'researcher',
-  name: 'Researcher',
-  description: 'Search, read and summarise.',
-  harness: 'claude-code',
-  glyph: 'search',
+/**
+ * The three every grove starts with. Their tool is the one you have: Claude Code if it is here,
+ * otherwise Codex. The Manager's routing can still hand any job to the other when that is better.
+ */
+function builtIns(preferred: AgentHarness): AgentDefinition[] {
+  return [
+    { id: 'researcher', name: 'Researcher', description: 'Search, read and summarise.', harness: preferred, glyph: 'search' },
+    { id: 'builder', name: 'Builder', description: 'Write and change code and files.', harness: preferred, glyph: 'build' },
+    {
+      id: 'manager',
+      name: 'Manager',
+      description: 'Plans the work and picks the right tool for each job.',
+      harness: preferred,
+      glyph: 'plan',
+    },
+  ]
 }
 
-export const RESEARCHER = { name: RESEARCHER_DEF.name, Glyph: MagnifyingGlass }
+export const RESEARCHER = { name: 'Researcher', Glyph: MagnifyingGlass }
+export const BUILDER = { name: 'Builder', Glyph: Hammer }
+export const MANAGER = { name: 'Manager', Glyph: Compass }
 
 /** Shown only in demo mode, so the two kinds can be judged side by side against the art. */
 const EXAMPLES: AgentDefinition[] = [
-  { id: 'builder', name: 'Builder', description: 'Write and change code.', harness: 'codex', glyph: 'build' },
-  { id: 'inbox', name: 'Inbox', description: 'Sorts and answers email.', harness: 'grok-bot', glyph: 'mail' },
-  { id: 'planner', name: 'Planner', description: 'Keeps the calendar.', harness: 'grok-bot', glyph: 'calendar' },
+  { id: 'inbox', name: 'Inbox', description: 'Sorts and answers email.', harness: 'chatgpt-dot', glyph: 'mail' },
+  { id: 'planner', name: 'Planner', description: 'Keeps the calendar.', harness: 'claude-cowork', glyph: 'calendar' },
 ]
+
+const BUILT_IN = new Set(['researcher', 'builder', 'manager'])
 
 /**
  * Lay the definitions out on the tree. Pure, so the same list always hangs the same way.
@@ -127,7 +151,7 @@ export function placeAgents(definitions: AgentDefinition[]): { agents: TreeAgent
       // "Running" on Researcher. A bot's state is unknowable, so it is null rather than false.
       running: bot ? null : DEMO && definition.id === 'researcher',
       at,
-      own: definition.id !== 'researcher',
+      own: !BUILT_IN.has(definition.id),
     })
   }
   return { agents, bud: HANGING[hanging] ?? BUD_WHEN_FULL }
@@ -135,14 +159,23 @@ export function placeAgents(definitions: AgentDefinition[]): { agents: TreeAgent
 
 const NO_AGENTS: AgentDefinition[] = []
 
-/** The tree as it stands now: Researcher first, then your agents in the order they grew. */
+/** The tree as it stands now: the built-in three first, then your agents in the order they grew. */
 export function useTree(): { agents: TreeAgent[]; bud: [number, number, number]; counts: { grove: number; bot: number } } {
   const connected = useGrove((state) => state.snapshot?.agents ?? NO_AGENTS)
+  const showFireflies = useGrove((state) => state.snapshot?.settings.showFireflies ?? true)
+  // Claude Code unless only Codex is on this Mac. Read once per snapshot, so installing Codex later
+  // and removing Claude Code moves the built-ins over without anyone editing a file.
+  const preferred = useGrove((state): AgentHarness => {
+    const found = state.snapshot?.harnesses
+    const has = (id: string) => found?.some((harness) => harness.id === id && harness.detected) ?? false
+    return !has('claude-code') && has('codex') ? 'codex' : 'claude-code'
+  })
   return useMemo(() => {
-    const definitions = [RESEARCHER_DEF, ...(DEMO ? EXAMPLES : connected)]
+    const yours = (DEMO ? EXAMPLES : connected).filter((agent) => showFireflies || kindOf(agent) === 'grove')
+    const definitions = [...builtIns(preferred), ...yours]
     const placed = placeAgents(definitions)
     const counts = { grove: 0, bot: 0 }
     for (const definition of definitions) counts[kindOf(definition)] += 1
     return { ...placed, counts }
-  }, [connected])
+  }, [connected, preferred, showFireflies])
 }

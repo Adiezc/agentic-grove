@@ -73,6 +73,8 @@ export interface Network {
 export interface NetworkTarget {
   id: string
   at: [number, number]
+  /** For a sub-stone: where its parent stands. Its roots grow from the parent, not the tree. */
+  from?: [number, number]
 }
 
 /** One root tip of the tree model, in grove coordinates. */
@@ -143,6 +145,10 @@ export function growNetwork(targets: NetworkTarget[], seed = 404): Network {
   const uses = new Map<RootTip, number>()
 
   for (const target of targets) {
+    if (target.from) {
+      growFromParent(target, target.from, random, strands, nodes)
+      continue
+    }
     const tip = rootFor(target.at, uses)
     uses.set(tip, (uses.get(tip) ?? 0) + 1)
     const primary = pathToStone(target.at, tip, random)
@@ -152,8 +158,9 @@ export function growNetwork(targets: NetworkTarget[], seed = 404): Network {
       owner: target.id,
       from: 0,
       to: 1,
-      r0: 0.012,
-      r1: 0.006,
+      // A fifth thicker than the first pass, which read as thin on a large screen (30 September 2026).
+      r0: 0.0145,
+      r1: 0.0072,
       rootRadius: tip.radius,
     })
 
@@ -162,6 +169,15 @@ export function growNetwork(targets: NetworkTarget[], seed = 404): Network {
     nodes.push({ at: primary.getPointAt(1).clone(), size: 0.032, owner: target.id, at01: 1 })
 
     growForks(primary, target.id, 0, 0, 1, random, strands, nodes)
+
+    // A second, finer run to the same stone from the next-nearest root, so each stone is fed by a
+    // braid rather than a single line. Mycelium is never one hypha wide, and a lone strand is what
+    // made the network look sparse. It belongs to the stone, so it lights with it.
+    const companionTip = rootFor(target.at, uses)
+    uses.set(companionTip, (uses.get(companionTip) ?? 0) + 1)
+    const companion = pathToStone(target.at, companionTip, random)
+    strands.push({ curve: companion, depth: 1, owner: target.id, from: 0, to: 1, r0: 0.0075, r1: 0.004, rootRadius: companionTip.radius })
+    growForks(companion, target.id, 1, 0, 1, random, strands, nodes)
   }
 
   // Every root with no stone still carries on as light, out to about the dais edge, so no root in
@@ -204,6 +220,31 @@ export function growNetwork(targets: NetworkTarget[], seed = 404): Network {
   }
 
   return { strands, nodes }
+}
+
+/**
+ * A sub-stone's roots: a braid of two strands from its parent stone's foot out to it, forking as
+ * they go. The whole run belongs to the sub-stone, so it lights when work happens there, and it
+ * starts at the parent, so the light reads as the project branching rather than a new root.
+ */
+function growFromParent(
+  target: NetworkTarget,
+  from: [number, number],
+  random: () => number,
+  strands: Strand[],
+  nodes: NetworkNode[]
+): void {
+  const start = new THREE.Vector3(from[0], CORE_LIFT, from[1])
+  const end = new THREE.Vector3(target.at[0], CORE_LIFT, target.at[1])
+  for (const [wander, r0, depth] of [
+    [0.28, 0.011, 0],
+    [0.4, 0.006, 1],
+  ] as const) {
+    const curve = wrinkle(groundPath(start.clone(), end.clone(), random, wander), random, 0.035, 1)
+    strands.push({ curve, depth, owner: target.id, from: 0, to: 1, r0, r1: r0 * 0.5 })
+    growForks(curve, target.id, depth, 0, 1, random, strands, nodes)
+  }
+  nodes.push({ at: end.clone(), size: 0.028, owner: target.id, at01: 1 })
 }
 
 /**
@@ -388,7 +429,7 @@ function growForks(
 
   // More forks than the first pass had, spread along the whole run: the art's strands are hairy
   // from end to end, not bare cables with a tuft at each end.
-  const count = depth === 0 ? 7 : depth === 1 ? 3 : 1
+  const count = depth === 0 ? 10 : depth === 1 ? 3 : 1
   for (let i = 0; i < count; i++) {
     const t = 0.1 + (i + random() * 0.8) / (count + 0.3)
     if (t >= 0.95) continue

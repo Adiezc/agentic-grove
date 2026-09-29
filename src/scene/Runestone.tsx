@@ -206,6 +206,10 @@ export interface StoneSpec {
   cut?: Partial<CrystalSpec>
   /** One line for the stone's panel: what was last worked on there. Not drawn in the scene. */
   line?: string
+  /** The stone this one branched from. Sub-stones stand further out, a little smaller, joined to it. */
+  parent?: string
+  /** Parts of this project worth a sub-stone of their own, offered in its panel. */
+  splits?: { path: string; name: string; kind: 'folder' | 'worktree' }[]
   /**
    * Who is working here right now: a tree agent's id when the Grove sent it, or a harness id
    * (`claude-code`, `codex`) for work you started yourself. Each shows as a small orb above the

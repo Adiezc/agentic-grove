@@ -6,28 +6,29 @@ working and whether anything needs you, and look away again.
 
 It is not a chat app. It is a cockpit.
 
-**Status: early. Session one of a multi-session build.** Right now it scans your machine and
-prints what it finds. There is no grove to look at yet.
+**Status: early, and changing quickly.** The grove shows your real projects and agent sessions,
+live, with usage headroom per provider. Sending agents to work from inside the Grove is next.
 
-macOS only. MIT licensed. No telemetry, ever — everything stays on your machine.
+macOS only for now (Windows is planned). MIT licensed. No telemetry, ever.
 
 ---
 
-## What works today
+## Getting started
 
 ```bash
+git clone https://github.com/Adiezc/agentic-grove.git
+cd agentic-grove
 npm install
-npm run scan     # print every agent session on this machine
-npm run watch    # the same thing on the live poll loop
-npm run verify   # check the scanner against the raw files, independently
+npm run dev
 ```
 
-`scan` prints every Claude Code and Codex session on this machine: project, status, model, last
-activity, and how much each status can be trusted. Read-only — it does not touch a single file
-belonging to another tool.
+On first launch Researcher walks you through the grove. If Claude Code or Codex is missing, the
+second card has a Set up button for each: it opens Terminal, runs the maker's official installer,
+then asks you to sign in. You can do the same later in Settings.
 
-`verify` is the one worth knowing about. It counts the files on disk with its own separate code
-and fails if the scanner disagrees, because a wrong number looks exactly like a right one.
+Downloadable builds will appear under [Releases](https://github.com/Adiezc/agentic-grove/releases).
+They are not signed with an Apple certificate, so the first time you open one, macOS asks you to
+confirm: right-click the app, choose Open, then Open again.
 
 ## What it can and cannot see
 
@@ -36,18 +37,40 @@ interface is built to show the difference rather than hide it.
 
 | Tool | What the Grove can do |
 | --- | --- |
-| Claude Code (CLI and desktop) | **Watch and drive.** See every session; spawn, resume and interrupt agents |
-| Anthropic API (your own key) | **Drive, with exact accounting.** Per-call token counts and rate-limit headroom |
-| xAI API (your own key) | **Drive, with exact accounting.** Runs Grove agents on Grok models |
-| OpenAI API / Codex CLI | **Watch.** Token counts read from local session files, so estimated |
-| Cursor | **Watch**, in principle. Adapter written but unverified — see `core/harnesses/README.md` |
-| Claude Cowork | **Link only.** A cloud product with no local control surface |
-| ChatGPT (consumer app) | **Link only.** No local control surface. Codex CLI is the drivable one |
-| Grok Bot | **Link only.** No documented REST API, and it bills against its own usage pool |
+| Claude Code (terminal and desktop) | **Watch, and soon drive.** Every session, live through its hooks |
+| Codex | **Watch, and soon drive.** Every session, with OpenAI's own five-hour and weekly figures |
+| Claude Cowork | **Link only.** Everyday work in the Claude app; the Grove opens it |
+| ChatGPT Dots | **Link only.** OpenAI's always-on agents; no public API yet |
+| Cursor | **Watch**, in principle. Adapter written but unverified; see `core/harnesses/README.md` |
 
-"Link only" means the Grove can open it for you and nothing more. Those tiles are marked as
-such in the interface. A figure the Grove cannot know honestly is shown as unknown rather than
-guessed.
+"Link only" means the Grove can open it for you and nothing more, and the interface shows those
+as loose fireflies rather than agents on the tree. A figure the Grove cannot know honestly is shown
+as unknown rather than guessed.
+
+## Privacy and the network
+
+Everything the Grove reads stays on your Mac. It sends nothing about you, your projects or your
+usage anywhere. The one network request it makes by itself is **checking for updates**: once a
+day, while you are online, it asks GitHub's public releases page for the newest version number.
+That request carries no identifier. It exists so you can hear about new versions, and you can turn
+it off in Settings. The Grove never installs anything by itself; you download new versions when
+you choose.
+
+Your grove (projects, agents, settings) lives in `~/.agentic-grove/grove.json`, outside the app,
+so an update never touches it. It is plain JSON and meant to be edited by hand if you like.
+
+## For contributors
+
+```bash
+npm run scan     # print every agent session on this machine
+npm run watch    # the same thing on the live poll loop
+npm run verify   # check the scanner against the raw files, independently
+npm run verify:routing  # the Manager's rules for which tool takes which job
+npm run typecheck
+```
+
+`verify` is the one worth knowing about. It counts the files on disk with its own separate code
+and fails if the scanner disagrees, because a wrong number looks exactly like a right one.
 
 ## Principles
 

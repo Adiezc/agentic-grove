@@ -208,6 +208,23 @@ export async function removeAgent(id: string): Promise<{ ok: boolean; error?: st
   return { ok: true }
 }
 
+/**
+ * Change some settings, from the Settings panel.
+ *
+ * The patch goes through `parseGrove` like a hand edit, so the panel cannot write a value the loader
+ * would then refuse, and fields the page sends that are not settings are simply ignored.
+ */
+export async function saveSettings(patch: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {
+  const loaded = await loadGrove()
+  if (loaded.problems.length) {
+    return { ok: false, error: 'grove.json has an error; fix it before changing settings' }
+  }
+  const { grove, problems } = parseGrove({ ...loaded.grove, settings: { ...loaded.grove.settings, ...patch } })
+  if (problems.length) return { ok: false, error: problems[0]!.message }
+  await saveGrove(grove)
+  return { ok: true }
+}
+
 /** "Inbox Sorter!" becomes "inbox-sorter". Readable aloud, which is the schema's rule for ids. */
 function slugify(name: string): string {
   return name

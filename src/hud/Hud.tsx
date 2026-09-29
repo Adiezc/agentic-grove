@@ -15,59 +15,52 @@
  * Icons come from Phosphor. The runes on the stones are brand marks and are drawn in
  * `scene/runes.ts`; nothing in the interface hand-rolls an SVG path.
  */
-import { useEffect, useState, type RefObject } from 'react'
-import {
-  Asterisk,
-  BookOpen,
-  Cube,
-  CubeTransparent,
-  Gear,
-  PlusCircle,
-  Prohibit,
-  Pulse,
-  Record,
-  Spiral,
-  Sparkle,
-  User,
-  X,
-} from '@phosphor-icons/react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
+import { BookOpen, Cube, File, Gear, PlusCircle, Pulse, Record, User, X } from '@phosphor-icons/react'
 
 /** Every icon at one weight. Phosphor's `thin` is what matches the art's hairline rail. */
 const ICON = { size: 17, weight: 'thin' } as const
 
+export type RailPanel = 'projects' | 'runes' | 'settings' | null
+
 /**
- * The left rail.
+ * The left rail: six places, top to bottom in the order you reach for them.
  *
- * In the concept art these are undifferentiated glyphs, and in the spike they still are, with one
- * exception: the pulse icon toggles the raw session list from session two. That is deliberate —
- * the one rail item that does something is the one that shows you the real data underneath the
- * scene, which is the most useful thing to have a shortcut to while judging whether the scene is
- * telling the truth.
+ *   Grove        back to the home view
+ *   Projects     every stone as a list, with sub-stones and split suggestions
+ *   Agents       the tree's agents, close up
+ *   Saved tasks  the runes carved on every stone
+ *   Activity     the raw session list underneath the scene, for checking it tells the truth
+ *   Settings
+ *
+ * In the concept art these were undifferentiated glyphs. Each one now does something, and its name
+ * shows beside it on hover, because an icon rail nobody can read is decoration.
  */
 export function Rail({
+  panel,
+  onPanel,
   onToggleData,
   dataOpen,
   onHome,
   onAgents,
   inAgents,
-  onSettings,
-  settingsOpen = false,
 }: {
+  panel: RailPanel
+  onPanel: (panel: RailPanel) => void
   onToggleData: () => void
   dataOpen: boolean
   onHome: () => void
   onAgents: () => void
   inAgents: boolean
-  onSettings?: () => void
-  settingsOpen?: boolean
 }) {
+  const toggle = (which: Exclude<RailPanel, null>) => () => onPanel(panel === which ? null : which)
   const items = [
-    { key: 'grove', Icon: Record, label: 'Grove', action: onHome, on: !inAgents && !dataOpen },
+    { key: 'grove', Icon: Record, label: 'Grove', action: onHome, on: !inAgents && !dataOpen && !panel },
+    { key: 'projects', Icon: Cube, label: 'Projects', action: toggle('projects'), on: panel === 'projects' },
     { key: 'agents', Icon: User, label: 'Agents', action: onAgents, on: inAgents },
-    { key: 'runes', Icon: BookOpen, label: 'Runes' },
-    { key: 'projects', Icon: Cube, label: 'Projects' },
-    { key: 'activity', Icon: Pulse, label: 'Session data', action: onToggleData, on: dataOpen },
-    { key: 'settings', Icon: Gear, label: 'Settings', action: onSettings, on: settingsOpen },
+    { key: 'runes', Icon: BookOpen, label: 'Saved tasks', action: toggle('runes'), on: panel === 'runes' },
+    { key: 'activity', Icon: Pulse, label: 'Activity', action: onToggleData, on: dataOpen },
+    { key: 'settings', Icon: Gear, label: 'Settings', action: toggle('settings'), on: panel === 'settings' },
   ]
 
   return (
@@ -81,45 +74,16 @@ export function Rail({
           type="button"
           className={`rail-item${on ? ' is-on' : ''}`}
           onClick={action}
-          disabled={!action}
           aria-label={label}
-          aria-pressed={action ? Boolean(on) : undefined}
-          title={action ? label : `${label} (not in the spike)`}
+          aria-pressed={Boolean(on)}
         >
           <Icon size={ICON.size} weight={ICON.weight} />
+          <span className="rail-label" aria-hidden="true">
+            {label}
+          </span>
         </button>
       ))}
     </nav>
-  )
-}
-
-/**
- * The harness row, top right.
- *
- * Five glyphs with a dot beneath each: the tools the Grove can see. The dot is the only part that
- * carries state, which is why it is allowed to be green. In the art the fifth glyph is dimmer
- * than the rest, and that maps exactly onto the project's honesty requirement — a tool that is
- * not installed is shown as not installed rather than hidden.
- */
-export function HarnessRow() {
-  const harnesses = [
-    { key: 'claude', Icon: Asterisk, label: 'Claude Code', on: true },
-    { key: 'codex', Icon: Spiral, label: 'Codex', on: true },
-    { key: 'cursor', Icon: Prohibit, label: 'Cursor (not installed)', on: false },
-    { key: 'xai', Icon: X, label: 'xAI', on: false },
-    { key: 'api', Icon: CubeTransparent, label: 'Direct API', on: false },
-  ]
-
-  return (
-    <div className="harness-row" role="list" aria-label="Tools the Grove can see">
-      {harnesses.map(({ key, Icon, label, on }) => (
-        <div key={key} className={`harness${on ? ' is-on' : ''}`} role="listitem" title={label}>
-          <Icon size={18} weight="thin" />
-          <span className="harness-dot" aria-hidden="true" />
-          <span className="sr-only">{label}</span>
-        </div>
-      ))}
-    </div>
   )
 }
 
@@ -151,14 +115,13 @@ export function Counts({ agents, running, tasks }: { agents: number; running: nu
 /**
  * The rune console.
  *
- * A pill with the placeholder from the art, a plus on its right edge, and a separate sparkle
- * button outside it. The grouping matters: in the art the pill is left of centre and the sparkle
- * sits apart from it, and the *pair* is centred. Centring the pill alone puts the sparkle out
- * past the middle and the whole bottom edge stops balancing.
+ * A pill with the placeholder from the art and a plus on its right edge that attaches files, the
+ * way the plus beside Claude's and ChatGPT's own message boxes does. Files can also be dropped
+ * straight onto the pill. They wait as small chips above it until the console can send them
+ * somewhere, which is roadmap step 10; Enter sends the words.
  *
- * It does nothing in the spike. It is focusable and typeable because a console you cannot click
- * into reads as an image of a console, and part of what is being judged is whether this feels
- * like something you would talk to.
+ * The art also had a sparkle button beside the pill. It was a placeholder with no job, so it went
+ * (30 September 2026): a button that does nothing teaches people that buttons here do nothing.
  */
 export function RuneConsole({
   inputRef,
@@ -168,13 +131,54 @@ export function RuneConsole({
   placeholder?: string
 }) {
   const [value, setValue] = useState('')
+  const [files, setFiles] = useState<File[]>([])
+  const [dragging, setDragging] = useState(false)
+  const picker = useRef<HTMLInputElement>(null)
+
+  // The same file twice is one attachment, not two chips with the same name.
+  const attach = (incoming: FileList | null) => {
+    if (!incoming?.length) return
+    setFiles((current) => {
+      const known = new Set(current.map((file) => `${file.name}:${file.size}`))
+      return [...current, ...[...incoming].filter((file) => !known.has(`${file.name}:${file.size}`))]
+    })
+  }
+
   return (
     <div className="console-group">
+      {files.length ? (
+        <ul className="console-files" aria-label="Attached files">
+          {files.map((file) => (
+            <li key={`${file.name}:${file.size}`} className="console-file">
+              <File size={13} weight="thin" aria-hidden="true" />
+              <span>{file.name}</span>
+              <button
+                type="button"
+                aria-label={`Remove ${file.name}`}
+                onClick={() => setFiles((current) => current.filter((each) => each !== file))}
+              >
+                <X size={11} weight="thin" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <form
-        className="console"
+        className={`console${dragging ? ' is-dropping' : ''}`}
         onSubmit={(event) => {
           event.preventDefault()
           setValue('')
+        }}
+        onDragOver={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) return
+          event.preventDefault()
+          setDragging(true)
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(event) => {
+          event.preventDefault()
+          setDragging(false)
+          attach(event.dataTransfer.files)
         }}
       >
         <input
@@ -186,13 +190,27 @@ export function RuneConsole({
           aria-label="Command the grove"
           spellCheck={false}
         />
-        <button type="submit" className="console-send" aria-label="Send">
+        <input
+          ref={picker}
+          type="file"
+          multiple
+          hidden
+          onChange={(event) => {
+            attach(event.target.files)
+            // Cleared so choosing the same file again after removing it still fires a change.
+            event.target.value = ''
+          }}
+        />
+        <button
+          type="button"
+          className="console-send"
+          aria-label="Attach files"
+          title="Attach files"
+          onClick={() => picker.current?.click()}
+        >
           <PlusCircle size={22} weight="thin" />
         </button>
       </form>
-      <button type="button" className="console-spark" aria-label="Suggestions">
-        <Sparkle size={20} weight="thin" />
-      </button>
     </div>
   )
 }
@@ -211,6 +229,50 @@ export function Announcer({ message }: { message: string }) {
       {message}
     </div>
   )
+}
+
+/**
+ * True while the window fills its whole screen (the green button, or ctrl-cmd-F).
+ *
+ * Measured against the screen rather than asked of Electron, so it needs no bridge and works in
+ * the browser preview too. A maximised window is not full screen: the menu bar still takes its strip.
+ */
+export function useFullScreen(): boolean {
+  const measure = () => window.innerWidth >= window.screen.width - 1 && window.innerHeight >= window.screen.height - 1
+  const [full, setFull] = useState(measure)
+  useEffect(() => {
+    const onResize = () => setFull(measure())
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  return full
+}
+
+/**
+ * True after a few seconds with no pointer or key activity. In full screen the interface fades back
+ * then, so the grove fills the display like a living wallpaper; any movement brings it straight back.
+ */
+export function useIdle(enabled: boolean, afterMs = 6000): boolean {
+  const [idle, setIdle] = useState(false)
+  useEffect(() => {
+    if (!enabled) {
+      setIdle(false)
+      return
+    }
+    let timer = window.setTimeout(() => setIdle(true), afterMs)
+    const wake = () => {
+      setIdle(false)
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => setIdle(true), afterMs)
+    }
+    const events = ['pointermove', 'pointerdown', 'keydown', 'wheel'] as const
+    for (const name of events) window.addEventListener(name, wake, { passive: true })
+    return () => {
+      window.clearTimeout(timer)
+      for (const name of events) window.removeEventListener(name, wake)
+    }
+  }, [enabled, afterMs])
+  return idle
 }
 
 /** True when the viewer has asked for less movement. Everything animated respects it. */

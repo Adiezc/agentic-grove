@@ -16,21 +16,56 @@ the Grove already has (the scan plus Claude Code hooks). Decisions made along th
 | 5 | Heartbeat driven by real activity, mycelium, drifting motes | Done |
 | 6 | Hook installer and local listener, so changes arrive instantly | Done |
 | 7 | The crystal (usage and rate-limit headroom, with provenance), and a menu-bar shard | Done |
-| 8 | Agent definitions, the tree panel, the agent carousel | |
+| 8 | Agent definitions, the tree panel, the agent carousel | Partly: built-in Researcher, Builder, Manager |
 | 9 | Spawning agents, deploy-to-runestone animation, live transcript view | |
 | 10 | The rune console: natural-language routing to an agent and a stone | |
 | 11 | Attention: motes, notifications, answer-or-wait behaviour | |
-| 12–13 | Settings, onboarding, empty states, keyboard shortcuts, performance presets | |
+| 12–13 | Settings, onboarding, empty states, keyboard shortcuts, performance presets | Partly: settings, graphics modes, one-button setup, update check |
 | 14 | Packaging, notarised Mac build, DMG | |
 | 15 | README with an honest capability table, screenshots, a demo GIF | |
 
 Before the public release:
 
+- **A downloadable build.** Step 14 (packaging, DMG) and a first GitHub release, or the update
+  check has nothing to find. Unsigned, so the README explains the one-time "Open anyway".
 - **Windows support.**
 - **Official Claude limits for terminal users.** Claude Code's statusline carries the official
   five-hour and weekly percentages, but only the terminal runs it; the desktop app does not
   (tested). It needs its own consent step, because Claude Code allows one statusline and people
   often have one already.
+
+## The long-run aim
+
+Written down on 30 September 2026 so later work can be judged against it. In the long run the
+Grove is an **agentic operating system**. Picture someone in a café with a laptop: the Grove runs
+all their agents and AI connectors (for now Claude, ChatGPT and their agents), they give it a
+project, an objective or a vision, and agents from different providers work on it together, for
+hours at first and days later on, asking the person questions only when they need to. Everything
+in the build plan should move towards that without breaking the principles: honest numbers, calm
+by default, read-only towards other tools.
+
+## From Adrian's notes, 30 September 2026
+
+| | Note | Status |
+| --- | --- | --- |
+| 1 | One-button setup for Claude Code and Codex, first time and in Settings | Done |
+| 2 | Builder and Manager on the tree by default, beside Researcher | Done (routing rules in `core/routing.ts`; wired in step 10) |
+| 3 | Limit providers to Claude and ChatGPT; replace Grok Bots with ChatGPT Dots | Done |
+| 4 | Crystal readout does not close on a click elsewhere | Fixed |
+| 5 | The plus beside the console takes files | Done (sent with the console, step 10) |
+| 6 | Click the tree to see its agents | Done |
+| 7 | Rail tabs that do something | Done: Projects, Saved tasks, Activity |
+| 8 | More settings, kept through updates | Done |
+| 9 | Daily update check and a download button | Done (needs a public repo and releases) |
+| 10 | Full screen more immersive, interface a little larger | Done |
+| 11 | Agents / Open / Task clearer | Done |
+| 12 | Graphics modes: Performance, Balanced, Grove, adapting to load | Done |
+| 13 | Five-hour usage at a glance, week on hover, per provider | Done for Codex; **Claude needs a decision**, see DECISIONS.md |
+| 14 | Thicker mycelium | Done |
+| 15 | Home view slightly right, down and further out | Done, to be judged |
+| 16 | Remove the sparkle icon | Done |
+| 17 | Sub-stones for big parts of a project | Done (suggested, never automatic) |
+| 18 | The agentic operating system | The long-run aim, above |
 
 ## Chosen for future sessions
 

@@ -43,6 +43,12 @@ const api: GroveApi = {
   openAgentLink: (id) => ipcRenderer.invoke(CHANNELS.openAgentLink, id),
   planHooks: (action) => ipcRenderer.invoke(CHANNELS.planHooks, action),
   applyHooks: (action, baseline) => ipcRenderer.invoke(CHANNELS.applyHooks, action, baseline),
+  openProjectFolder: (stoneId) => ipcRenderer.invoke(CHANNELS.openProjectFolder, stoneId),
+  saveSettings: (patch) => ipcRenderer.invoke(CHANNELS.saveSettings, patch),
+  checkForUpdates: () => ipcRenderer.invoke(CHANNELS.checkForUpdates),
+  openRelease: () => ipcRenderer.invoke(CHANNELS.openRelease),
+  setUpTool: (tool) => ipcRenderer.invoke(CHANNELS.setUpTool, tool),
+  browseSubProject: (stoneId) => ipcRenderer.invoke(CHANNELS.browseSubProject, stoneId),
 }
 
 contextBridge.exposeInMainWorld('grove', api)

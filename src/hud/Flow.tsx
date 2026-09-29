@@ -7,8 +7,8 @@
  * glow, never a sentence.
  */
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowSquareOut, CaretLeft, CaretRight, Check, Cube, Eye, Plus, Trash, User, X } from '@phosphor-icons/react'
-import type { AgentGlyph, AgentHarness } from '../../core/state/schema.ts'
+import { ArrowSquareOut, CaretLeft, CaretRight, Check, Eye, FolderOpen, GitFork, Plus, Trash, User, X } from '@phosphor-icons/react'
+import { isLinkOnly, LINK_HOME, type AgentGlyph, type AgentHarness } from '../../core/state/schema.ts'
 import { GLYPH_CHOICES, GLYPHS } from '../agents/glyphs'
 import { HARNESS_MARK, kindOf, ROOM, useTree } from '../agents/tree'
 import type { StoneSpec } from '../scene/Runestone'
@@ -51,6 +51,18 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
   }, [stoneId, open])
   // Demo stones are pretend, and a plain browser tab has no bridge to write with.
   const canRemove = Boolean(window.grove) && !DEMO
+  const canOpen = Boolean(window.grove) && !DEMO
+  /** Give part of this project its own sub-stone: a suggested part, or one you pick in Finder. */
+  const splitOff = async (suggested?: string) => {
+    if (!stone || !window.grove) return
+    const result = suggested ? await window.grove.connectSuggested(suggested) : await window.grove.browseSubProject(stone.id)
+    setError(!result.ok && !result.cancelled ? (result.error ?? 'Could not split it') : null)
+  }
+  const openFolder = async () => {
+    if (!stone) return
+    const result = await window.grove?.openProjectFolder(stone.id)
+    setError(result && !result.ok ? (result.error ?? 'Could not open it') : null)
+  }
   const remove = async () => {
     if (!stone) return
     if (!confirming) {
@@ -105,29 +117,56 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
               ))}
             </ul>
           ) : null}
+          {stone.splits?.length && canOpen ? (
+            <div className="split-offer">
+              <p>Work here has spread over {stone.splits.length} big parts. Give each its own stone?</p>
+              <div className="split-choices">
+                {stone.splits.map((split) => (
+                  <button key={split.path} type="button" className="setting-button" onClick={() => void splitOff(split.path)}>
+                    {split.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {confirming ? (
             <p className="panel-note">Press the bin again to take this stone off the grove. The folder and its sessions stay as they are.</p>
           ) : null}
           {error ? <p className="panel-error">{error}</p> : null}
+          {/* Each action says what it does in a second line. The first version had one word each
+              (Agents, Open, Task) and nobody could tell them apart without trying them. */}
           <div className="panel-actions">
             <button type="button" className="panel-row" onClick={openAgents}>
               <User size={18} weight="thin" />
-              <span>Agents</span>
+              <span>
+                Send an agent
+                <small>Pick one from the tree to work here</small>
+              </span>
               <CaretRight size={13} weight="thin" className="row-caret" />
             </button>
-            {/* Opening the folder needs the Electron bridge, which does not expose it yet. Shown
-                disabled rather than hidden, so the panel already has its final shape. */}
-            <button type="button" className="panel-row" disabled title="Coming soon">
-              <Cube size={18} weight="thin" />
-              <span>Open</span>
+            <button type="button" className="panel-row" onClick={openFolder} disabled={!canOpen}>
+              <FolderOpen size={18} weight="thin" />
+              <span>
+                Open folder
+                <small>See the project's files in Finder</small>
+              </span>
               <CaretRight size={13} weight="thin" className="row-caret" />
             </button>
             <button type="button" className="panel-row" onClick={onAddTask}>
               <Plus size={18} weight="thin" />
-              <span>Task</span>
+              <span>
+                New task
+                <small>Type a job for this project below</small>
+              </span>
               <CaretRight size={13} weight="thin" className="row-caret" />
             </button>
           </div>
+          {canOpen ? (
+            <button type="button" className="panel-link" onClick={() => void splitOff()}>
+              <GitFork size={13} weight="thin" aria-hidden="true" />
+              Split off a part as its own stone
+            </button>
+          ) : null}
         </>
       ) : null}
     </aside>
@@ -150,7 +189,7 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
   const agent = agents[index]!
   const target = stones.find((stone) => stone.id === stoneId)
   const { Glyph } = agent
-  const { Mark, label } = HARNESS_MARK[agent.harness]
+  const { Mark, label, opens } = HARNESS_MARK[agent.harness]
   const isBot = kindOf(agent) === 'bot'
   const count = agents.length
   const step = (by: number) => showAgent(agents[(index + by + count) % count]!.id)
@@ -216,9 +255,9 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
       <p className="panel-line agent-line">{agent.description}</p>
 
       {isBot ? (
-        // Grok Bots have no API to drive, so the one thing the Grove can do is open them.
+        // Dots and Cowork have no API to drive, so the one thing the Grove can do is open them.
         <button type="button" className="panel-send" disabled={!canWrite} onClick={openLink}>
-          <span>Open in Grok</span>
+          <span>Open in {opens}</span>
           <ArrowSquareOut size={14} weight="thin" />
         </button>
       ) : (
@@ -247,16 +286,20 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
   )
 }
 
-/** The three tools an agent can belong to, in the order the form offers them. */
-const KINDS: AgentHarness[] = ['claude-code', 'codex', 'grok-bot']
+/**
+ * The tools an agent can belong to, in the order the form offers them: the two that work in your
+ * folders, then the two everyday coworkers that live in their own apps. Grok Bot is not offered any
+ * more, though an older `grove.json` that has one still loads.
+ */
+const KINDS: AgentHarness[] = ['claude-code', 'codex', 'claude-cowork', 'chatgpt-dot']
 
 /**
  * Growing an agent: opened from the bud, in the agent card's place.
  *
  * Four fields, and only the name is required. The tool decides everything else about how the
  * Grove treats the agent: Claude Code and Codex hang from the branches and can be sent to a stone;
- * a Grok Bot drifts loose and can only be opened. The one line under the choices says which, so
- * nobody grows a firefly expecting it to take orders.
+ * a ChatGPT Dot or Claude Cowork drifts loose and can only be opened. The one line under the
+ * choices says which, so nobody grows a firefly expecting it to take orders.
  */
 export function GrowCard() {
   const view = useFlow((state) => state.view)
@@ -285,7 +328,7 @@ export function GrowCard() {
     setError(null)
   }, [open])
 
-  const isBot = harness === 'grok-bot'
+  const isBot = isLinkOnly(harness)
   const full = isBot ? counts.bot >= ROOM.bot : counts.grove >= ROOM.grove
 
   const submit = async (event: FormEvent) => {
@@ -315,7 +358,9 @@ export function GrowCard() {
           </span>
           <div>
             <h2 className="panel-title">New agent</h2>
-            <p className="panel-harness">{isBot ? 'Opens in Grok' : 'Can be sent to a stone'}</p>
+            <p className="panel-harness">
+              {isBot ? `Everyday work. Opens in ${HARNESS_MARK[harness].opens}` : 'Works in your project folders'}
+            </p>
           </div>
         </header>
 
@@ -353,7 +398,7 @@ export function GrowCard() {
               value={link}
               onChange={(event) => setLink(event.target.value)}
               type="url"
-              placeholder="https://grok.com"
+              placeholder={LINK_HOME[harness]}
               spellCheck={false}
             />
           </label>

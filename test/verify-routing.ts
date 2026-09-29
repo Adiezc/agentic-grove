@@ -1,0 +1,53 @@
+/**
+ * The Manager's routing rules, checked case by case. Run with `npm run verify:routing`.
+ *
+ * Each case is one sentence of the rule book in `core/routing.ts`. If a rule changes on purpose,
+ * change its case here in the same commit, so the two never disagree about what the Manager does.
+ */
+import assert from 'node:assert/strict'
+import { route, type Connected } from '../core/routing.ts'
+
+const none: Connected = { claudeCode: false, codex: false, claudeApp: false, chatgptApp: false, dots: false }
+const all: Connected = { claudeCode: true, codex: true, claudeApp: true, chatgptApp: true, dots: true }
+
+const cases: [string, () => void][] = [
+  ['project work with nothing connected says what to connect', () => {
+    assert.equal(route('project', none).harness, null)
+  }],
+  ['project work goes to the one project tool there is', () => {
+    assert.equal(route('project', { ...none, codex: true }).harness, 'codex')
+    assert.equal(route('project', { ...none, claudeCode: true }).harness, 'claude-code')
+  }],
+  ['with both, Claude Code wins a tie or an unknown', () => {
+    assert.equal(route('project', all).harness, 'claude-code')
+    assert.equal(route('project', all, { claudeCode: 40, codex: null }).harness, 'claude-code')
+  }],
+  ['with both, more headroom wins', () => {
+    assert.equal(route('project', all, { claudeCode: 10, codex: 70 }).harness, 'codex')
+    assert.equal(route('project', all, { claudeCode: 70, codex: 10 }).harness, 'claude-code')
+  }],
+  ['recurring work goes to a Dot when the plan has them', () => {
+    assert.equal(route('recurring', all).harness, 'chatgpt-dot')
+  }],
+  ['recurring work without Dots becomes a saved task on a project tool', () => {
+    assert.equal(route('recurring', { ...none, claudeCode: true }).harness, 'claude-code')
+  }],
+  ['everyday work prefers Cowork, then ChatGPT, then a project tool', () => {
+    assert.equal(route('everyday', all).harness, 'claude-cowork')
+    assert.equal(route('everyday', { ...none, chatgptApp: true }).harness, 'chatgpt-dot')
+    assert.equal(route('everyday', { ...none, codex: true }).harness, 'codex')
+  }],
+]
+
+let failed = 0
+for (const [name, check] of cases) {
+  try {
+    check()
+    console.log(`ok    ${name}`)
+  } catch (error) {
+    failed += 1
+    console.log(`FAIL  ${name}\n      ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+if (failed) process.exit(1)
+console.log(`\nAll ${cases.length} routing rules hold.`)

@@ -117,8 +117,11 @@ export const camera = {
    * this file that was measured rather than chosen. */
   /* Pulled back again, same elevation, when the tree gained depth and the stones moved out to
    * give it room. */
+  /* Nudged on 30 September 2026 at Adrian's request: the view centres a little right of and below
+   * the tree, and sits about eight per cent further back. Same direction, so the elevation holds. */
   fov: 30,
   // Tilted up to about thirty degrees, looking down into the grove as the user's chosen view does.
-  position: [0, 11.9, 18.4] as [number, number, number],
-  target: [0, 1.25, 0] as [number, number, number],
+  // position = target + (0, 10.65, 18.4) * 1.08
+  position: [0.45, 12.35, 19.87] as [number, number, number],
+  target: [0.45, 0.85, 0] as [number, number, number],
 } as const

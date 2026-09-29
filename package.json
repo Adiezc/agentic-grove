@@ -20,6 +20,7 @@
     "usage": "tsx core/cli/usage-once.ts",
     "verify": "tsx test/verify-scan.ts",
     "verify:tells": "tsx test/verify-tells.ts",
+    "verify:routing": "tsx test/verify-routing.ts",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "build:tree-model": "node scripts/build-world-tree-model.mjs",

@@ -91,16 +91,52 @@ export function emptyPlaces(filled: number): EmptyPlace[] {
   }))
 }
 
+/**
+ * Where a sub-stone stands: further out from the tree than its parent, fanned either side of the
+ * line from the trunk through the parent, so a project that splits into two or three reads as one
+ * stone branching rather than a cluster. Siblings alternate sides, nearest the line first.
+ */
+export function childPlace(parent: Place, sibling: number): Place {
+  const angle = Math.atan2(parent[0], parent[1])
+  const side = sibling % 2 === 0 ? 1 : -1
+  const fan = side * (0.42 + Math.floor(sibling / 2) * 0.32)
+  const reach = Math.hypot(parent[0], parent[1]) + 2.1 + Math.floor(sibling / 2) * 0.4
+  return [Math.sin(angle + fan / (reach / 4)) * reach, Math.cos(angle + fan / (reach / 4)) * reach * 0.82]
+}
+
+/** Top-level stones take the numbered places; sub-stones are placed off their parent. */
+export function topLevelCount(stones: DerivedStone[]): number {
+  return stones.filter((stone) => !stone.parent || !stones.some((other) => other.id === stone.parent)).length
+}
+
 export function layoutStones(stones: DerivedStone[]): StoneSpec[] {
-  return stones.map((stone, index) => {
+  const ids = new Set(stones.map((stone) => stone.id))
+  const hasParent = (stone: DerivedStone) => Boolean(stone.parent && ids.has(stone.parent))
+  const at = new Map<string, Place>()
+  // Top-level stones take the numbered places in connection order, which is what keeps a stone
+  // still when another arrives.
+  let place = 0
+  for (const stone of stones) if (!hasParent(stone)) at.set(stone.id, placeAt(place++))
+  // Then sub-stones, shortest path first: a parent's folder is always a prefix of its child's, so
+  // every parent is placed before anything that hangs from it.
+  const siblings = new Map<string, number>()
+  for (const stone of [...stones].filter(hasParent).sort((a, b) => a.id.length - b.id.length)) {
+    const n = siblings.get(stone.parent!) ?? 0
+    siblings.set(stone.parent!, n + 1)
+    at.set(stone.id, childPlace(at.get(stone.parent!) ?? placeAt(place++), n))
+  }
+  return stones.map((stone) => {
     const h = hash(stone.id)
+    const child = hasParent(stone)
     return {
       id: stone.id,
       name: stone.name,
       rune: runeFor(stone.id),
       status: stone.status,
-      at: placeAt(index),
-      scale: 0.92 + h * 0.14,
+      at: at.get(stone.id)!,
+      parent: child ? stone.parent : undefined,
+      splits: stone.splits,
+      scale: (0.92 + h * 0.14) * (child ? 0.78 : 1),
       turn: (h - 0.5) * 0.44,
       line: lastWork(stone) ?? 'Nothing yet.',
       tells: stone.tells,

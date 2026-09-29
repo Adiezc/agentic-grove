@@ -9,6 +9,7 @@ import type { Icon } from '@phosphor-icons/react'
 import {
   CalendarBlank,
   ChartLineUp,
+  Compass,
   Eye,
   Hammer,
   MagnifyingGlass,
@@ -21,6 +22,7 @@ import { AGENT_GLYPHS, type AgentGlyph } from '../../core/state/schema.ts'
 export const GLYPHS: Record<AgentGlyph, { Icon: Icon; label: string }> = {
   search: { Icon: MagnifyingGlass, label: 'Research' },
   build: { Icon: Hammer, label: 'Build' },
+  plan: { Icon: Compass, label: 'Plan' },
   review: { Icon: Eye, label: 'Review' },
   write: { Icon: PencilSimpleLine, label: 'Write' },
   data: { Icon: ChartLineUp, label: 'Data' },

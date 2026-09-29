@@ -13,15 +13,15 @@
  * Windows, the tray and notifications will each get their own file as they arrive. This one
  * stays about lifecycle.
  */
-import { BrowserWindow, app, dialog, shell } from 'electron'
+import { BrowserWindow, app, dialog, net, screen, shell } from 'electron'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
-import { addAgent, addProject, loadGrove, grovePath, removeAgent, removeProject } from '../core/state/grove.ts'
+import { addAgent, addProject, loadGrove, grovePath, removeAgent, removeProject, saveSettings } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
-import { GROK_HOME, defaultGrove, isHttpsUrl } from '../core/state/schema.ts'
+import { LINK_HOME, defaultGrove, isHttpsUrl, isLinkOnly } from '../core/state/schema.ts'
 import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type ProjectResult } from './bridge.ts'
 import { LiveState } from '../core/hooks/live.ts'
 import { startUsageLoop } from '../core/usage/index.ts'
@@ -30,6 +30,9 @@ import type { UsageReport } from '../core/usage/types.ts'
 import { startHookServer, type HookServer } from '../core/hooks/server.ts'
 import { applyHooks, hookToken, hooksState, planHooks, type HooksAction } from '../core/hooks/install.ts'
 import { ipcMain } from 'electron'
+import { CHECK_EVERY_MS, RELEASES_PAGE, checkForUpdate, type UpdateStatus } from '../core/updates.ts'
+import { sampleLoad, type SystemLoad } from '../core/system.ts'
+import { TOOL_PAGES, setupScript, setupStatus, type SetupStatus, type SetupTool } from '../core/setup.ts'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -55,6 +58,18 @@ let hookServer: HookServer | null = null
 let usage: UsageReport | null = null
 let stopUsage: (() => void) | undefined
 let shard: Shard | null = null
+/** How busy the Mac is, sampled on its own five-second timer so hook-driven redraws do not skew it. */
+let system: SystemLoad = { cpu: 0, memory: 0 }
+/** The newest release GitHub knows of. See `core/updates.ts`. */
+let update: UpdateStatus = { state: 'unknown', current: app.getVersion() }
+/** Which tools are installed. Re-checked every minute, so finishing a setup shows up by itself. */
+let setup: SetupStatus = {
+  'claude-code': { cli: false, app: false },
+  codex: { cli: false, app: false },
+  brew: false,
+  npm: false,
+}
+const timers: ReturnType<typeof setInterval>[] = []
 
 /** Every open window that wants snapshots. Plural already, because the mini-window is coming. */
 const windows = new Set<BrowserWindow>()
@@ -110,7 +125,31 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
     scanMs: result.durationMs,
     hooks,
     usage,
+    system,
+    update: grove.settings.checkForUpdates ? update : { state: 'off', current: update.current },
+    setup,
+    version: app.getVersion(),
+    displays: screen.getAllDisplays().length,
   }
+}
+
+/**
+ * The daily update check. Runs hourly but only asks GitHub when a day has passed since the last
+ * answer, the setting is on, and the Mac is online. An offline Mac is not asked and not counted as a
+ * check, so the question goes out soon after the connection returns.
+ */
+async function maybeCheckForUpdate(force = false): Promise<UpdateStatus> {
+  const { grove } = await loadGrove()
+  if (!grove.settings.checkForUpdates && !force) return update
+  const due = !update.checkedAt || Date.now() - update.checkedAt >= CHECK_EVERY_MS || update.state === 'error'
+  if (!due && !force) return update
+  if (!net.isOnline()) {
+    update = { ...update, state: update.state === 'available' ? 'available' : 'offline' }
+    return update
+  }
+  update = await checkForUpdate(app.getVersion())
+  if (lastScan) void toSnapshot(lastScan).then(broadcast)
+  return update
 }
 
 /**
@@ -244,8 +283,11 @@ function registerHandlers(): void {
   }
 
   ipcMain.handle(CHANNELS.connectSuggested, async (_event, folder: unknown): Promise<ProjectResult> => {
-    // Page code is untrusted: accept only a path the node side itself offered.
-    const offered = latest?.grove.suggestions.some((suggestion) => suggestion.path === folder)
+    // Page code is untrusted: accept only a path the node side itself offered, as a project or as
+    // a part of one worth its own sub-stone.
+    const offered =
+      latest?.grove.suggestions.some((suggestion) => suggestion.path === folder) ||
+      latest?.grove.stones.some((stone) => stone.splits.some((split) => split.path === folder))
     if (typeof folder !== 'string' || !offered) return { ok: false, error: 'Not one of the suggested folders' }
     return addAndRescan(folder)
   })
@@ -261,6 +303,24 @@ function registerHandlers(): void {
     const picked = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options)
     const folder = picked.filePaths[0]
     if (picked.canceled || !folder) return { ok: false, cancelled: true }
+    return addAndRescan(folder)
+  })
+
+  ipcMain.handle(CHANNELS.browseSubProject, async (event, stoneId: unknown): Promise<ProjectResult> => {
+    const { grove } = await loadGrove()
+    const parent = grove.stones.find((stone) => stone.path === stoneId)
+    if (!parent) return { ok: false, error: 'Not one of your stones' }
+    const owner = BrowserWindow.fromWebContents(event.sender)
+    const options: Electron.OpenDialogOptions = {
+      title: `A part of ${path.basename(parent.path)} to give its own stone`,
+      buttonLabel: 'Make sub-stone',
+      defaultPath: parent.path,
+      properties: ['openDirectory'],
+    }
+    const picked = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options)
+    const folder = picked.filePaths[0]
+    if (picked.canceled || !folder) return { ok: false, cancelled: true }
+    if (!folder.startsWith(parent.path + path.sep)) return { ok: false, error: 'Choose a folder inside the project' }
     return addAndRescan(folder)
   })
 
@@ -317,8 +377,9 @@ function registerHandlers(): void {
   ipcMain.handle(CHANNELS.openAgentLink, async (_event, id: unknown): Promise<AgentResult> => {
     const { grove } = await loadGrove()
     const agent = grove.agents.find((each) => each.id === id)
-    if (!agent || agent.harness !== 'grok-bot') return { ok: false, error: 'Not a Grok Bot' }
-    const link = agent.link ?? GROK_HOME
+    if (!agent || !isLinkOnly(agent.harness)) return { ok: false, error: 'That agent runs in the Grove, not in a browser' }
+    const link = agent.link ?? LINK_HOME[agent.harness] ?? ''
+
     // Checked again here even though the loader already did: this is the line that hands a string
     // to the system opener, and it should not depend on some other file staying correct.
     if (!isHttpsUrl(link)) return { ok: false, error: 'Link is not https' }
@@ -346,6 +407,57 @@ function registerHandlers(): void {
     const result = await applyHooks(which, baseline).catch((error: unknown) => ({ ok: false, error: String(error) }))
     if (result.ok) await restartScanning()
     return result
+  })
+
+  ipcMain.handle(CHANNELS.openProjectFolder, async (_event, stoneId: unknown): Promise<ProjectResult> => {
+    // Only a folder that is a stone in grove.json, never a path chosen by page code.
+    const { grove } = await loadGrove()
+    const stone = grove.stones.find((each) => each.path === stoneId)
+    if (!stone) return { ok: false, error: 'Not one of your stones' }
+    const failure = await shell.openPath(stone.path)
+    return failure ? { ok: false, error: failure } : { ok: true }
+  })
+
+  ipcMain.handle(CHANNELS.saveSettings, async (_event, patch: unknown) => {
+    if (typeof patch !== 'object' || patch === null || Array.isArray(patch)) return { ok: false, error: 'Not settings' }
+    const result = await saveSettings(patch as Record<string, unknown>).catch((error: unknown) => ({
+      ok: false,
+      error: String(error),
+    }))
+    if (result.ok) {
+      await restartScanning()
+      // Turning the check on should check, not wait up to an hour to find out.
+      if ((patch as Record<string, unknown>).checkForUpdates === true) void maybeCheckForUpdate()
+    }
+    return result
+  })
+
+  ipcMain.handle(CHANNELS.checkForUpdates, async () => maybeCheckForUpdate(true))
+
+  ipcMain.handle(CHANNELS.openRelease, async () => {
+    await shell.openExternal(RELEASES_PAGE)
+  })
+
+  ipcMain.handle(CHANNELS.setUpTool, async (_event, tool: unknown) => {
+    if (tool !== 'claude-code' && tool !== 'codex') return { ok: false, error: 'Unknown tool' }
+    const which = tool as SetupTool
+    setup = await setupStatus()
+    const script = setupScript(which, setup)
+    if (!script) {
+      await shell.openExternal(TOOL_PAGES[which])
+      return { ok: true, opened: 'page' as const }
+    }
+    try {
+      // A `.command` file is what macOS opens in Terminal on its own. Written to a private temp
+      // folder, readable and runnable by this user only.
+      const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'agentic-grove-setup-'))
+      const file = path.join(dir, `set-up-${which}.command`)
+      await fsp.writeFile(file, script, { mode: 0o700 })
+      const failure = await shell.openPath(file)
+      return failure ? { ok: false, error: failure } : { ok: true, opened: 'terminal' as const }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
   })
 
   ipcMain.handle(CHANNELS.revealGroveFile, async () => {
@@ -380,6 +492,20 @@ void app.whenReady().then(async () => {
     shard?.update(report)
     if (lastScan) void toSnapshot(lastScan).then(broadcast)
   })
+  setup = await setupStatus()
+  timers.push(
+    setInterval(() => {
+      system = sampleLoad()
+    }, 5000),
+    setInterval(() => {
+      void setupStatus().then((found) => {
+        setup = found
+      })
+    }, 60_000),
+    setInterval(() => void maybeCheckForUpdate(), 60 * 60_000)
+  )
+  // The first check waits a minute, so launching the app is never slowed by a network call.
+  setTimeout(() => void maybeCheckForUpdate(), 60_000)
   createWindow()
 
   // macOS convention: clicking the dock icon after closing every window reopens one rather than
@@ -410,4 +536,5 @@ app.on('before-quit', () => {
   stopUsage?.()
   shard?.destroy()
   hookServer?.close()
+  for (const timer of timers) clearInterval(timer)
 })

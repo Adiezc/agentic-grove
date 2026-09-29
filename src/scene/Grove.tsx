@@ -12,6 +12,7 @@
  */
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { useSettings } from '../store/settings'
 import { OrbitControls } from '@react-three/drei'
 import { Bloom, EffectComposer, Noise, Vignette } from '@react-three/postprocessing'
 import { BlendFunction, KernelSize } from 'postprocessing'
@@ -20,7 +21,7 @@ import { camera as cameraSpec, palette } from '../theme/palette'
 import { Ground } from './Ground'
 import { Motes } from './Motes'
 import { Mycelium } from './Mycelium'
-import { growNetwork } from './network'
+import { growNetwork, type NetworkTarget } from './network'
 import { Runestone, type StoneSpec } from './Runestone'
 import { ReferenceTree } from './ReferenceTree'
 import { Canopy, DeployWisp } from './Canopy'
@@ -185,6 +186,49 @@ function CameraRig({ shot, resetKey, animate }: { shot: Shot; resetKey: number; 
   )
 }
 
+/**
+ * Clicking the tree opens its agents.
+ *
+ * The click lands on two invisible shapes, a trunk and a canopy, rather than on the tree model
+ * itself. The model is most of the scene's 287k triangles, and testing the pointer against all of
+ * them on every mouse move would cost frames for no gain: nobody aims at a single leaf.
+ */
+function TreeHitbox({ onOpen }: { onOpen: () => void }) {
+  const hover = (on: boolean) => (event: { stopPropagation: () => void }) => {
+    event.stopPropagation()
+    document.body.style.cursor = on ? 'pointer' : ''
+  }
+  const click = (event: { stopPropagation: () => void }) => {
+    event.stopPropagation()
+    document.body.style.cursor = ''
+    onOpen()
+  }
+  useEffect(() => () => void (document.body.style.cursor = ''), [])
+  return (
+    <group onClick={click} onPointerOver={hover(true)} onPointerOut={hover(false)}>
+      <mesh position={[0, 1.7, 0]} visible={false}>
+        <cylinderGeometry args={[0.55, 0.8, 3.2, 8]} />
+      </mesh>
+      <mesh position={[-0.35, 4.2, 0.3]} scale={[1.25, 0.72, 1]} visible={false}>
+        <sphereGeometry args={[2.1, 12, 8]} />
+      </mesh>
+    </group>
+  )
+}
+
+/**
+ * Draw at a fixed rate rather than every screen refresh. A timer rather than skipping frames inside
+ * the render loop, because a skipped frame still wakes the GPU; a frame never asked for does not.
+ */
+function FrameCap({ fps }: { fps: number }) {
+  const invalidate = useThree((state) => state.invalidate)
+  useEffect(() => {
+    const timer = window.setInterval(() => invalidate(), 1000 / fps)
+    return () => window.clearInterval(timer)
+  }, [fps, invalidate])
+  return null
+}
+
 /** What the renderer is doing, sampled once a second. */
 export interface PerfSample {
   fps: number
@@ -240,6 +284,8 @@ interface GroveSceneProps {
   onHoverStone?: (id: string | null) => void
   /** Increment to return the orbit camera to the supplied Grove composition. */
   viewResetKey?: number
+  /** Hold the frame rate at this, whatever the screen can do. Performance mode's 60. */
+  maxFps?: number
   /**
    * True once the first real list of stones has arrived. Stones present at that moment were
    * already there and simply stand; any that appear afterwards arrived while you watched, and
@@ -260,7 +306,9 @@ export function GroveScene({
   onHoverStone,
   viewResetKey = 0,
   ready = true,
+  maxFps,
 }: GroveSceneProps) {
+  const { alwaysShowNames, ambientMotion } = useSettings()
   const [hovered, setHovered] = useState<string | null>(null)
   const settings = QUALITY[quality]
   const view = useFlow((state) => state.view)
@@ -268,6 +316,7 @@ export function GroveScene({
   const focused = useFlow((state) => state.focused)
   const deployment = useFlow((state) => state.deployment)
   const selectStone = useFlow((state) => state.selectStone)
+  const openAgents = useFlow((state) => state.openAgents)
   const land = useFlow((state) => state.land)
   const shot = useMemo(
     () => shotFor(view, stones.find((stone) => stone.id === stoneId)),
@@ -300,11 +349,15 @@ export function GroveScene({
    * deployment lighting it, say) must not regrow every root in the grove. */
   /* Empty places get roots too, faint and owned by nobody that can light them, so the mycelium
    * already reaches the spot where your next stone will stand. */
-  const targets = [
-    ...stones.map((stone) => ({ id: stone.id, at: stone.at })),
+  const targets: NetworkTarget[] = [
+    ...stones.map((stone) => ({
+      id: stone.id,
+      at: stone.at,
+      from: stone.parent ? stones.find((other) => other.id === stone.parent)?.at : undefined,
+    })),
     ...empty.map((place) => ({ id: `place-${place.index}`, at: place.at })),
   ]
-  const layoutKey = targets.map((target) => `${target.id}@${target.at.join(',')}`).join('|')
+  const layoutKey = targets.map((target) => `${target.id}@${target.at.join(',')}<${target.from?.join(',') ?? ''}`).join('|')
   const network = useMemo(
     () => growNetwork(targets),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -338,6 +391,8 @@ export function GroveScene({
 
   return (
     <Canvas
+      // With a frame cap the canvas draws only when asked, and `FrameCap` asks at the capped rate.
+      frameloop={maxFps ? 'demand' : 'always'}
       dpr={settings.dpr}
       camera={{ fov: cameraSpec.fov, position: cameraSpec.position, near: 0.1, far: 120 }}
       gl={{ antialias: true, alpha: false }}
@@ -361,6 +416,7 @@ export function GroveScene({
       }}
     >
       <CameraRig shot={shot} resetKey={viewResetKey} animate={animate} />
+      {maxFps ? <FrameCap fps={maxFps} /> : null}
       {onPerf ? <Perf onSample={onPerf} /> : null}
 
       {/* Light is minimal on purpose. Nearly everything in this scene emits rather than reflects,
@@ -384,6 +440,7 @@ export function GroveScene({
       <group scale={1.12}>
         <ReferenceTree activity={activity} attention={attention.size > 0 || failed.size > 0} network={network} animate={animate} />
       </group>
+      {view === 'home' || view === 'stone' ? <TreeHitbox onOpen={openAgents} /> : null}
 
       {stones.map((stone) => (
         <Runestone
@@ -394,6 +451,7 @@ export function GroveScene({
           // keeps the resting scene almost wordless.
           // While picking a target every name shows, because that moment is a choice between them.
           showLabel={
+            alwaysShowNames ||
             hovered === stone.id ||
             focused === stone.id ||
             stoneId === stone.id ||
@@ -417,7 +475,7 @@ export function GroveScene({
         <DeployWisp key={`${deployment.agentId}-${deployment.stoneId}`} from={deployFrom} to={deployTo} animate={animate} onArrive={land} />
       ) : null}
 
-      {animate ? <Motes activity={activity} /> : null}
+      {animate && ambientMotion ? <Motes activity={activity} /> : null}
 
       {post ? (
       <EffectComposer>

@@ -15,7 +15,7 @@
  * The rim is drawn as an SVG outline of the same hexagon the CSS clips the body to. It is a data
  * mark derived from that shape, not an icon, which is why it is not a Phosphor glyph.
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { LOW_HEADROOM, WINDOW_NAME, figure, source } from '../../core/usage/format.ts'
 import type { ProviderUsage, UsageReport } from '../../core/usage/types.ts'
 import { useGrove } from '../store/grove'
@@ -104,18 +104,48 @@ function summary(report: UsageReport | null): string {
 export function Crystal() {
   const report = useGrove((state) => state.snapshot?.usage ?? null)
   const [pinned, setPinned] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
+  /* A click pins the readout open, and anything outside it lets go: a click elsewhere, or Esc.
+   * Without this the readout stayed pinned until the crystal itself was clicked again, which
+   * nobody expects of a popover. Focus is dropped too, because `:focus-within` would otherwise
+   * hold it open after the pin is gone. */
+  useEffect(() => {
+    if (!pinned) return
+    const release = () => {
+      setPinned(false)
+      if (root.current?.contains(document.activeElement) && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
+    }
+    const onPointer = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) release()
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') release()
+    }
+    document.addEventListener('pointerdown', onPointer, true)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer, true)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [pinned])
   const claude = report?.providers.find((p) => p.provider === 'claude-code')
   const codex = report?.providers.find((p) => p.provider === 'codex')
 
   return (
-    <div className={`crystal${pinned ? ' is-pinned' : ''}`}>
+    <div ref={root} className={`crystal${pinned ? ' is-pinned' : ''}`}>
       <span className="crystal-thread" aria-hidden="true" />
       <button
         type="button"
         className="crystal-button"
         aria-expanded={pinned}
         aria-label={summary(report)}
-        onClick={() => setPinned((open) => !open)}
+        onClick={(event) => {
+          // Closing by clicking the crystal again should close it, not leave it held by focus.
+          if (pinned) event.currentTarget.blur()
+          setPinned(!pinned)
+        }}
       >
         <span className="crystal-body">
           {/* The 256px copy, not the 1.6MB original: this renders at about 50px and the full

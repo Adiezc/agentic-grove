@@ -19,6 +19,9 @@ import type { AgentDefinition, GroveProblem, GroveSettings } from '../core/state
 import type { AgentDraft } from '../core/state/grove.ts'
 import type { HooksAction, HooksPlan, HooksState } from '../core/hooks/install.ts'
 import type { UsageReport } from '../core/usage/types.ts'
+import type { UpdateStatus } from '../core/updates.ts'
+import type { SystemLoad } from '../core/system.ts'
+import type { SetupStatus, SetupTool } from '../core/setup.ts'
 
 /**
  * One complete picture of the grove, sent after every scan.
@@ -50,6 +53,19 @@ export interface GroveSnapshot {
   hooks: HooksStatus
   /** What the crystal shows. `null` until the first usage pass, which runs on its own timer. */
   usage: UsageReport | null
+  /** How busy the whole Mac is. Steps the graphics down when you need the machine. */
+  system: SystemLoad
+  /** Whether a newer Grove is out. See `core/updates.ts` for exactly what is asked and why. */
+  update: UpdateStatus
+  /** Which AI tools are on this Mac, for first-run setup and the provider marks. */
+  setup: SetupStatus
+  /** This build's version, from package.json. */
+  version: string
+  /**
+   * How many screens are connected. With one, a grove you have not looked at for a while steps its
+   * graphics down; with several, it is probably on a screen of its own and stays at full detail.
+   */
+  displays: number
 }
 
 export interface HooksStatus {
@@ -116,6 +132,8 @@ export interface GroveApi {
   browseProject(): Promise<ProjectResult>
   /** Name a new folder with the system save panel; it is created, then added. */
   createProject(): Promise<ProjectResult>
+  /** Pick a folder inside a stone's folder to stand as its own sub-stone. Takes the parent's id. */
+  browseSubProject(stoneId: string): Promise<ProjectResult>
   /**
    * Take a stone off the grove, by its id (the project path). The node side accepts only the path
    * of a stone that is in `grove.json`, and removes that entry and nothing else: the folder and
@@ -132,7 +150,7 @@ export interface GroveApi {
   /** Take one of your agents off the tree. Researcher cannot be removed. */
   removeAgent(id: string): Promise<AgentResult>
   /**
-   * Open a Grok Bot in the browser. Takes the agent's id, not a URL: the node side looks the link
+   * Open a link-only agent (a ChatGPT Dot, Claude Cowork) in the browser. Takes the agent's id, not a URL: the node side looks the link
    * up in `grove.json` itself, so page code never chooses what the system opener is handed.
    */
   openAgentLink(id: string): Promise<AgentResult>
@@ -145,6 +163,20 @@ export interface GroveApi {
    */
   planHooks(action: HooksAction): Promise<HooksPlan>
   applyHooks(action: HooksAction, baseline: string): Promise<{ ok: boolean; error?: string }>
+
+  /** Show a stone's folder in Finder. Takes the stone id; only a stone in `grove.json` is opened. */
+  openProjectFolder(stoneId: string): Promise<ProjectResult>
+  /** Change settings. Checked with the same rules as a hand edit of `grove.json`. */
+  saveSettings(patch: Partial<GroveSettings>): Promise<{ ok: boolean; error?: string }>
+  /** Ask GitHub now rather than waiting for the daily check. */
+  checkForUpdates(): Promise<UpdateStatus>
+  /** Open the latest release's page in the browser. The address is fixed on the node side. */
+  openRelease(): Promise<void>
+  /**
+   * One-button setup for a missing tool: opens Terminal running the maker's official installer,
+   * then its sign-in. With no way to install, opens the tool's own page instead.
+   */
+  setUpTool(tool: SetupTool): Promise<{ ok: boolean; opened?: 'terminal' | 'page'; error?: string }>
 }
 
 export interface AgentResult {
@@ -176,4 +208,10 @@ export const CHANNELS = {
   openAgentLink: 'grove:open-agent-link',
   planHooks: 'grove:plan-hooks',
   applyHooks: 'grove:apply-hooks',
+  openProjectFolder: 'grove:open-project-folder',
+  saveSettings: 'grove:save-settings',
+  checkForUpdates: 'grove:check-for-updates',
+  openRelease: 'grove:open-release',
+  setUpTool: 'grove:set-up-tool',
+  browseSubProject: 'grove:browse-sub-project',
 } as const

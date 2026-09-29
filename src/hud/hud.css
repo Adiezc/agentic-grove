@@ -138,40 +138,184 @@
   outline-offset: 3px;
 }
 
-/* ---- Harness row. Measured at y = 45/753, glyphs x = 687..837/1000. ---- */
+/* ---- Provider marks, top right, where the art's harness row was: y = 45/753, x = 687..837/1000.
+   Two marks, Claude and ChatGPT, each in a ring that fills with the five-hour allowance left. ---- */
 
-.harness-row {
+.providers {
   position: absolute;
-  top: 4.4%;
+  top: 3.6%;
   right: 12.5%;
   display: flex;
-  gap: 1.55rem;
+  gap: 1.4rem;
 }
 
-.harness {
+.provider {
+  position: relative;
+}
+
+.provider-button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
 }
 
-.harness.is-on {
+.provider.is-on .provider-button {
   color: var(--text);
 }
 
-.harness-dot {
-  width: 4px;
-  height: 4px;
+.provider-button:focus-visible {
+  outline: 1px solid var(--live);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.provider-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+}
+
+.provider-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.provider-ring circle {
+  fill: none;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.ring-track {
+  stroke: rgb(46 111 72 / 0.28);
+}
+
+.ring-fill {
+  stroke: var(--live);
+  filter: drop-shadow(0 0 2px rgb(66 178 110 / 0.6));
+  transition: stroke-dasharray 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.provider-ring.is-low .ring-fill {
+  stroke: var(--wait);
+  filter: drop-shadow(0 0 2px rgb(242 180 76 / 0.6));
+}
+
+/* Counted but not limited: activity is known, the ceiling is not, so the ring is dotted. */
+.provider-ring.is-counted .ring-track {
+  stroke: rgb(66 178 110 / 0.5);
+  stroke-dasharray: 0.5 3;
+}
+
+.provider-figure {
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.provider.is-on .provider-figure {
+  color: var(--text);
+}
+
+.provider-figure.is-low {
+  color: var(--wait);
+}
+
+/* The detail hangs below the marks, on the same glass as the crystal's readout. */
+.provider-detail {
+  position: absolute;
+  z-index: 41;
+  top: calc(100% + 0.7rem);
+  right: -1rem;
+  width: 19rem;
+  padding: 0.95rem 1.05rem 0.85rem;
+  border: 1px solid rgb(46 111 72 / 0.32);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgb(9 43 21 / 0.9), rgb(2 9 4 / 0.96));
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgb(148 215 173 / 0.06), 0 24px 60px rgb(0 0 0 / 0.45);
+  color: var(--text);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-0.4rem);
+  transition:
+    opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 0.3s;
+}
+
+.provider:hover .provider-detail,
+.provider:has(:focus-visible) .provider-detail,
+.provider.is-pinned .provider-detail {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+}
+
+.provider-products {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  padding: 0.7rem 0 0;
+  border-top: 1px solid rgb(46 111 72 / 0.22);
+  list-style: none;
+}
+
+.provider-products li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    'dot name action'
+    'dot state action';
+  column-gap: 0.55rem;
+  align-items: center;
+}
+
+.product-dot {
+  grid-area: dot;
+  align-self: start;
+  margin-top: 0.35rem;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--line);
 }
 
-/* The dot is the only part of a harness allowed to be green, because the dot is the only part
-   that carries state. */
-.harness.is-on .harness-dot {
+.provider-products li.is-on .product-dot {
   background: var(--live);
   box-shadow: 0 0 5px var(--live);
+}
+
+.product-name {
+  grid-area: name;
+  font-size: 0.78rem;
+}
+
+.product-state {
+  grid-area: state;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+.product-setup {
+  grid-area: action;
+  height: 1.8rem;
+  padding: 0 0.7rem;
+  font-size: 0.7rem;
 }
 
 /* ---- Crystal. Measured centre x = 925/1000, y = 140/753. ---- */
@@ -296,9 +440,8 @@
   box-shadow: 0 0 6px var(--live);
 }
 
-/* ---- Console. Pill measured x = 277..672, sparkle at 700, all of 1000; y = 673/753.
-   The pill and the sparkle are centred as a pair, which is why the group is centred and the
-   pill is not. ---- */
+/* ---- Console. Pill measured x = 277..672 of 1000, y = 673/753. The art paired it with a
+   sparkle button to its right; that button had no job and went, so the pill is centred alone. ---- */
 
 .console-group {
   position: absolute;
@@ -306,9 +449,58 @@
   bottom: 7.5%;
   transform: translateX(-50%);
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  width: min(40rem, 56vw);
+}
+
+/* Attached files wait above the pill as small chips, the way Claude and ChatGPT show them. */
+.console-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0 1rem;
+  list-style: none;
+}
+
+.console-file {
+  display: flex;
   align-items: center;
-  gap: 1.75rem;
-  width: min(46rem, 62vw);
+  gap: 0.35rem;
+  max-width: 14rem;
+  padding: 0.25rem 0.3rem 0.25rem 0.55rem;
+  border: 1px solid rgb(46 111 72 / 0.4);
+  border-radius: 999px;
+  background: rgb(2 9 4 / 0.7);
+  color: var(--text);
+  font-size: 0.7rem;
+  pointer-events: auto;
+}
+
+.console-file span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.console-file button {
+  display: grid;
+  place-items: center;
+  padding: 0.1rem;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.console-file button:hover {
+  color: var(--text);
+}
+
+.console.is-dropping {
+  border-color: var(--live);
 }
 
 .console {
@@ -350,8 +542,7 @@
   outline: none;
 }
 
-.console-send,
-.console-spark {
+.console-send {
   display: grid;
   place-items: center;
   padding: 0.25rem;
@@ -362,19 +553,16 @@
   transition: color 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.12s ease-out;
 }
 
-.console-send:hover,
-.console-spark:hover {
+.console-send:hover {
   color: var(--live);
 }
 
 /* The physical push from the design rules. Cheap, and it makes the console feel like hardware. */
-.console-send:active,
-.console-spark:active {
+.console-send:active {
   transform: scale(0.94);
 }
 
-.console-send:focus-visible,
-.console-spark:focus-visible {
+.console-send:focus-visible {
   outline: 1px solid var(--live);
   outline-offset: 3px;
   border-radius: 50%;
@@ -427,9 +615,9 @@
     width: 78vw;
     gap: 1rem;
   }
-  .harness-row {
+  .providers {
     right: 6%;
-    gap: 1.1rem;
+    gap: 1rem;
   }
   .crystal {
     width: 4rem;
@@ -650,6 +838,21 @@
   color: var(--text-dim);
 }
 
+/* The second line under an action: what it does, for anyone who has not tried it yet. */
+.panel-row span small {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+}
+
+.stone-panel .panel-row {
+  height: auto;
+  min-height: 2.85rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
 .panel-row:hover:not(:disabled),
 .panel-send:hover:not(:disabled),
 .panel-row:focus-visible,
@@ -810,7 +1013,7 @@
   background: radial-gradient(circle, rgb(114 246 162 / 0.5) 0%, rgb(66 178 110 / 0.2) 40%, transparent 70%);
 }
 
-/* Loose, smaller and dashed: a Grok Bot, adrift and tied to nothing. Still lit, but a step
+/* Loose, smaller and dashed: a ChatGPT Dot or Claude Cowork, adrift and tied to nothing. Still lit, but a step
    dimmer than the agents the tree holds, since the Grove can only point at them. */
 .orb.is-loose {
   width: 3.6rem;
@@ -954,7 +1157,7 @@
 
 .grow-kinds {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.35rem;
   margin-top: 1.25rem;
 }
@@ -1025,7 +1228,7 @@
 
 .grow-glyphs {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(9, 1fr);
   gap: 0.3rem;
   margin-top: 1rem;
 }
@@ -1046,6 +1249,117 @@
 
 .settings-panel.is-open {
   transform: none;
+}
+
+/* Settings grew past one screen, so it scrolls inside its own glass rather than off the window. */
+.settings-panel {
+  max-height: 82vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(46 111 72 / 0.5) transparent;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.3rem;
+  margin-top: 0.85rem;
+}
+
+.segment {
+  height: 2.1rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 10px;
+  background: rgb(2 9 4 / 0.45);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.segment:hover,
+.segment:focus-visible {
+  color: var(--text);
+  border-color: rgb(66 178 110 / 0.55);
+  outline: none;
+}
+
+.segment.is-on {
+  color: var(--glow);
+  border-color: var(--live);
+  background: rgb(9 43 21 / 0.6);
+}
+
+/* An on-off switch: a real checkbox, so keyboards and screen readers get it for free, drawn as a
+   small track with a light that slides across. */
+.switch-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.8rem;
+  cursor: pointer;
+}
+
+.switch-text {
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
+.switch-text small {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+.switch-row input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch-track {
+  flex: none;
+  position: relative;
+  width: 2rem;
+  height: 1.1rem;
+  border: 1px solid rgb(46 111 72 / 0.5);
+  border-radius: 999px;
+  background: rgb(2 9 4 / 0.6);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.switch-track::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0.2rem;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transform: translateY(-50%);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.switch-row input:checked + .switch-track {
+  border-color: var(--live);
+  background: rgb(9 43 21 / 0.7);
+}
+
+.switch-row input:checked + .switch-track::after {
+  background: var(--glow);
+  box-shadow: 0 0 6px var(--live);
+  transform: translate(0.85rem, -50%);
+}
+
+.switch-row input:focus-visible + .switch-track {
+  outline: 1px solid var(--live);
+  outline-offset: 3px;
 }
 
 .setting {
@@ -1372,7 +1686,7 @@
     visibility 0s linear 0.35s;
 }
 .crystal:hover .crystal-readout,
-.crystal:focus-within .crystal-readout,
+.crystal:has(:focus-visible) .crystal-readout,
 .crystal.is-pinned .crystal-readout {
   opacity: 1;
   visibility: visible;
@@ -1763,4 +2077,263 @@
   background: radial-gradient(circle, rgb(43 28 6 / 0.95) 55%, rgb(110 70 18 / 0.9));
   box-shadow: 0 0 10px 1px rgb(242 180 76 / 0.65), 0 0 22px 4px rgb(242 180 76 / 0.3);
   color: #ffeccc;
+}
+
+/* ---- Rail labels: each icon's name slides out beside it on hover or keyboard focus. ---- */
+
+.rail-item {
+  position: relative;
+}
+
+.rail-label {
+  position: absolute;
+  left: calc(100% + 0.7rem);
+  top: 50%;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid rgb(46 111 72 / 0.35);
+  border-radius: 999px;
+  background: rgb(2 9 4 / 0.85);
+  color: var(--text);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-0.3rem, -50%);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rail-item:hover .rail-label,
+.rail-item:focus-visible .rail-label {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+/* ---- Projects and Saved tasks, the rail's list panels. ---- */
+
+.rail-list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail-list li.is-child {
+  padding-left: 1.1rem;
+}
+
+.rail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgb(46 111 72 / 0.22);
+  border-radius: 10px;
+  background: rgb(2 9 4 / 0.4);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.rail-row:hover,
+.rail-row:focus-visible {
+  border-color: rgb(66 178 110 / 0.6);
+  background: rgb(9 43 21 / 0.5);
+  outline: none;
+}
+
+.rail-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.rail-row-text small {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+}
+
+.row-branch {
+  color: var(--text-dim);
+}
+
+.state-dot.tone-running,
+.state-dot.tone-waiting {
+  background: var(--live);
+  box-shadow: 0 0 6px var(--live);
+}
+
+.state-dot.tone-waiting {
+  background: var(--wait);
+  box-shadow: 0 0 6px var(--wait);
+}
+
+.state-dot.tone-errored {
+  background: var(--bad);
+}
+
+.rune-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.rail-actions .setting-button,
+.split-choices .setting-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* The offer to split a project into sub-stones. Grey, never amber: it is a suggestion, not a need. */
+.split-offer {
+  margin: 0.4rem 0 0.2rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px dashed rgb(46 111 72 / 0.4);
+  border-radius: 10px;
+}
+
+.split-offer p {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: #8fa197;
+}
+
+.split-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.split-choices .setting-button {
+  height: 1.8rem;
+  padding: 0 0.7rem;
+  font-size: 0.7rem;
+}
+
+.panel-link {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+  padding: 0.2rem 0;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.panel-link:hover,
+.panel-link:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+/* ---- Icons in rem, so full screen's larger root size scales them with the text. ---- */
+
+.rail-item svg {
+  width: 1.06rem;
+  height: 1.06rem;
+}
+
+.provider-mark svg:not(.provider-ring) {
+  width: 1.06rem;
+  height: 1.06rem;
+}
+
+.console-send svg {
+  width: 1.375rem;
+  height: 1.375rem;
+}
+
+/* ---- Resting: full screen, nothing open, no input for a few seconds. The chrome fades back and the
+   grove has the display to itself; any movement brings everything back at once. Amber still shows,
+   because the scene itself carries it. ---- */
+
+.hud > .rail,
+.hud > .providers,
+.hud > .crystal,
+.hud > .counts,
+.hud > .console-group,
+.hud > .view-home {
+  transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hud.is-resting > .rail,
+.hud.is-resting > .counts,
+.hud.is-resting > .console-group,
+.hud.is-resting > .view-home {
+  opacity: 0.12;
+}
+
+.hud.is-resting > .providers,
+.hud.is-resting > .crystal {
+  opacity: 0.45;
+}
+
+/* ---- AI tools and their one-button setup: in the walkthrough and in Settings. ---- */
+
+.tool-setup {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.intro .tool-setup {
+  margin: -0.3rem 0 1rem;
+}
+
+.tool-setup li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.tool-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  border: 1px solid rgb(46 111 72 / 0.5);
+  color: var(--text-dim);
+}
+
+.tool-setup li.is-ready .tool-mark {
+  border-color: rgb(114 246 162 / 0.6);
+  color: var(--text);
+}
+
+.tool-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.tool-text small {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+.tool-ready {
+  color: var(--live);
 }
