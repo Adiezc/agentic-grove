@@ -58,8 +58,32 @@ export function ToolSetup({ compact = false }: { compact?: boolean }) {
     setMessage((current) => ({ ...current, [tool]: text }))
   }
 
+  // The desktop apps: where most people use Claude and ChatGPT, and where Cowork and Dots live.
+  const apps = [
+    { app: 'claude' as const, name: 'Claude app', Mark: Asterisk, ready: Boolean(setup?.['claude-code'].app), line: 'Chat, Cowork, and Claude Code in a window.' },
+    { app: 'chatgpt' as const, name: 'ChatGPT app', Mark: OpenAiLogo, ready: Boolean(setup?.codex.app), line: 'Chat, Dots, and Codex in a window.' },
+  ]
+
   return (
     <ul className={`tool-setup${compact ? ' is-compact' : ''}`}>
+      {apps.map((row) => (
+        <li key={row.app} className={row.ready ? 'is-ready' : ''}>
+          <span className="tool-mark" aria-hidden="true">
+            <row.Mark size={15} weight="regular" />
+          </span>
+          <span className="tool-text">
+            {row.name}
+            <small>{row.ready ? 'Installed.' : row.line}</small>
+          </span>
+          {row.ready ? (
+            <Check size={16} weight="regular" className="tool-ready" aria-label="Installed" />
+          ) : (
+            <button type="button" className="setting-button" onClick={() => void window.grove?.getApp(row.app)}>
+              Get app
+            </button>
+          )}
+        </li>
+      ))}
       {rows.map((row) => (
         <li key={row.tool} className={row.ready ? 'is-ready' : ''}>
           <span className="tool-mark" aria-hidden="true">

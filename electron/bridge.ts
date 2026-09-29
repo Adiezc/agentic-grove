@@ -21,7 +21,7 @@ import type { HooksAction, HooksPlan, HooksState } from '../core/hooks/install.t
 import type { UsageReport } from '../core/usage/types.ts'
 import type { UpdateStatus } from '../core/updates.ts'
 import type { SystemLoad } from '../core/system.ts'
-import type { SetupStatus, SetupTool } from '../core/setup.ts'
+import type { DesktopApp, SetupStatus, SetupTool } from '../core/setup.ts'
 
 /**
  * One complete picture of the grove, sent after every scan.
@@ -177,6 +177,8 @@ export interface GroveApi {
    * then its sign-in. With no way to install, opens the tool's own page instead.
    */
   setUpTool(tool: SetupTool): Promise<{ ok: boolean; opened?: 'terminal' | 'page'; error?: string }>
+  /** Open the Claude or ChatGPT desktop app's official download page. The address is fixed here. */
+  getApp(app: DesktopApp): Promise<void>
 }
 
 export interface AgentResult {
@@ -214,4 +216,5 @@ export const CHANNELS = {
   openRelease: 'grove:open-release',
   setUpTool: 'grove:set-up-tool',
   browseSubProject: 'grove:browse-sub-project',
+  getApp: 'grove:get-app',
 } as const

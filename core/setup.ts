@@ -127,3 +127,14 @@ export const TOOL_PAGES: Record<SetupTool, string> = {
   'claude-code': 'https://docs.anthropic.com/en/docs/claude-code/overview',
   codex: 'https://github.com/openai/codex',
 }
+
+/**
+ * The makers' desktop apps. Most people run Claude Code and Codex from these rather than a terminal,
+ * and the everyday coworkers (Cowork, Dots) live in them. There is no official one-line installer
+ * for either, so the button opens each maker's own download page.
+ */
+export type DesktopApp = 'claude' | 'chatgpt'
+export const APP_DOWNLOADS: Record<DesktopApp, string> = {
+  claude: 'https://claude.ai/download',
+  chatgpt: 'https://openai.com/chatgpt/download/',
+}

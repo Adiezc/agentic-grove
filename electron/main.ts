@@ -32,7 +32,7 @@ import { applyHooks, hookToken, hooksState, planHooks, type HooksAction } from '
 import { ipcMain } from 'electron'
 import { CHECK_EVERY_MS, RELEASES_PAGE, checkForUpdate, type UpdateStatus } from '../core/updates.ts'
 import { sampleLoad, type SystemLoad } from '../core/system.ts'
-import { TOOL_PAGES, setupScript, setupStatus, type SetupStatus, type SetupTool } from '../core/setup.ts'
+import { APP_DOWNLOADS, TOOL_PAGES, setupScript, setupStatus, type SetupStatus, type SetupTool } from '../core/setup.ts'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -458,6 +458,10 @@ function registerHandlers(): void {
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : String(error) }
     }
+  })
+
+  ipcMain.handle(CHANNELS.getApp, async (_event, which: unknown) => {
+    if (which === 'claude' || which === 'chatgpt') await shell.openExternal(APP_DOWNLOADS[which])
   })
 
   ipcMain.handle(CHANNELS.revealGroveFile, async () => {

@@ -946,3 +946,10 @@ Reading another tool's credential is a bigger step than reading its transcripts,
 Adrian's explicit decision. Options: (a) with consent, read the token and ask that endpoint every
 five minutes (macOS shows its own permission prompt); (b) the statusline route, official for
 terminal users only; (c) keep counting. The provider rings fill the moment an official figure exists.
+
+**Update, same evening:** Adrian chose (a), behind a Settings switch that is off by default. The
+code was written (`core/usage/claude-official.ts`, merged into the usage loop), but the coding
+agent's own safety check refused to continue work that reads another app's keychain token, so it
+is parked in a git stash ("official Claude limits via keychain") rather than committed. To resume,
+Adrian allows it in the agent's permission settings (or applies the stash himself), then the
+Settings switch is one small addition.

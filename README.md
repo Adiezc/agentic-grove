@@ -9,7 +9,24 @@ It is not a chat app. It is a cockpit.
 **Status: early, and changing quickly.** The grove shows your real projects and agent sessions,
 live, with usage headroom per provider. Sending agents to work from inside the Grove is next.
 
-macOS only for now (Windows is planned). MIT licensed. No telemetry, ever.
+MIT licensed. No telemetry, ever.
+
+## Where it runs, and what it works with
+
+| | |
+| --- | --- |
+| **macOS** (Apple Silicon) | Supported. This is the only platform today. |
+| **Windows** | Not yet. Planned; several pieces (setup, hooks, packaging) are Mac-specific for now. |
+| **Linux** | Not yet. Likely before Windows, since most of the Mac code carries over. |
+
+The Grove works with the two AI providers most people use today: **Claude** (the Claude app,
+Claude Code, Cowork) and **ChatGPT** (the ChatGPT app, Codex, Dots). Ideally you have the Claude
+or ChatGPT desktop app as well as the command-line tools; if something is missing, the first-launch
+walkthrough and Settings help you get it in a click or two.
+
+Those two are a starting point, not a wall. Other providers and locally run models (Ollama, LM
+Studio and the like) can be added: each tool the Grove understands is one small adapter in
+`core/harnesses/`, and the contract is in its README. Contributions are welcome.
 
 ---
 

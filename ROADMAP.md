@@ -60,7 +60,9 @@ by default, read-only towards other tools.
 | 10 | Full screen more immersive, interface a little larger | Done |
 | 11 | Agents / Open / Task clearer | Done |
 | 12 | Graphics modes: Performance, Balanced, Grove, adapting to load | Done |
-| 13 | Five-hour usage at a glance, week on hover, per provider | Done for Codex; **Claude needs a decision**, see DECISIONS.md |
+| 13 | Five-hour usage at a glance, week on hover, per provider | Done for Codex; Claude chosen (keychain, with consent), code parked in a git stash, see DECISIONS.md |
+| 19 | Help install the Claude and ChatGPT apps too | Done (opens each maker's download page) |
+| 20 | README: platforms (Mac only; Linux, then Windows) and room for other models | Done |
 | 14 | Thicker mycelium | Done |
 | 15 | Home view slightly right, down and further out | Done, to be judged |
 | 16 | Remove the sparkle icon | Done |
