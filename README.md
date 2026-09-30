@@ -43,9 +43,19 @@ On first launch Researcher walks you through the grove. If Claude Code or Codex 
 second card has a Set up button for each: it opens Terminal, runs the maker's official installer,
 then asks you to sign in. You can do the same later in Settings.
 
-Downloadable builds will appear under [Releases](https://github.com/Adiezc/agentic-grove/releases).
-They are not signed with an Apple certificate, so the first time you open one, macOS asks you to
-confirm: right-click the app, choose Open, then Open again.
+### Installing a download
+
+Builds for Apple Silicon Macs appear under [Releases](https://github.com/Adiezc/agentic-grove/releases)
+as a disk image (`Agentic-Grove-<version>-arm64.dmg`).
+
+1. Open the disk image and drag **Agentic Grove** onto **Applications**.
+2. Open it. macOS will refuse the first time, because the app is not signed with a paid Apple
+   developer certificate.
+3. Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** beside
+   Agentic Grove. Confirm once more. From then on it opens normally.
+
+A newer version replaces the app the same way. Your projects, agents and settings live in
+`~/.agentic-grove`, outside the app, so they are kept.
 
 ## What it can and cannot see
 
@@ -91,7 +101,13 @@ npm run watch    # the same thing on the live poll loop
 npm run verify   # check the scanner against the raw files, independently
 npm run verify:routing  # the Manager's rules for which tool takes which job
 npm run typecheck
+npm run app      # build the Mac app into ~/Applications
+npm run dmg      # build release/Agentic-Grove-<version>-arm64.dmg for a GitHub release
 ```
+
+Each part with rules of its own has a `verify:` script beside it (`spawn`, `console`, `attention`,
+`health`, `places`, `reliability`, `pairings`, `tells`); they run in seconds and touch nothing of
+yours.
 
 `verify` is the one worth knowing about. It counts the files on disk with its own separate code
 and fails if the scanner disagrees, because a wrong number looks exactly like a right one.

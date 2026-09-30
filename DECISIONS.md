@@ -1133,3 +1133,22 @@ agent ("Manager · Claude Code → Data"), with the reason on hover; when both t
 clicking it switches, and what is shown is what is sent. Your own agents always use their own tool.
 Still open from the same review item: `newestRollouts()` in `core/usage/codex.ts` may miss a resumed
 Codex conversation filed under an older date. `npm run verify:routing` now has 9 checks.
+
+## Packaging: a real app bundle and a disk image, still unsigned
+
+*30 September 2026, step 14*
+
+`npm run app` and the new `npm run dmg` both go through `scripts/package.mjs`, which uses
+`@electron/packager` (a development dependency, BSD-2-Clause) to build the bundle. The old shell
+script copied Electron.app and renamed only the folder: the program inside was still "Electron", so
+`app.isPackaged` was false in the Dock app and Settings → Uninstall could not find the app to move
+to the Trash. Now the program and its four helpers are called "Agentic Grove", the bundle id is
+`com.adiezc.agentic-grove`, and the version comes from package.json.
+
+Still unsigned (Adrian's call): an ad-hoc signature so Apple Silicon runs it, and the README's
+"Installing a download" explains the one-time Open Anyway in Privacy & Security (right-click → Open
+no longer works for unnotarised apps on current macOS). The disk image is the usual drag-to-
+Applications layout, Apple Silicon only, about 146 MB, built with macOS's own `hdiutil`. Checked:
+mounted, the program and helpers renamed, the signature verifies, and the installed app starts and
+completes a scan. Not done: publishing a GitHub release (needs Adrian, and a public repo for the
+update check to see it), and the version is still 0.0.1.

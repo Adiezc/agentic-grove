@@ -107,6 +107,8 @@ inspiration is fine; copying from it without a licence is not, however small the
 
 The usual dependency tree, each under its own licence as declared in `package.json` — Electron,
 Vite, React, TypeScript, and later Three.js with React Three Fiber, Zustand and Framer Motion.
+`@electron/packager` (BSD-2-Clause) builds the Mac app for `npm run app` and `npm run dmg`; it is a
+development tool only, and none of it ships inside the app.
 They are credited by being declared, which is the convention, and no more is owed. The projects
 above are named individually because they are people's side projects rather than infrastructure,
 and because this project would not exist without them.

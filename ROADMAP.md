@@ -21,7 +21,7 @@ the Grove already has (the scan plus Claude Code hooks). Decisions made along th
 | 10 | The rune console: natural-language routing to an agent and a stone | Done: plain rules with a preview (`core/console.ts`) |
 | 11 | Attention: motes, notifications, answer-or-wait behaviour | Done: see DECISIONS.md |
 | 12–13 | Settings, onboarding, empty states, keyboard shortcuts, performance presets | Partly: settings, graphics modes, one-button setup, update check |
-| 14 | Packaging, notarised Mac build, DMG | |
+| 14 | Packaging, notarised Mac build, DMG | Done, unsigned: `npm run dmg` (no release published yet) |
 | 15 | README with an honest capability table, screenshots, a demo GIF | |
 
 Before the public release:

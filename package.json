@@ -25,16 +25,18 @@
     "build": "tsc --noEmit && vite build",
     "build:tree-model": "node scripts/build-world-tree-model.mjs",
     "typecheck": "tsc --noEmit",
-    "app": "bash scripts/make-app.sh",
+    "app": "node scripts/package.mjs",
     "verify:spawn": "tsx test/verify-spawn.ts",
     "verify:pairings": "tsx test/verify-pairings.ts",
     "verify:reliability": "tsx test/verify-reliability.ts",
     "verify:console": "tsx test/verify-console.ts",
     "verify:attention": "tsx test/verify-attention.ts",
     "verify:health": "tsx test/verify-health.ts",
-    "verify:places": "tsx test/verify-places.ts"
+    "verify:places": "tsx test/verify-places.ts",
+    "dmg": "node scripts/package.mjs --dmg"
   },
   "devDependencies": {
+    "@electron/packager": "^20.3.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.186.0",
