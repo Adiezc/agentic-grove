@@ -5,7 +5,7 @@
  * change its case here in the same commit, so the two never disagree about what the Manager does.
  */
 import assert from 'node:assert/strict'
-import { route, type Connected } from '../core/routing.ts'
+import { headroomFrom, route, type Connected } from '../core/routing.ts'
 
 const none: Connected = { claudeCode: false, codex: false, claudeApp: false, chatgptApp: false, dots: false }
 const all: Connected = { claudeCode: true, codex: true, claudeApp: true, chatgptApp: true, dots: true }
@@ -36,6 +36,25 @@ const cases: [string, () => void][] = [
     assert.equal(route('everyday', all).harness, 'claude-cowork')
     assert.equal(route('everyday', { ...none, chatgptApp: true }).harness, 'chatgpt-dot')
     assert.equal(route('everyday', { ...none, codex: true }).harness, 'codex')
+  }],
+  ['an allowance known to be used up is skipped, and the reason never claims room', () => {
+    assert.equal(route('project', all, { claudeCode: 0, codex: null }).harness, 'codex')
+    assert.equal(route('project', all, { claudeCode: 30, codex: 0 }).harness, 'claude-code')
+    const both = route('project', all, { claudeCode: 0, codex: 0 })
+    assert.equal(both.harness, 'claude-code')
+    assert.match(both.reason, /used up/)
+    assert.doesNotMatch(route('project', { ...none, claudeCode: true }, { claudeCode: 0, codex: null }).reason, /room/)
+  }],
+  ['headroom counts only while current: a reset window or an old reading is unknown', () => {
+    const now = 10 * 60 * 60_000
+    const report = (usedPercent: number, resetsAt: number | null, observedAt: number | null) => ({
+      at: now,
+      providers: [{ provider: 'claude-code' as const, name: 'Claude Code', windows: [{ key: 'five_hour' as const, provenance: 'official' as const, usedPercent, resetsAt, tokens: null, observedAt }] }],
+    })
+    assert.equal(headroomFrom(report(100, now + 60_000, now - 60_000), now).claudeCode, 0)
+    assert.equal(headroomFrom(report(100, now - 1, now - 60_000), now).claudeCode, null)
+    assert.equal(headroomFrom(report(40, null, now - 6 * 60 * 60_000), now).claudeCode, null)
+    assert.equal(headroomFrom(null, now).codex, null)
   }],
 ]
 

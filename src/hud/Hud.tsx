@@ -20,7 +20,8 @@ import { ArrowRight, BookOpen, Cube, File, Gear, PlusCircle, Pulse, Record, User
 import { readCommand, type ConsoleStone } from '../../core/console.ts'
 import { healthOf } from '../../core/health.ts'
 import { useGrove } from '../store/grove'
-import { kindOf, useTree } from '../agents/tree'
+import { HARNESS_MARK, kindOf, useTree } from '../agents/tree'
+import { headroomFrom, route } from '../../core/routing.ts'
 import { useFlow } from '../store/flow'
 
 /** Every icon at one weight. Phosphor's `thin` is what matches the art's hairline rail. */
@@ -193,6 +194,10 @@ export function RuneConsole({
   const [dragging, setDragging] = useState(false)
   /** An agent you chose by clicking the preview, over what the rules read. Cleared with the text. */
   const [chosen, setChosen] = useState<string | null>(null)
+  /** A tool you chose the same way, for a built-in agent. */
+  const [chosenTool, setChosenTool] = useState<'claude-code' | 'codex' | null>(null)
+  const setup = useGrove((state) => state.snapshot?.setup)
+  const usage = useGrove((state) => state.snapshot?.usage ?? null)
   const picker = useRef<HTMLInputElement>(null)
   const { agents } = useTree()
   const selectedStoneId = useFlow((state) => state.stoneId)
@@ -209,8 +214,22 @@ export function RuneConsole({
   const stone = stones.find((each) => each.id === reading.stoneId)
   const typed = value.trim().length > 0
 
+  // Which tool will run it. Your own agents have their own; the built-in three go where the
+  // Manager's rules send them (installed, allowance not used up), unless you click to change it.
+  const installed = { claudeCode: Boolean(setup?.['claude-code'].cli), codex: Boolean(setup?.codex.cli) }
+  const builtIn = agent ? !agent.own : false
+  const proposal = route('project', { ...installed, claudeApp: false, chatgptApp: false, dots: false }, headroomFrom(usage, Date.now()))
+  const tool: 'claude-code' | 'codex' = agent && !builtIn
+    ? agent.harness === 'codex' ? 'codex' : 'claude-code'
+    : (chosenTool ?? (proposal.harness === 'codex' ? 'codex' : 'claude-code'))
+  const canSwitchTool = builtIn && installed.claudeCode && installed.codex
+  const ToolMark = HARNESS_MARK[tool].Mark
+
   useEffect(() => {
-    if (!typed) setChosen(null)
+    if (!typed) {
+      setChosen(null)
+      setChosenTool(null)
+    }
   }, [typed])
 
   // The same file twice is one attachment, not two chips with the same name.
@@ -232,11 +251,18 @@ export function RuneConsole({
     if (!typed || !agent || busy) return
     const paths = files.map((file) => window.grove?.pathForFile(file) ?? '').filter(Boolean)
     const task = paths.length ? `${reading.task}\n\nFiles to use:\n${paths.map((each) => `- ${each}`).join('\n')}` : reading.task
-    deployTo(reading.stoneId, agent.id, task, () => {
-      setValue('')
-      setFiles([])
-      setChosen(null)
-    })
+    deployTo(
+      reading.stoneId,
+      agent.id,
+      task,
+      () => {
+        setValue('')
+        setFiles([])
+        setChosen(null)
+        setChosenTool(null)
+      },
+      builtIn ? tool : undefined
+    )
   }
 
   const Glyph = agent?.Glyph
@@ -273,6 +299,17 @@ export function RuneConsole({
             >
               <Glyph size={14} weight="thin" aria-hidden="true" />
               {agent.name}
+            </button>
+            <button
+              type="button"
+              className="echo-tool"
+              disabled={!canSwitchTool}
+              onClick={() => setChosenTool(tool === 'codex' ? 'claude-code' : 'codex')}
+              title={chosenTool ? 'Your choice' : builtIn ? proposal.reason : `${agent.name} always runs in ${HARNESS_MARK[tool].label}`}
+              aria-label={`Runs in ${HARNESS_MARK[tool].label}${canSwitchTool ? '. Switch tool' : ''}`}
+            >
+              <ToolMark size={11} weight="bold" aria-hidden="true" />
+              {HARNESS_MARK[tool].label}
             </button>
             <ArrowRight size={12} weight="thin" aria-hidden="true" />
             <span className={`echo-stone${stone ? '' : ' is-open-choice'}`}>{stone ? stone.name : 'you choose the stone'}</span>

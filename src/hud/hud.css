@@ -2670,3 +2670,27 @@
   gap: 0.6rem;
   margin-top: 0.6rem;
 }
+
+/* The tool in the echo: quieter than the agent, a button only when there are two to choose from. */
+.echo-tool {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.echo-tool:hover:not(:disabled),
+.echo-tool:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.echo-tool:disabled {
+  cursor: default;
+}

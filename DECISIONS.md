@@ -1118,3 +1118,18 @@ layout, and the next add or remove writes those numbers down, so nothing moves o
 a small exception to "grove.json stores intent, never state": where your stone stands is something
 you chose, and hand-editing it is a feature. Rules in `core/state/places.ts`, shared by the node
 side and the scene; `npm run verify:places` checks them against a disposable grove.
+
+## Routing skips a used-up allowance, and the console shows the tool
+
+*30 September 2026, from the project review (item 5)*
+
+`route()` in `core/routing.ts` now skips a tool whose five-hour allowance is known to be at 0%, when
+the other is installed; with both used up the job still goes to Claude Code and the reason says it
+waits for a reset, never that there is room. `headroomFrom()` turns the crystal's report into the
+figures `route()` compares, and drops any that describe a window already reset or a reading more
+than five hours old. Sending a built-in agent now asks `route()` with the tools actually installed
+(before, it only checked which command existed). The console's preview shows the tool beside the
+agent ("Manager · Claude Code → Data"), with the reason on hover; when both tools are installed,
+clicking it switches, and what is shown is what is sent. Your own agents always use their own tool.
+Still open from the same review item: `newestRollouts()` in `core/usage/codex.ts` may miss a resumed
+Codex conversation filed under an older date. `npm run verify:routing` now has 9 checks.

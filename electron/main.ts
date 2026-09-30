@@ -38,6 +38,7 @@ import { launch } from '../core/spawn/launch.ts'
 import { BUILT_IN_BRIEFS, BUILT_IN_NAMES } from '../core/spawn/briefs.ts'
 import { readTranscript } from '../core/spawn/transcript.ts'
 import { noticeFor } from '../core/attention.ts'
+import { headroomFrom, route } from '../core/routing.ts'
 import { notify } from './notify.ts'
 import { execFile } from 'node:child_process'
 
@@ -593,7 +594,7 @@ const MAX_TASK_CHARS = 20_000
  */
 async function launchRun(request: unknown): Promise<RunResult> {
   if (typeof request !== 'object' || request === null) return { ok: false, error: 'Not a request' }
-  const { stoneId, agentId, task } = request as Record<string, unknown>
+  const { stoneId, agentId, task, harness: asked } = request as Record<string, unknown>
   if (typeof stoneId !== 'string' || typeof agentId !== 'string' || typeof task !== 'string') return { ok: false, error: 'Not a request' }
   if (task.length > MAX_TASK_CHARS) return { ok: false, error: 'That task is too long to send' }
 
@@ -605,11 +606,21 @@ async function launchRun(request: unknown): Promise<RunResult> {
   if (!own && !builtIn) return { ok: false, error: 'No such agent' }
   if (own && isLinkOnly(own.harness)) return { ok: false, error: `${own.name} lives in its own app and cannot be sent to a stone` }
 
-  // Built-ins run on Claude Code when its command is here, otherwise Codex. With neither, Claude
-  // Code is tried so the failure names the tool most people will want to install.
+  // Your own agents use their own tool. Built-ins use the one you picked in the console if its
+  // command is here, otherwise the Manager's rules: installed tools, and allowances not used up.
+  // With neither installed, Claude Code is tried so the failure names the tool most people want.
   let harness: RunHarness
   if (own) harness = own.harness === 'codex' ? 'codex' : 'claude-code'
-  else harness = (await cliPath('claude-code')) || !(await cliPath('codex')) ? 'claude-code' : 'codex'
+  else {
+    const installed = { claudeCode: Boolean(await cliPath('claude-code')), codex: Boolean(await cliPath('codex')) }
+    const picked = asked === 'codex' ? installed.codex : asked === 'claude-code' ? installed.claudeCode : false
+    const routed = route(
+      'project',
+      { ...installed, claudeApp: false, chatgptApp: false, dots: false },
+      headroomFrom(usage, Date.now())
+    ).harness
+    harness = picked ? (asked as RunHarness) : routed === 'codex' ? 'codex' : 'claude-code'
+  }
 
   const run = runs.create({
     harness,

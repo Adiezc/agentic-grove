@@ -191,8 +191,10 @@ export interface GroveApi {
    * or Codex. Takes ids only. The node side looks up the folder and the agent itself, so page code
    * never names a folder to run in or a command to run. Resolves once Terminal has been asked to
    * open, with the run's id; whether a session really started arrives later, on the run.
+   * `harness` picks the tool for a built-in agent (the console's override); left out, the Manager's
+   * rules in `core/routing.ts` pick it. Your own agents always use their own tool.
    */
-  launchRun(request: { stoneId: string; agentId: string; task: string }): Promise<RunResult>
+  launchRun(request: { stoneId: string; agentId: string; task: string; harness?: 'claude-code' | 'codex' }): Promise<RunResult>
   /** Reopen a Claude Code run's session in Terminal (`claude --resume`). */
   resumeRun(runId: string): Promise<RunResult>
   /** The last lines of a run's transcript, for the live view. Claude Code runs only. */
