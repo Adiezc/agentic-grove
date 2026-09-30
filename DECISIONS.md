@@ -1102,3 +1102,19 @@ The 3D scene now sits inside `SceneGuard`: a component that throws, or the Mac t
 context away, shows "The grove could not be drawn" with Try again and Use Performance graphics,
 while the rail, console, crystal and panels keep working. Checked in the browser by forcing a
 context loss and recovering.
+
+## Stones keep their places
+
+*30 September 2026, from the project review (item 8)*
+
+Places used to be handed out by list order on every draw, so removing an early project slid every
+later stone along one place. Now each top-level stone's place number is written on its entry in
+`grove.json` (`"place": 2`, hand-editable) when it is connected, and a removed stone leaves an empty
+circle where it stood. A new project takes the circle you clicked, or the lowest free one when
+connected from the Projects panel; a taken number is never given twice. The empty circles are the
+gaps first, then new places, keeping the old rule of three to start and two spare after. Sub-stones
+take no number; they stand off their parent. Older groves without numbers keep their order-based
+layout, and the next add or remove writes those numbers down, so nothing moves on upgrade. This is
+a small exception to "grove.json stores intent, never state": where your stone stands is something
+you chose, and hand-editing it is a feature. Rules in `core/state/places.ts`, shared by the node
+side and the scene; `npm run verify:places` checks them against a disposable grove.

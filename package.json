@@ -31,7 +31,8 @@
     "verify:reliability": "tsx test/verify-reliability.ts",
     "verify:console": "tsx test/verify-console.ts",
     "verify:attention": "tsx test/verify-attention.ts",
-    "verify:health": "tsx test/verify-health.ts"
+    "verify:health": "tsx test/verify-health.ts",
+    "verify:places": "tsx test/verify-places.ts"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

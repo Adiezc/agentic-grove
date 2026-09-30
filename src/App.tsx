@@ -26,7 +26,7 @@ import { SettingsPanel } from './hud/Settings'
 import { useFlow } from './store/flow'
 import { useGrove } from './store/grove'
 import { Crystal } from './hud/Crystal'
-import { childPlace, emptyPlaces, layoutStones, topLevelCount } from './scene/layout'
+import { childPlace, emptyPlaces, layoutStones, stonePlaces } from './scene/layout'
 import { step, type Direction, type Target } from './scene/navigation'
 import { DEMO } from './demo'
 import { useTree } from './agents/tree'
@@ -153,8 +153,9 @@ export function App() {
   // Worked out once per snapshot, against the snapshot's own clock, so a quiet grove does not redo it.
   const snapshotAt = snapshot?.at ?? 0
   const pairs = useMemo(() => (DEMO ? DEMO_PAIRS : pairings(real, snapshotAt)), [real, snapshotAt])
-  const topLevel = topLevelCount(real)
-  const empty = useMemo(() => (DEMO ? [] : emptyPlaces(topLevel)), [topLevel])
+  // Keyed on the places themselves, so the circles are only worked out again when a stone comes or goes.
+  const usedKey = [...stonePlaces(real).values()].sort((a, b) => a - b).join(',')
+  const empty = useMemo(() => (DEMO ? [] : emptyPlaces(usedKey ? usedKey.split(',').map(Number) : [])), [usedKey])
   const selectedName = stones.find((stone) => stone.id === stoneId)?.name
   const goHome = () => {
     useFlow.setState({ view: 'home', stoneId: null, pendingAgentId: null })

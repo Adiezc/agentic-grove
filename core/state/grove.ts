@@ -27,7 +27,8 @@ import fsp from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import os from 'node:os'
-import { type GroveFile, type GroveProblem, BUILT_IN_AGENT_IDS, defaultGrove, parseAgent, parseGrove } from './schema.ts'
+import { type GroveFile, type GroveProblem, type StoneConfig, BUILT_IN_AGENT_IDS, defaultGrove, parseAgent, parseGrove } from './schema.ts'
+import { assignPlaces, placeFor } from './places.ts'
 
 /** `AGENTIC_GROVE_HOME` exists so tests can point somewhere disposable. */
 export const groveHome = (): string =>
@@ -154,6 +155,22 @@ export function updateGrove<T>(
   return next
 }
 
+/** The stones that stand on numbered places: shown, and not inside another shown stone's folder. */
+function topLevel(stones: StoneConfig[]): StoneConfig[] {
+  const shown = stones.filter((stone) => !stone.hidden)
+  return shown.filter((stone) => !shown.some((other) => other !== stone && stone.path.startsWith(other.path + path.sep)))
+}
+
+/**
+ * Write down the place every top-level stone stands on right now. Done before any stone is added
+ * or removed, so an older grove without numbers keeps exactly the layout it had, and nothing moves.
+ */
+function fixPlaces(stones: StoneConfig[]): void {
+  const top = topLevel(stones)
+  const at = assignPlaces(top.map((stone) => ({ id: stone.path, place: stone.place })))
+  for (const stone of top) stone.place = at.get(stone.path)
+}
+
 /**
  * Add a folder to the grove as a project stone.
  *
@@ -161,7 +178,7 @@ export function updateGrove<T>(
  * copy, so an edit you made by hand a moment ago is kept rather than overwritten. Adding a folder
  * that is already there is not an error: the answer to "make this a stone" is already yes.
  */
-export async function addProject(folder: string): Promise<{ ok: boolean; error?: string }> {
+export async function addProject(folder: string, place?: number): Promise<{ ok: boolean; error?: string }> {
   if (!path.isAbsolute(folder)) return { ok: false, error: 'Not an absolute path' }
   const stat = await fsp.stat(folder).catch(() => null)
   if (!stat?.isDirectory()) return { ok: false, error: 'Not a folder' }
@@ -170,7 +187,15 @@ export async function addProject(folder: string): Promise<{ ok: boolean; error?:
   return updateGrove<{ ok: boolean; error?: string }>(
     (grove) => {
       if (grove.stones.some((stone) => stone.path === resolved)) return { result: { ok: true }, write: false }
-      grove.stones.push({ path: resolved })
+      fixPlaces(grove.stones)
+      const entry: StoneConfig = { path: resolved }
+      grove.stones.push(entry)
+      // A top-level stone takes the circle you chose, or the lowest free one; a sub-stone stands
+      // off its parent and takes none.
+      if (topLevel(grove.stones).includes(entry)) {
+        const used = grove.stones.filter((stone) => stone !== entry && stone.place !== undefined).map((stone) => stone.place!)
+        entry.place = placeFor(used, place)
+      }
       return { result: { ok: true }, write: true }
     },
     { ok: false, error: 'grove.json has an error; fix it before adding projects' }
@@ -186,9 +211,10 @@ export async function addProject(folder: string): Promise<{ ok: boolean; error?:
 export async function removeProject(stonePath: string): Promise<{ ok: boolean; error?: string }> {
   return updateGrove<{ ok: boolean; error?: string }>(
     (grove) => {
-      const kept = grove.stones.filter((stone) => stone.path !== stonePath)
-      if (kept.length === grove.stones.length) return { result: { ok: false, error: 'No stone for that folder' }, write: false }
-      grove.stones = kept
+      if (!grove.stones.some((stone) => stone.path === stonePath)) return { result: { ok: false, error: 'No stone for that folder' }, write: false }
+      // Numbers first, so the stones that stay keep their places and this one leaves a gap.
+      fixPlaces(grove.stones)
+      grove.stones = grove.stones.filter((stone) => stone.path !== stonePath)
       return { result: { ok: true }, write: true }
     },
     { ok: false, error: 'grove.json has an error; fix it before removing projects' }

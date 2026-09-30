@@ -73,6 +73,11 @@ export interface StoneConfig {
   wildwood?: boolean
   /** Repeatable tasks bound to this project. */
   runes?: Rune[]
+  /**
+   * Which numbered place in the grove the stone stands on, from 0. Written when the project is
+   * connected, so the stone never moves when others come and go. See `core/state/places.ts`.
+   */
+  place?: number
 }
 
 /**
@@ -369,6 +374,13 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
         if (name) stone.name = name
         if (entry.hidden === true) stone.hidden = true
         if (entry.wildwood === true) stone.wildwood = true
+        if (entry.place !== undefined) {
+          if (typeof entry.place === 'number' && Number.isInteger(entry.place) && entry.place >= 0 && entry.place < 1000) {
+            stone.place = entry.place
+          } else {
+            problems.push({ where: `${at}.place`, message: 'Should be a whole number from 0, like 2.' })
+          }
+        }
 
         if (entry.runes !== undefined) {
           if (!Array.isArray(entry.runes)) {

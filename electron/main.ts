@@ -293,9 +293,13 @@ function createWindow(): void {
   }
 }
 
+/** A place number from page code, or nothing: anything but a small whole number is ignored. */
+const asPlace = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < 1000 ? value : undefined
+
 /** Add a folder, then rescan so its stone appears straight away rather than on the next tick. */
-async function addAndRescan(folder: string): Promise<ProjectResult> {
-  const result = await addProject(folder)
+async function addAndRescan(folder: string, place?: number): Promise<ProjectResult> {
+  const result = await addProject(folder, place)
   if (result.ok) await restartScanning()
   return result
 }
@@ -345,17 +349,17 @@ function registerHandlers(): void {
     })
   }
 
-  ipcMain.handle(CHANNELS.connectSuggested, async (_event, folder: unknown): Promise<ProjectResult> => {
+  ipcMain.handle(CHANNELS.connectSuggested, async (_event, folder: unknown, place: unknown): Promise<ProjectResult> => {
     // Page code is untrusted: accept only a path the node side itself offered, as a project or as
     // a part of one worth its own sub-stone.
     const offered =
       latest?.grove.suggestions.some((suggestion) => suggestion.path === folder) ||
       latest?.grove.stones.some((stone) => stone.splits.some((split) => split.path === folder))
     if (typeof folder !== 'string' || !offered) return { ok: false, error: 'Not one of the suggested folders' }
-    return addAndRescan(folder)
+    return addAndRescan(folder, asPlace(place))
   })
 
-  ipcMain.handle(CHANNELS.browseProject, async (event): Promise<ProjectResult> => {
+  ipcMain.handle(CHANNELS.browseProject, async (event, place: unknown): Promise<ProjectResult> => {
     const owner = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.OpenDialogOptions = {
       title: 'Connect a project',
@@ -366,7 +370,7 @@ function registerHandlers(): void {
     const picked = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options)
     const folder = picked.filePaths[0]
     if (picked.canceled || !folder) return { ok: false, cancelled: true }
-    return addAndRescan(folder)
+    return addAndRescan(folder, asPlace(place))
   })
 
   ipcMain.handle(CHANNELS.browseSubProject, async (event, stoneId: unknown): Promise<ProjectResult> => {
@@ -387,7 +391,7 @@ function registerHandlers(): void {
     return addAndRescan(folder)
   })
 
-  ipcMain.handle(CHANNELS.createProject, async (event): Promise<ProjectResult> => {
+  ipcMain.handle(CHANNELS.createProject, async (event, place: unknown): Promise<ProjectResult> => {
     const owner = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.SaveDialogOptions = {
       title: 'New project',
@@ -404,7 +408,7 @@ function registerHandlers(): void {
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : String(error) }
     }
-    return addAndRescan(picked.filePath)
+    return addAndRescan(picked.filePath, asPlace(place))
   })
 
   ipcMain.handle(CHANNELS.addAgent, async (_event, draft: unknown): Promise<AgentResult> => {

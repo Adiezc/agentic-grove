@@ -131,11 +131,14 @@ export interface GroveApi {
    * one of the suggestions it sent in the latest snapshot. The other two ask macOS for the
    * folder, so the path never passes through the page at all.
    */
-  connectSuggested(folder: string): Promise<ProjectResult>
-  /** Pick an existing folder with the system folder picker. */
-  browseProject(): Promise<ProjectResult>
+  connectSuggested(folder: string, place?: number): Promise<ProjectResult>
+  /**
+   * Pick an existing folder with the system folder picker. `place` is the empty circle it was
+   * chosen from, so the stone stands where you clicked; left out, it takes the lowest free circle.
+   */
+  browseProject(place?: number): Promise<ProjectResult>
   /** Name a new folder with the system save panel; it is created, then added. */
-  createProject(): Promise<ProjectResult>
+  createProject(place?: number): Promise<ProjectResult>
   /** Pick a folder inside a stone's folder to stand as its own sub-stone. Takes the parent's id. */
   browseSubProject(stoneId: string): Promise<ProjectResult>
   /**

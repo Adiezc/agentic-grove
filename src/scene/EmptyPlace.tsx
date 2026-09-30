@@ -107,7 +107,7 @@ export function EmptyPlace({ place }: { place: Place }) {
       ) : null}
       {open ? (
         <Html position={[0, 0.5, 0]} center zIndexRange={[30, 20]}>
-          <PlaceMenu />
+          <PlaceMenu place={place} />
         </Html>
       ) : null}
     </group>
@@ -121,7 +121,8 @@ export function EmptyPlace({ place }: { place: Place }) {
  *   connect  The folders your agents have been busy in, and "Choose folder" for anything else.
  *            Skipped straight to the folder picker when there is nothing to suggest.
  */
-function PlaceMenu() {
+/** The menu, told which circle it belongs to so the new stone stands exactly there. */
+function PlaceMenu({ place }: { place: Place }) {
   const suggestions = useGrove((state) => state.snapshot?.grove.suggestions ?? NO_SUGGESTIONS)
   const bridge = typeof window !== 'undefined' ? window.grove : undefined
   const back = useFlow((state) => state.back)
@@ -141,7 +142,7 @@ function PlaceMenu() {
   const connect = () => {
     if (!bridge) return
     if (suggestions.length) setStep('connect')
-    else void run(bridge.browseProject)
+    else void run(() => bridge.browseProject(place.index))
   }
 
   if (step === 'connect') {
@@ -159,7 +160,7 @@ function PlaceMenu() {
                 className="place-suggestion"
                 disabled={!bridge || busy}
                 title={suggestion.path}
-                onClick={() => bridge && run(() => bridge.connectSuggested(suggestion.path))}
+                onClick={() => bridge && run(() => bridge.connectSuggested(suggestion.path, place.index))}
               >
                 <FolderSimple size={14} weight="thin" />
                 <span>{suggestion.name}</span>
@@ -171,7 +172,7 @@ function PlaceMenu() {
           type="button"
           className="place-suggestion place-browse"
           disabled={!bridge || busy}
-          onClick={() => bridge && run(bridge.browseProject)}
+          onClick={() => bridge && run(() => bridge.browseProject(place.index))}
         >
           <FolderOpen size={14} weight="thin" />
           <span>Choose folder</span>
@@ -184,7 +185,7 @@ function PlaceMenu() {
   return (
     <div className="place-menu" role="dialog" aria-label="New runestone">
       <div className="place-choices">
-        <button type="button" className="place-choice" disabled={!bridge || busy} onClick={() => bridge && run(bridge.createProject)}>
+        <button type="button" className="place-choice" disabled={!bridge || busy} onClick={() => bridge && run(() => bridge.createProject(place.index))}>
           <FolderSimplePlus size={20} weight="thin" />
           <span>New</span>
         </button>

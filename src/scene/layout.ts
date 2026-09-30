@@ -14,10 +14,12 @@
  *   3. **Wider than deep.** Stones sit further out sideways than towards the camera, which keeps
  *      them clear of the crown in an elevated view.
  *
- * A stone takes the place matching the order you connected it in, so it never moves when another
- * project is added.
+ * A stone keeps the numbered place written for it in `grove.json`, so it never moves when another
+ * project is added or removed; a removed one leaves an empty circle where it stood. The numbering
+ * rules are in `core/state/places.ts`, shared with the node side that writes them.
  */
 import type { Runestone as DerivedStone } from '../../core/state/stones.ts'
+import { assignPlaces, freePlaces } from '../../core/state/places.ts'
 import { runeFor } from './runes'
 import type { StoneSpec } from './Runestone'
 
@@ -56,11 +58,6 @@ export function placeAt(index: number): Place {
   return index < ART_PLACES.length ? ART_PLACES[index]! : outerPlace(index - ART_PLACES.length)
 }
 
-/** Three to start; once two are used, always two spare. */
-export function placeCount(projects: number): number {
-  return projects < 2 ? 3 : projects + 2
-}
-
 /** A small stable number from a string, so size and turn vary per project but never flicker. */
 function hash(text: string): number {
   let h = 2166136261
@@ -83,12 +80,15 @@ export interface EmptyPlace {
   at: Place
 }
 
-/** Empty places for a grove holding `filled` stones. */
-export function emptyPlaces(filled: number): EmptyPlace[] {
-  return Array.from({ length: placeCount(filled) - filled }, (_, i) => ({
-    index: filled + i,
-    at: placeAt(filled + i),
-  }))
+/** The empty circles, given the places the stones stand on. Gaps left by removed stones come first. */
+export function emptyPlaces(used: number[]): EmptyPlace[] {
+  return freePlaces(used).map((index) => ({ index, at: placeAt(index) }))
+}
+
+/** The numbered place of each top-level stone, as the scene will draw it. */
+export function stonePlaces(stones: DerivedStone[]): Map<string, number> {
+  const ids = new Set(stones.map((stone) => stone.id))
+  return assignPlaces(stones.filter((stone) => !stone.parent || !ids.has(stone.parent)).map((stone) => ({ id: stone.id, place: stone.place })))
 }
 
 /**
@@ -104,19 +104,15 @@ export function childPlace(parent: Place, sibling: number): Place {
   return [Math.sin(angle + fan / (reach / 4)) * reach, Math.cos(angle + fan / (reach / 4)) * reach * 0.82]
 }
 
-/** Top-level stones take the numbered places; sub-stones are placed off their parent. */
-export function topLevelCount(stones: DerivedStone[]): number {
-  return stones.filter((stone) => !stone.parent || !stones.some((other) => other.id === stone.parent)).length
-}
-
 export function layoutStones(stones: DerivedStone[]): StoneSpec[] {
   const ids = new Set(stones.map((stone) => stone.id))
   const hasParent = (stone: DerivedStone) => Boolean(stone.parent && ids.has(stone.parent))
   const at = new Map<string, Place>()
-  // Top-level stones take the numbered places in connection order, which is what keeps a stone
-  // still when another arrives.
-  let place = 0
-  for (const stone of stones) if (!hasParent(stone)) at.set(stone.id, placeAt(place++))
+  // Top-level stones stand on their numbered places, which is what keeps a stone still when
+  // another arrives or leaves.
+  const places = stonePlaces(stones)
+  for (const [id, index] of places) at.set(id, placeAt(index))
+  let place = Math.max(-1, ...places.values()) + 1
   // Then sub-stones, shortest path first: a parent's folder is always a prefix of its child's, so
   // every parent is placed before anything that hangs from it.
   const siblings = new Map<string, number>()

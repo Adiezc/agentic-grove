@@ -102,6 +102,8 @@ export interface Runestone {
   parent?: string
   /** Parts of this project busy enough to be worth a stone of their own. See `splitsFor`. */
   splits: SplitSuggestion[]
+  /** Its numbered place in the grove, from `grove.json`, when written. Sub-stones have none. */
+  place?: number
 }
 
 /** A folder with agent work in it that is not a stone yet, offered when connecting a project. */
@@ -252,6 +254,7 @@ function buildStone(config: StoneConfig, group: Session[], now: number, configs:
       .sort((a, b) => b.at - a.at)
       .slice(0, 3),
     parent: owningConfig([path.dirname(config.path)], configs.filter((other) => !other.hidden))?.path,
+    place: config.place,
     splits: splitsFor(config.path, ordered, new Set(configs.map((other) => other.path))),
   }
 }
