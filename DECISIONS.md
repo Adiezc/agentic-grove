@@ -1182,3 +1182,30 @@ found at `~/.local/bin/claude`, Codex found inside ChatGPT.app, and the script s
 Found at the same time: neither copy is signed in for use from Terminal (`claude auth status`
 exits 1 for both); the desktop app signs its own copy in privately. So one browser sign-in is
 needed for the Terminal launcher whichever copy runs.
+
+## One button to get ready
+
+*30 September 2026, Adrian: "one button setup, or two at most if anything needs authorisation"*
+
+The first-launch card used to show four rows (the Claude and ChatGPT apps, Claude Code, Codex),
+each with its own button, and live updates were a separate switch in Settings behind a diff
+review. A newcomer had to know which of those mattered. Now the card shows what is here, read-only,
+and one button whose job is worked out by `core/readiness.ts`: install Claude Code if no tool is
+here, sign in if a tool is here but signed out, turn on live updates if they are off, or nothing
+if all is well. Live updates ride along with install and sign-in, so a newcomer presses once and
+signs in once. The sentence under the button says everything the press will do, which is the
+consent for changing Claude Code's settings; a backup is kept as before, and Settings still shows
+the full diff for anyone who wants to read it first. Codex alone counts as ready. The desktop apps
+are no longer in the first-launch card: they are useful but not needed, and stay in Settings.
+
+**Signed in or not** is asked of the tool itself (`claude auth status --json`, `codex login
+status`); only the yes or no is kept, never the account details in the answer. A tool that does
+not answer in eight seconds counts as signed in, so a slow check never nags. The Grove looks again
+whenever its window comes forward, which is the moment someone returns from signing in, so the
+card updates by itself. The button takes nothing from the page: the main process works out the
+step again from fresh facts before acting. `npm run verify:readiness` (11 checks, stand-in tools).
+
+**Asking an agent to install it.** `INSTALL.md` is written for both a person and the AI agent they
+hand it to: check the Mac and Node, clone, `npm ci`, `npm run app`, open, then hand over to the
+Get ready button. It tells the agent not to edit Claude Code's or the Grove's settings itself. A
+Mac-built app is not quarantined, so this route also skips the "Open Anyway" step a download needs.

@@ -9,8 +9,10 @@
  * in two clicks and two sign-ins, without having to know what a terminal command is.
  */
 import { useState } from 'react'
-import { Asterisk, Check, OpenAiLogo, type Icon } from '@phosphor-icons/react'
-import type { SetupTool, ToolSource } from '../../core/setup.ts'
+import { Asterisk, Check, Lightning, OpenAiLogo, type Icon } from '@phosphor-icons/react'
+import type { SetupTool, ToolPresence, ToolSource } from '../../core/setup.ts'
+import { describeStep, nextSetupStep } from '../../core/readiness.ts'
+import type { ReadyResult } from '../../electron/bridge.ts'
 import { useGrove } from '../store/grove'
 
 interface Row {
@@ -23,6 +25,8 @@ interface Row {
   appOnly: boolean
   /** Where the command was found, so "Ready" can say which copy the Grove will use. */
   source?: ToolSource
+  /** Installed, but the tool says it is not signed in. */
+  signedOut: boolean
 }
 
 /** Which copy the Grove found, in words. */
@@ -42,7 +46,8 @@ export function ToolSetup({ compact = false }: { compact?: boolean }) {
       name: 'Claude Code',
       company: 'Claude account',
       Mark: Asterisk,
-      ready: Boolean(setup?.['claude-code'].cli),
+      ready: Boolean(setup?.['claude-code'].cli && setup['claude-code'].signedIn !== false),
+      signedOut: setup?.['claude-code'].signedIn === false,
       appOnly: Boolean(!setup?.['claude-code'].cli && setup?.['claude-code'].app),
       source: setup?.['claude-code'].source,
     },
@@ -51,7 +56,8 @@ export function ToolSetup({ compact = false }: { compact?: boolean }) {
       name: 'Codex',
       company: 'ChatGPT account',
       Mark: OpenAiLogo,
-      ready: Boolean(setup?.codex.cli),
+      ready: Boolean(setup?.codex.cli && setup.codex.signedIn !== false),
+      signedOut: setup?.codex.signedIn === false,
       appOnly: Boolean(!setup?.codex.cli && setup?.codex.app),
       source: setup?.codex.source,
     },
@@ -65,7 +71,7 @@ export function ToolSetup({ compact = false }: { compact?: boolean }) {
         ? (result.error ?? 'Could not start setup.')
         : result.opened === 'page'
           ? 'Opened the install page in your browser.'
-          : 'Terminal is open. Follow it, then sign in when your browser asks.'
+          : 'Terminal is open. Sign in there when your browser asks.'
     setMessage((current) => ({ ...current, [tool]: text }))
   }
 
@@ -108,7 +114,9 @@ export function ToolSetup({ compact = false }: { compact?: boolean }) {
                   ? row.source
                     ? FOUND[row.source](row.tool === 'claude-code' ? 'Claude' : 'ChatGPT')
                     : 'Ready. The Grove can run agents with it.'
-                  : row.appOnly
+                  : row.signedOut
+                    ? `Installed, but signed out. Sign in with your ${row.company}.`
+                    : row.appOnly
                     ? 'The app is here. Add the command-line tool so agents can work in your folders.'
                     : `Signs in with your ${row.company}.`)}
             </small>
@@ -117,11 +125,89 @@ export function ToolSetup({ compact = false }: { compact?: boolean }) {
             <Check size={16} weight="regular" className="tool-ready" aria-label="Ready" />
           ) : (
             <button type="button" className="setting-button is-primary" onClick={() => void run(row.tool)}>
-              Set up
+              {row.signedOut ? 'Sign in' : 'Set up'}
             </button>
           )}
         </li>
       ))}
     </ul>
+  )
+}
+
+/** A tool's state in two or three words, for the Get ready list. */
+function toolState(tool: ToolPresence | undefined, other: boolean): { text: string; ready: boolean } {
+  if (!tool?.cli) return { text: other ? 'Not installed. Optional; Settings can add it.' : 'Not installed yet.', ready: false }
+  if (tool.signedIn === false) return { text: 'Installed, signed out.', ready: false }
+  return { text: 'Ready.', ready: true }
+}
+
+/**
+ * The first-launch card's one button (see `core/readiness.ts` for what it does, and why one).
+ * Above it, a read-only line per tool so you can see what the button is about to fix. When
+ * everything is ready there is no button at all, just ticks.
+ */
+export function GetReady() {
+  const setup = useGrove((state) => state.snapshot?.setup)
+  const hooks = useGrove((state) => state.snapshot?.hooks?.state)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
+
+  if (!setup?.checked) {
+    return <p className="panel-aside get-ready-line">{window.grove ? 'Looking for Claude Code and Codex on this Mac…' : 'Setup needs the Grove app, not a browser tab.'}</p>
+  }
+
+  const step = nextSetupStep(setup, hooks ?? 'unreadable')
+  const action = describeStep(step)
+  const claude = toolState(setup['claude-code'], toolState(setup.codex, false).ready)
+  const codex = toolState(setup.codex, claude.ready)
+  const rows = [
+    { name: 'Claude Code', Mark: Asterisk, ...claude },
+    { name: 'Codex', Mark: OpenAiLogo, ...codex },
+    ...(setup['claude-code'].cli
+      ? [{ name: 'Live updates', Mark: Lightning, text: hooks === 'on' ? 'On.' : 'Off. The grove checks every few seconds instead.', ready: hooks === 'on' }]
+      : []),
+  ]
+
+  const go = async () => {
+    setBusy(true)
+    setMessage(null)
+    const result = await window.grove?.getReady().catch((error: unknown) => ({ ok: false, error: String(error) }) as ReadyResult)
+    setBusy(false)
+    if (!result) return setMessage({ text: 'Setup needs the Grove app, not a browser tab.', error: true })
+    if (!result.ok) return setMessage({ text: result.error ?? 'Could not start setup.', error: true })
+    if (result.opened === 'terminal') {
+      setMessage({ text: 'Terminal is open. Sign in there when your browser asks; this card updates when you come back.', error: false })
+    } else if (result.opened === 'page') {
+      setMessage({ text: 'There is no installer this Mac can run, so the install page is open in your browser.', error: false })
+    }
+  }
+
+  return (
+    <div className="get-ready">
+      <ul className="tool-setup is-compact">
+        {rows.map((row) => (
+          <li key={row.name} className={row.ready ? 'is-ready' : ''}>
+            <span className="tool-mark" aria-hidden="true">
+              <row.Mark size={15} weight="regular" />
+            </span>
+            <span className="tool-text">
+              {row.name}
+              <small>{row.text}</small>
+            </span>
+            {row.ready ? <Check size={16} weight="regular" className="tool-ready" aria-label="Ready" /> : null}
+          </li>
+        ))}
+      </ul>
+      {action ? (
+        <>
+          <button type="button" className="setting-button is-primary get-ready-button" onClick={() => void go()} disabled={busy}>
+            {busy ? 'Working…' : action.label}
+          </button>
+          <p className={message?.error ? 'panel-error get-ready-line' : 'panel-aside get-ready-line'}>{message?.text ?? action.line}</p>
+        </>
+      ) : (
+        <p className="panel-aside get-ready-line">All set. Agents can work in your folders.</p>
+      )}
+    </div>
   )
 }

@@ -1,8 +1,8 @@
 /**
  * The first-launch walkthrough, given by Researcher.
  *
- * Five cards, one idea each, a sentence or two apiece: what the grove is, connecting your AI tools
- * (with a one-button setup for anything missing), what a runestone is, where agents come from, and
+ * Five cards, one idea each, a sentence or two apiece: what the grove is, getting your AI tools
+ * ready (one button, see `GetReady` and `core/readiness.ts`), what a runestone is, where agents come from, and
  * how to read the heartbeat. Told by an agent rather than by the app,
  * because the grove's whole premise is that the agents live here, and meeting one first is the
  * quickest way to understand that.
@@ -15,7 +15,7 @@ import type { Icon } from '@phosphor-icons/react'
 import { ArrowRight, CircleDashed, Heartbeat, Plugs, TreeEvergreen, UsersThree } from '@phosphor-icons/react'
 import { RESEARCHER } from '../agents/tree'
 import { DEMO } from '../demo'
-import { ToolSetup } from './Setup'
+import { GetReady } from './Setup'
 
 const SEEN_KEY = 'grove:intro-seen'
 
@@ -23,7 +23,7 @@ const STEPS: { Glyph: Icon; text: string; setup?: boolean }[] = [
   { Glyph: TreeEvergreen, text: "This is your grove. I'm Researcher. I live in the tree, with the agents you'll add." },
   {
     Glyph: Plugs,
-    text: 'First, your AI tools. I work through Claude Code and Codex. Anything missing is one button away; you can do this later in Settings too.',
+    text: 'First, your AI tools. I work through Claude Code or Codex. If anything is missing, one button sorts it out.',
     setup: true,
   },
   { Glyph: CircleDashed, text: 'Each runestone is a project. Choose an empty circle to create one or connect a folder.' },
@@ -97,7 +97,7 @@ export function Intro({ hidden = false }: { hidden?: boolean }) {
         <Glyph size={26} weight="thin" className="intro-glyph" aria-hidden="true" />
         <p className="intro-text">{text}</p>
       </div>
-      {setup ? <ToolSetup compact /> : null}
+      {setup ? <GetReady /> : null}
       <footer className="intro-foot">
         <span className="pager-dots" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
           {STEPS.map((_, index) => (

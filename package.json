@@ -33,6 +33,7 @@
     "verify:attention": "tsx test/verify-attention.ts",
     "verify:health": "tsx test/verify-health.ts",
     "verify:places": "tsx test/verify-places.ts",
+    "verify:readiness": "tsx test/verify-readiness.ts",
     "dmg": "node scripts/package.mjs --dmg"
   },
   "devDependencies": {

@@ -11,8 +11,10 @@
  * runs, you can stop it, and the sign-in prompt has somewhere to appear. Installing behind your back
  * would be quicker to click and worse in every way that matters.
  *
- * **What is checked, and what is not.** Only whether each program or app exists. The Grove never
- * reads either tool's sign-in details.
+ * **What is checked, and what is not.** Whether each program or app exists, and whether each tool
+ * says it is signed in. That second answer comes from asking the tool itself (`claude auth status`,
+ * `codex login status`) and only its yes or no is kept. The Grove never reads either tool's
+ * sign-in files, and never keeps the account name the answer includes.
  *
  * **Find first, install last** (Adrian, 30 September 2026). The desktop apps carry their own copy
  * of each tool: Claude.app keeps Claude Code under Application Support, and ChatGPT.app ships Codex
@@ -42,9 +44,13 @@ export interface ToolPresence {
   source?: ToolSource
   /** The maker's desktop app (Claude.app, ChatGPT.app). Watchable and openable, not drivable. */
   app: boolean
+  /** Whether the tool says it is signed in. Absent when it is not installed or did not answer. */
+  signedIn?: boolean
 }
 
 export interface SetupStatus {
+  /** False until the first look has finished, so nothing is offered on a guess. */
+  checked: boolean
   'claude-code': ToolPresence
   codex: ToolPresence
   /** Package managers the Codex install can use, best first. */
@@ -149,6 +155,32 @@ export async function cliPath(tool: SetupTool): Promise<string | null> {
   return (await findCli(tool))?.path ?? null
 }
 
+/**
+ * Ask the tool whether it is signed in. Claude Code answers in JSON (`loggedIn`); Codex answers in
+ * words and with its exit code. Only the yes or no leaves this function; the answer's account
+ * details are dropped here. `undefined` when the tool did not answer in time or in a way we know.
+ */
+export function askSignedIn(tool: SetupTool, cli: string): Promise<boolean | undefined> {
+  const args = tool === 'claude-code' ? ['auth', 'status', '--json'] : ['login', 'status']
+  return new Promise((resolve) => {
+    execFile(cli, args, { timeout: 8000 }, (error, stdout, stderr) => {
+      const text = `${String(stdout)}\n${String(stderr)}`
+      if (tool === 'claude-code') {
+        try {
+          const answer = JSON.parse(String(stdout)) as { loggedIn?: unknown }
+          resolve(typeof answer.loggedIn === 'boolean' ? answer.loggedIn : undefined)
+        } catch {
+          resolve(undefined)
+        }
+        return
+      }
+      if (/not logged in/i.test(text)) resolve(false)
+      else if (!error && /logged in/i.test(text)) resolve(true)
+      else resolve(error && typeof error.code === 'number' ? false : undefined)
+    })
+  })
+}
+
 export async function setupStatus(): Promise<SetupStatus> {
   const [claudeCli, claudeApp, codexCli, codexApp, brew, npm] = await Promise.all([
     findCli('claude-code'),
@@ -158,12 +190,40 @@ export async function setupStatus(): Promise<SetupStatus> {
     anyExists(['/opt/homebrew/bin/brew', '/usr/local/bin/brew']),
     anyExists(['/opt/homebrew/bin/npm', '/usr/local/bin/npm']),
   ])
+  const [claudeIn, codexIn] = await Promise.all([
+    claudeCli ? askSignedIn('claude-code', claudeCli.path) : undefined,
+    codexCli ? askSignedIn('codex', codexCli.path) : undefined,
+  ])
   return {
-    'claude-code': { cli: Boolean(claudeCli), source: claudeCli?.source, app: claudeApp },
-    codex: { cli: Boolean(codexCli), source: codexCli?.source, app: codexApp },
+    checked: true,
+    'claude-code': { cli: Boolean(claudeCli), source: claudeCli?.source, app: claudeApp, signedIn: claudeIn },
+    codex: { cli: Boolean(codexCli), source: codexCli?.source, app: codexApp, signedIn: codexIn },
     brew,
     npm,
   }
+}
+
+/** A path as one word for zsh, whatever it contains. */
+const quoted = (text: string) => `'${text.replace(/'/g, `'\\''`)}'`
+
+/**
+ * The script for signing in to a tool that is already here, wherever it was found (it may be the
+ * copy inside a desktop app, which is not on your PATH, hence the full path).
+ */
+export function signInScript(tool: SetupTool, cli: string): string {
+  const name = tool === 'claude-code' ? 'Claude Code' : 'Codex'
+  const account = tool === 'claude-code' ? 'Claude' : 'ChatGPT'
+  return [
+    '#!/bin/zsh -l',
+    'clear',
+    'echo "Agentic Grove setup"',
+    'echo ""',
+    `echo "${name} is installed. Sign in with your ${account} account; your browser will open."`,
+    'echo ""',
+    `${quoted(cli)} ${tool === 'claude-code' ? 'auth login' : 'login'} || exit 1`,
+    'echo ""',
+    'echo "Signed in. You can close this window and go back to the Grove."',
+  ].join('\n') + '\n'
 }
 
 /**

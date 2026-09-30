@@ -22,7 +22,7 @@ import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
 import { addAgent, addProject, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
 import { LINK_HOME, defaultGrove, isHttpsUrl, isLinkOnly } from '../core/state/schema.ts'
-import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type ProjectResult, type RunResult, type UninstallPlan } from './bridge.ts'
+import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type ProjectResult, type ReadyResult, type RunResult, type UninstallPlan } from './bridge.ts'
 import { LiveState } from '../core/hooks/live.ts'
 import { startUsageLoop } from '../core/usage/index.ts'
 import { createShard, type Shard } from './tray.ts'
@@ -32,7 +32,8 @@ import { applyHooks, hookToken, hooksState, planHooks, type HooksAction } from '
 import { ipcMain } from 'electron'
 import { CHECK_EVERY_MS, RELEASES_PAGE, checkForUpdate, type UpdateStatus } from '../core/updates.ts'
 import { sampleLoad, type SystemLoad } from '../core/system.ts'
-import { APP_DOWNLOADS, TOOL_PAGES, cliPath, setupScript, setupStatus, type SetupStatus, type SetupTool } from '../core/setup.ts'
+import { APP_DOWNLOADS, TOOL_PAGES, cliPath, setupScript, setupStatus, signInScript, type SetupStatus, type SetupTool } from '../core/setup.ts'
+import { nextSetupStep } from '../core/readiness.ts'
 import { RunBook, type RunHarness } from '../core/spawn/runs.ts'
 import { launch } from '../core/spawn/launch.ts'
 import { BUILT_IN_BRIEFS, BUILT_IN_NAMES } from '../core/spawn/briefs.ts'
@@ -72,6 +73,7 @@ let system: SystemLoad = { cpu: 0, memory: 0 }
 let update: UpdateStatus = { state: 'unknown', current: app.getVersion() }
 /** Which tools are installed. Re-checked every minute, so finishing a setup shows up by itself. */
 let setup: SetupStatus = {
+  checked: false,
   'claude-code': { cli: false, app: false },
   codex: { cli: false, app: false },
   brew: false,
@@ -263,6 +265,8 @@ function createWindow(): void {
 
   windows.add(window)
   window.on('closed', () => windows.delete(window))
+  // Back from Terminal after installing or signing in: show it straight away.
+  window.on('focus', () => void refreshSetup())
 
   /* Forward what the page logs to the terminal, in development only.
    *
@@ -508,24 +512,31 @@ function registerHandlers(): void {
 
   ipcMain.handle(CHANNELS.setUpTool, async (_event, tool: unknown) => {
     if (tool !== 'claude-code' && tool !== 'codex') return { ok: false, error: 'Unknown tool' }
-    const which = tool as SetupTool
     setup = await setupStatus()
-    const script = setupScript(which, setup)
-    if (!script) {
-      await shell.openExternal(TOOL_PAGES[which])
-      return { ok: true, opened: 'page' as const }
+    return openSetup(tool)
+  })
+
+  ipcMain.handle(CHANNELS.getReady, async (): Promise<ReadyResult> => {
+    // Worked out again here from fresh facts, never taken from the page: the page only says "go".
+    setup = await setupStatus()
+    const hooks = await hooksState().catch(() => ({ state: 'unreadable' as const }))
+    const step = nextSetupStep(setup, hooks.state)
+    if (step.kind === 'ready') {
+      redraw()
+      return { ok: true }
     }
-    try {
-      // A `.command` file is what macOS opens in Terminal on its own. Written to a private temp
-      // folder, readable and runnable by this user only.
-      const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'agentic-grove-setup-'))
-      const file = path.join(dir, `set-up-${which}.command`)
-      await fsp.writeFile(file, script, { mode: 0o700 })
-      const failure = await shell.openPath(file)
-      return failure ? { ok: false, error: failure } : { ok: true, opened: 'terminal' as const }
-    } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    let liveUpdates = false
+    if (step.kind === 'live-updates' || step.liveUpdates) {
+      const plan = await planHooks('install').catch(() => null)
+      const applied = plan?.ok && plan.changes ? await applyHooks('install', plan.baseline).catch(() => null) : null
+      liveUpdates = Boolean(applied?.ok || (plan?.ok && !plan.changes))
+      if (liveUpdates) await restartScanning()
+      else if (step.kind === 'live-updates') return { ok: false, error: applied?.error ?? plan?.error ?? 'Could not change Claude Code’s settings.' }
     }
+    if (step.kind === 'live-updates') return { ok: true, liveUpdates }
+    const opened = await openSetup(step.tool)
+    redraw()
+    return { ...opened, liveUpdates }
   })
 
   ipcMain.handle(CHANNELS.getApp, async (_event, which: unknown) => {
@@ -576,6 +587,44 @@ function registerHandlers(): void {
     // folder is created on the first save rather than here — this handler writes nothing.
     shell.showItemInFolder(file)
   })
+}
+
+/**
+ * Open Terminal to install or sign in to a tool: signing in when it is already here, installing
+ * when it is not. With no way to install, opens the tool's own page instead.
+ */
+async function openSetup(which: SetupTool): Promise<{ ok: boolean; opened?: 'terminal' | 'page'; error?: string }> {
+  const cli = setup[which].cli ? await cliPath(which) : null
+  const script = cli ? signInScript(which, cli) : setupScript(which, setup)
+  if (!script) {
+    await shell.openExternal(TOOL_PAGES[which])
+    return { ok: true, opened: 'page' }
+  }
+  try {
+    // A `.command` file is what macOS opens in Terminal on its own. Written to a private temp
+    // folder, readable and runnable by this user only.
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'agentic-grove-setup-'))
+    const file = path.join(dir, `set-up-${which}.command`)
+    await fsp.writeFile(file, script, { mode: 0o700 })
+    const failure = await shell.openPath(file)
+    return failure ? { ok: false, error: failure } : { ok: true, opened: 'terminal' }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+/**
+ * Look again at which tools are here and signed in, then redraw. Run every minute, and whenever a
+ * Grove window comes forward, which is the moment someone returns from signing in in Terminal;
+ * at most once every few seconds, since each look asks both tools.
+ */
+let setupLookedAt = 0
+async function refreshSetup(force = false): Promise<void> {
+  const now = Date.now()
+  if (!force && now - setupLookedAt < 4000) return
+  setupLookedAt = now
+  setup = await setupStatus()
+  redraw()
 }
 
 /** Redraw from the last scan, for changes that do not need a new one. */
@@ -733,9 +782,7 @@ void app.whenReady().then(async () => {
       system = sampleLoad()
     }, 5000),
     setInterval(() => {
-      void setupStatus().then((found) => {
-        setup = found
-      })
+      void refreshSetup(true)
     }, 60_000),
     setInterval(() => void maybeCheckForUpdate(), 60 * 60_000)
   )

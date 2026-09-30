@@ -2725,3 +2725,21 @@
   line-height: 1.45;
   color: var(--text-dim);
 }
+
+/* ---- Get ready: the first-launch card's one button. Green like every other action; amber stays for "needs you". ---- */
+
+.get-ready {
+  margin: -0.3rem 0 1rem;
+}
+
+.get-ready .tool-setup {
+  margin: 0 0 0.85rem;
+}
+
+.get-ready-button {
+  width: 100%;
+}
+
+.get-ready-line {
+  margin-top: 0.5rem;
+}

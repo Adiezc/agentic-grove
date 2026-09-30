@@ -184,6 +184,12 @@ export interface GroveApi {
    * then its sign-in. With no way to install, opens the tool's own page instead.
    */
   setUpTool(tool: SetupTool): Promise<{ ok: boolean; opened?: 'terminal' | 'page'; error?: string }>
+  /**
+   * The first-launch "Get ready" button. Takes nothing from the page: the node side works out the
+   * next missing step itself (`core/readiness.ts`) and does it. Installs or signs in through
+   * Terminal, and turns on live updates on the way when they are off.
+   */
+  getReady(): Promise<ReadyResult>
   /** Open the Claude or ChatGPT desktop app's official download page. The address is fixed here. */
   getApp(app: DesktopApp): Promise<void>
   /**
@@ -233,6 +239,16 @@ export interface UninstallPlan {
   grovePath: string
 }
 
+/** What the "Get ready" button did. */
+export interface ReadyResult {
+  ok: boolean
+  /** Terminal opened to install or sign in, or the tool's page when it cannot be installed here. */
+  opened?: 'terminal' | 'page'
+  /** Live updates were turned on on the way. */
+  liveUpdates?: boolean
+  error?: string
+}
+
 export interface RunResult {
   ok: boolean
   runId?: string
@@ -275,6 +291,7 @@ export const CHANNELS = {
   checkForUpdates: 'grove:check-for-updates',
   openRelease: 'grove:open-release',
   setUpTool: 'grove:set-up-tool',
+  getReady: 'grove:get-ready',
   browseSubProject: 'grove:browse-sub-project',
   getApp: 'grove:get-app',
   planUninstall: 'grove:plan-uninstall',

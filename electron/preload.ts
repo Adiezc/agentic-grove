@@ -57,6 +57,7 @@ const api: GroveApi = {
   checkForUpdates: () => ipcRenderer.invoke(CHANNELS.checkForUpdates),
   openRelease: () => ipcRenderer.invoke(CHANNELS.openRelease),
   setUpTool: (tool) => ipcRenderer.invoke(CHANNELS.setUpTool, tool),
+  getReady: () => ipcRenderer.invoke(CHANNELS.getReady),
   browseSubProject: (stoneId) => ipcRenderer.invoke(CHANNELS.browseSubProject, stoneId),
   getApp: (app) => ipcRenderer.invoke(CHANNELS.getApp, app),
   planUninstall: () => ipcRenderer.invoke(CHANNELS.planUninstall),

@@ -7,7 +7,8 @@ working and whether anything needs you, and look away again.
 It is not a chat app. It is a cockpit.
 
 **Status: early, and changing quickly.** The grove shows your real projects and agent sessions,
-live, with usage headroom per provider. Sending agents to work from inside the Grove is next.
+live, with usage headroom per provider, and sends agents to work in your projects through your own
+Claude Code or Codex.
 
 MIT licensed. No telemetry, ever.
 
@@ -32,16 +33,28 @@ Studio and the like) can be added: each tool the Grove understands is one small 
 
 ## Getting started
 
+**The easy way:** if you use Claude Code or Codex, ask it:
+
+> Install Agentic Grove for me by following https://github.com/Adiezc/agentic-grove/blob/main/INSTALL.md
+
+**By hand:**
+
 ```bash
 git clone https://github.com/Adiezc/agentic-grove.git
 cd agentic-grove
-npm install
-npm run dev
+npm ci
+npm run app      # builds the app into ~/Applications
+open ~/Applications/"Agentic Grove.app"
 ```
 
-On first launch Researcher walks you through the grove. If Claude Code or Codex is missing, the
-second card has a Set up button for each: it opens Terminal, runs the maker's official installer,
-then asks you to sign in. You can do the same later in Settings.
+(`npm run dev` runs it in development mode instead, for working on the Grove itself.)
+
+On first launch Researcher walks you through the grove. The second card has one button, **Get
+ready**. It looks for Claude Code and Codex first (including the copies inside the Claude and
+ChatGPT apps), and only installs what is missing. Then it does whichever of these is still needed:
+install Claude Code, sign you in (in Terminal and your browser, the one step that needs you), and
+turn on live updates. If you already have everything, there is nothing to press. Settings has
+the same controls, one per tool.
 
 ### Installing a download
 
@@ -106,7 +119,7 @@ npm run dmg      # build release/Agentic-Grove-<version>-arm64.dmg for a GitHub 
 ```
 
 Each part with rules of its own has a `verify:` script beside it (`spawn`, `console`, `attention`,
-`health`, `places`, `reliability`, `pairings`, `tells`); they run in seconds and touch nothing of
+`health`, `places`, `readiness`, `reliability`, `pairings`, `tells`); they run in seconds and touch nothing of
 yours.
 
 `verify` is the one worth knowing about. It counts the files on disk with its own separate code
