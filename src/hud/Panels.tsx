@@ -57,6 +57,7 @@ export function ProjectsPanel({
 }) {
   const selectStone = useFlow((state) => state.selectStone)
   const [error, setError] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
   const canWrite = Boolean(window.grove)
 
   const act = async (run: () => Promise<{ ok: boolean; cancelled?: boolean; error?: string } | undefined>) => {
@@ -68,10 +69,27 @@ export function ProjectsPanel({
   // Parents first, each followed by its sub-stones, so the list reads the way the grove branches.
   const tops = stones.filter((stone) => !stone.parent)
   const childrenOf = (id: string) => stones.filter((stone) => stone.parent === id)
-  const rows = tops.flatMap((stone) => [stone, ...childrenOf(stone.id)])
+  const all = tops.flatMap((stone) => [stone, ...childrenOf(stone.id)])
+  // A search box only once the list is long enough to need one (review item 8). Matching any
+  // part of the name, ignoring case; a sub-stone that matches brings no parent along with it.
+  const searchable = all.length > 6
+  const wanted = query.trim().toLowerCase()
+  const rows = searchable && wanted ? all.filter((stone) => stone.name.toLowerCase().includes(wanted)) : all
 
   return (
     <PanelShell open={open} title="Projects" label="Projects" onClose={onClose}>
+      {searchable ? (
+        <input
+          className="rail-search"
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Find a project"
+          aria-label="Find a project"
+          spellCheck={false}
+        />
+      ) : null}
+      {searchable && wanted && !rows.length ? <p className="setting-line">No project called that.</p> : null}
       {rows.length ? (
         <ul className="rail-list">
           {rows.map((stone) => {
@@ -122,7 +140,7 @@ export function ProjectsPanel({
             )
           })}
         </ul>
-      ) : (
+      ) : all.length ? null : (
         <p className="setting-line">No projects yet. Connect a folder you already have, or start a new one.</p>
       )}
       <div className="setting-actions rail-actions">

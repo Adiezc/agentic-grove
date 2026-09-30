@@ -44,8 +44,12 @@ export interface TreeAgent {
   Glyph: Icon
   /** Only a grove agent has a live state the Grove can know. A bot's is `null`: unknown, honestly. */
   running: boolean | null
-  /** Where the orb hangs, in world units. Taken from the slot lists below. */
-  at: [number, number, number]
+  /**
+   * Where the orb hangs, in world units, from the slot lists below. `null` when every place of its
+   * kind is taken: the agent is still yours, in the card's pager and the console, just without an
+   * orb, rather than silently missing (review item 8).
+   */
+  at: [number, number, number] | null
   /** True for agents you connected, which you may also take away. False for the built-in three. */
   own: boolean
 }
@@ -128,9 +132,9 @@ const BUILT_IN = new Set(['researcher', 'builder', 'manager'])
 /**
  * Lay the definitions out on the tree. Pure, so the same list always hangs the same way.
  *
- * Anything past the room for its kind is left off rather than piled on the last place. The grow
- * form stops you getting there; this only matters for a hand-edited file, and `grove.json` still
- * has every entry.
+ * Anything past the room for its kind gets no orb rather than being piled on the last place, but
+ * it stays in the list: the agent card's pager and the console still reach it. The grow form stops
+ * you getting there; this only matters for a hand-edited file.
  */
 export function placeAgents(
   definitions: AgentDefinition[],
@@ -141,8 +145,7 @@ export function placeAgents(
   const agents: TreeAgent[] = []
   for (const definition of definitions) {
     const bot = kindOf(definition) === 'bot'
-    const at = bot ? DRIFTING[drifting++] : HANGING[hanging++]
-    if (!at) continue
+    const at = (bot ? DRIFTING[drifting++] : HANGING[hanging++]) ?? null
     const glyph: AgentGlyph = definition.glyph ?? DEFAULT_GLYPH
     agents.push({
       id: definition.id,
@@ -157,7 +160,7 @@ export function placeAgents(
       own: !BUILT_IN.has(definition.id),
     })
   }
-  return { agents, bud: HANGING[hanging] ?? BUD_WHEN_FULL }
+  return { agents, bud: HANGING[Math.min(hanging, HANGING.length)] ?? BUD_WHEN_FULL }
 }
 
 const NO_AGENTS: AgentDefinition[] = []

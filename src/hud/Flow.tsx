@@ -306,7 +306,7 @@ export function RunPanel({ stones }: { stones: StoneSpec[] }) {
           {run.task ? <p className="run-task">{run.task}</p> : null}
           {run.error ? <p className="panel-error">{run.error}</p> : null}
           {note ? (
-            <p className="panel-note">{note}</p>
+            <p className="panel-aside">{note}</p>
           ) : (
             <ol className="run-lines" ref={list} aria-label="Latest from the transcript" aria-live="polite">
               {lines?.length ? (
@@ -438,6 +438,7 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
         </div>
       </header>
       <p className="panel-line agent-line">{agent.description}</p>
+      {agent.at === null ? <p className="panel-aside">Every branch is taken, so this agent has no orb. It works the same.</p> : null}
 
       {isBot ? (
         // Dots and Cowork have no API to drive, so the one thing the Grove can do is open them.

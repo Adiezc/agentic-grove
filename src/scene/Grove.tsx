@@ -302,6 +302,8 @@ interface GroveSceneProps {
 }
 
 const NO_PAIRS: Pairing[] = []
+/** Where a deployment starts for an agent that has no orb on the tree. */
+const CANOPY_HEART: [number, number, number] = [-0.4, 3.9, 0.4]
 
 const NONE_ARRIVING: ReadonlySet<string> = new Set()
 
@@ -350,7 +352,8 @@ export function GroveScene({
     known.current ??= new Set()
     for (const stone of stones) known.current.add(stone.id)
   }, [ready, stones])
-  const deployFrom = deployment ? tree.agents.find((agent) => agent.id === deployment.agentId)?.at : undefined
+  // An agent with no orb of its own sets out from the heart of the canopy.
+  const deployFrom = deployment ? (tree.agents.find((agent) => agent.id === deployment.agentId)?.at ?? CANOPY_HEART) : undefined
   const deployTo = deployment ? stones.find((stone) => stone.id === deployment.stoneId)?.at : undefined
   const activity = activityOf(stones)
 

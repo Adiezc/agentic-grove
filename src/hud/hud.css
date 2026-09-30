@@ -2694,3 +2694,34 @@
 .echo-tool:disabled {
   cursor: default;
 }
+
+/* Find a project, once there are more than six. The grow form's field, at list width. */
+.rail-search {
+  width: 100%;
+  height: 2.1rem;
+  margin: 0 0 0.6rem;
+  padding: 0 0.75rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 10px;
+  background: rgb(2 9 4 / 0.55);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.rail-search::placeholder {
+  color: var(--text-dim);
+}
+
+.rail-search:focus-visible {
+  border-color: var(--live);
+  outline: none;
+}
+
+/* A quiet aside in a panel: information, not a request. `panel-note` is amber and means "needs you". */
+.panel-aside {
+  margin: 0.6rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--text-dim);
+}

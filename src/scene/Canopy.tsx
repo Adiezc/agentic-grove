@@ -14,6 +14,10 @@ import { Html, Line } from '@react-three/drei'
 import { Plus } from '@phosphor-icons/react'
 import * as THREE from 'three'
 import { HARNESS_MARK, kindOf, useTree, type TreeAgent } from '../agents/tree'
+
+/** An agent that has a place on the tree, which is the only kind the canopy draws. */
+type PlacedAgent = TreeAgent & { at: [number, number, number] }
+const placed = (agent: TreeAgent): agent is PlacedAgent => agent.at !== null
 import { DEMO } from '../demo'
 import { useFlow } from '../store/flow'
 import { palette } from '../theme/palette'
@@ -30,7 +34,8 @@ export function Canopy({ animate }: { animate: boolean }) {
   return (
     <group>
       {agents.map((agent, index) =>
-        kindOf(agent) === 'grove' ? (
+        // No free place on the tree: the agent is in the card's pager, but has no orb to draw.
+        !placed(agent) ? null : kindOf(agent) === 'grove' ? (
           <HangingOrb
             key={agent.id}
             agent={agent}
@@ -54,7 +59,7 @@ export function Canopy({ animate }: { animate: boolean }) {
 }
 
 /** A grove agent: tied to the branch below it by a thread of light. */
-function HangingOrb({ agent, selected, onSelect }: { agent: TreeAgent; selected: boolean; onSelect: () => void }) {
+function HangingOrb({ agent, selected, onSelect }: { agent: PlacedAgent; selected: boolean; onSelect: () => void }) {
   const [x, y, z] = agent.at
   return (
     <group>
@@ -91,7 +96,7 @@ function Firefly({
   selected,
   onSelect,
 }: {
-  agent: TreeAgent
+  agent: PlacedAgent
   seed: number
   animate: boolean
   selected: boolean
@@ -118,7 +123,7 @@ function Orb({
   onSelect,
   loose = false,
 }: {
-  agent: TreeAgent
+  agent: PlacedAgent
   selected: boolean
   onSelect: () => void
   loose?: boolean

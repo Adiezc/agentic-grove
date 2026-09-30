@@ -1152,3 +1152,15 @@ Applications layout, Apple Silicon only, about 146 MB, built with macOS's own `h
 mounted, the program and helpers renamed, the signature verifies, and the installed app starts and
 completes a scan. Not done: publishing a GitHub release (needs Adrian, and a public repo for the
 update check to see it), and the version is still 0.0.1.
+
+## Agents without a branch, and finding a project
+
+*30 September 2026, from the project review (item 8)*
+
+The tree has seven branches and six firefly places. An agent past those (only possible by editing
+`grove.json` by hand) used to vanish from everything. Now it keeps its place in the agent card's
+pager and in the console's reading; it simply has no orb, and its card says so in one grey line.
+A deployment from it sets out from the heart of the canopy. The Projects panel gets a "Find a
+project" box once there are more than six projects, matching any part of a name. Grey rather than
+amber for both lines: amber means something needs you, and `panel-note` (amber) had crept into two
+places tonight that were only information; they now use a grey `panel-aside`.
