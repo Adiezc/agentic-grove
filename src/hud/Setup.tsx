@@ -10,7 +10,7 @@
  */
 import { useState } from 'react'
 import { Asterisk, Check, OpenAiLogo, type Icon } from '@phosphor-icons/react'
-import type { SetupTool } from '../../core/setup.ts'
+import type { SetupTool, ToolSource } from '../../core/setup.ts'
 import { useGrove } from '../store/grove'
 
 interface Row {
@@ -21,6 +21,15 @@ interface Row {
   ready: boolean
   /** The maker's desktop app is here even though the command-line tool is not. */
   appOnly: boolean
+  /** Where the command was found, so "Ready" can say which copy the Grove will use. */
+  source?: ToolSource
+}
+
+/** Which copy the Grove found, in words. */
+const FOUND: Record<ToolSource, (app: string) => string> = {
+  installed: () => 'Ready. Found installed on this Mac.',
+  shell: () => 'Ready. Found where your Terminal finds it.',
+  app: (app) => `Ready. Using the copy inside the ${app} app.`,
 }
 
 export function ToolSetup({ compact = false }: { compact?: boolean }) {
@@ -35,6 +44,7 @@ export function ToolSetup({ compact = false }: { compact?: boolean }) {
       Mark: Asterisk,
       ready: Boolean(setup?.['claude-code'].cli),
       appOnly: Boolean(!setup?.['claude-code'].cli && setup?.['claude-code'].app),
+      source: setup?.['claude-code'].source,
     },
     {
       tool: 'codex',
@@ -43,6 +53,7 @@ export function ToolSetup({ compact = false }: { compact?: boolean }) {
       Mark: OpenAiLogo,
       ready: Boolean(setup?.codex.cli),
       appOnly: Boolean(!setup?.codex.cli && setup?.codex.app),
+      source: setup?.codex.source,
     },
   ]
 
@@ -94,7 +105,9 @@ export function ToolSetup({ compact = false }: { compact?: boolean }) {
             <small>
               {message[row.tool] ??
                 (row.ready
-                  ? 'Ready. The Grove can run agents with it.'
+                  ? row.source
+                    ? FOUND[row.source](row.tool === 'claude-code' ? 'Claude' : 'ChatGPT')
+                    : 'Ready. The Grove can run agents with it.'
                   : row.appOnly
                     ? 'The app is here. Add the command-line tool so agents can work in your folders.'
                     : `Signs in with your ${row.company}.`)}

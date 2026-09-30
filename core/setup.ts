@@ -11,18 +11,35 @@
  * runs, you can stop it, and the sign-in prompt has somewhere to appear. Installing behind your back
  * would be quicker to click and worse in every way that matters.
  *
- * **What is checked, and what is not.** Only whether each program or app exists at its usual
- * places. The Grove never reads either tool's sign-in details.
+ * **What is checked, and what is not.** Only whether each program or app exists. The Grove never
+ * reads either tool's sign-in details.
+ *
+ * **Find first, install last** (Adrian, 30 September 2026). The desktop apps carry their own copy
+ * of each tool: Claude.app keeps Claude Code under Application Support, and ChatGPT.app ships Codex
+ * inside itself. The first version only looked in the standard install folders, missed those, and
+ * offered to install a second copy. Now each tool is looked for in three places, in order, and the
+ * install button only appears when all three come up empty:
+ *
+ *   1. The standard install folders (the official installer, Homebrew, npm).
+ *   2. Wherever your own Terminal would find it (`command -v` in a login shell), for installs in
+ *      places nobody could list in advance.
+ *   3. The copy inside the maker's desktop app.
  */
+import { execFile } from 'node:child_process'
 import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
 export type SetupTool = 'claude-code' | 'codex'
 
+/** Where a tool's command was found. See the header for the order they are tried in. */
+export type ToolSource = 'installed' | 'shell' | 'app'
+
 export interface ToolPresence {
   /** The command-line program, which is what the Grove can run agents through. */
   cli: boolean
+  /** Where it was found, when it was. */
+  source?: ToolSource
   /** The maker's desktop app (Claude.app, ChatGPT.app). Watchable and openable, not drivable. */
   app: boolean
 }
@@ -64,29 +81,86 @@ const exists = (file: string) =>
     () => false
   )
 const anyExists = async (files: string[]) => (await Promise.all(files.map(exists))).some(Boolean)
+/** A file this user may run. */
+const runnable = (file: string) =>
+  fsp.access(file, fsp.constants.X_OK).then(
+    () => true,
+    () => false
+  )
+
+/** "2.1.284" above "2.1.281" and "2.1.9". Anything unreadable sorts last. */
+function newestFirst(a: string, b: string): number {
+  const parts = (text: string) => text.split('.').map((part) => Number.parseInt(part, 10) || 0)
+  const [x, y] = [parts(a), parts(b)]
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((y[i] ?? 0) !== (x[i] ?? 0)) return (y[i] ?? 0) - (x[i] ?? 0)
+  return 0
+}
 
 /**
- * Where the tool's command is, or `null` if it is not installed. An absolute path from the list
- * above, never a name looked up on `PATH`: the Grove's launch scripts run it directly, and a path
- * it found itself cannot be swapped for something else by whatever happens to be first on `PATH`.
+ * The copy inside the maker's desktop app. Claude.app keeps one folder per Claude Code version and
+ * clears out old ones itself, so the newest is taken; ChatGPT.app has one copy inside its bundle.
  */
-export async function cliPath(tool: SetupTool): Promise<string | null> {
-  for (const file of CLI_PLACES[tool]) if (await exists(file)) return file
+async function appCopy(tool: SetupTool): Promise<string | null> {
+  if (tool === 'claude-code') {
+    const root = path.join(home, 'Library', 'Application Support', 'Claude', 'claude-code')
+    const versions = await fsp.readdir(root).catch(() => [] as string[])
+    for (const version of versions.filter((name) => /^\d+(\.\d+)*$/.test(name)).sort(newestFirst)) {
+      const file = path.join(root, version, 'claude.app', 'Contents', 'MacOS', 'claude')
+      if (await runnable(file)) return file
+    }
+    return null
+  }
+  for (const app of APP_PLACES.codex) {
+    const file = path.join(app, 'Contents', 'Resources', 'codex-cli', 'bin', 'codex')
+    if (await runnable(file)) return file
+  }
   return null
+}
+
+/**
+ * Where your own Terminal would find the tool: `command -v` in a login shell, so your PATH from
+ * `.zprofile` and `.zshrc` counts. The name asked about is one of two fixed words, never text from
+ * anywhere else. Given a few seconds; a shell that takes longer is skipped, not waited on.
+ */
+function shellLookup(tool: SetupTool): Promise<string | null> {
+  const name = tool === 'claude-code' ? 'claude' : 'codex'
+  return new Promise((resolve) => {
+    execFile('/bin/zsh', ['-lc', `command -v ${name}`], { timeout: 4000 }, async (error, stdout) => {
+      const found = String(stdout).trim().split('\n').pop() ?? ''
+      resolve(!error && path.isAbsolute(found) && (await runnable(found)) ? found : null)
+    })
+  })
+}
+
+/**
+ * Where the tool's command is, and how it was found, or `null` if it is nowhere on this Mac. Always
+ * an absolute path, which the Grove's launch scripts run directly.
+ */
+export async function findCli(tool: SetupTool): Promise<{ path: string; source: ToolSource } | null> {
+  for (const file of CLI_PLACES[tool]) if (await runnable(file)) return { path: file, source: 'installed' }
+  const fromShell = await shellLookup(tool)
+  if (fromShell) return { path: fromShell, source: 'shell' }
+  const bundled = await appCopy(tool)
+  return bundled ? { path: bundled, source: 'app' } : null
+}
+
+/** Just the path. What the launcher runs. */
+export async function cliPath(tool: SetupTool): Promise<string | null> {
+  return (await findCli(tool))?.path ?? null
 }
 
 export async function setupStatus(): Promise<SetupStatus> {
   const [claudeCli, claudeApp, codexCli, codexApp, brew, npm] = await Promise.all([
-    anyExists(CLI_PLACES['claude-code']),
+    findCli('claude-code'),
     anyExists(APP_PLACES['claude-code']),
-    anyExists(CLI_PLACES.codex),
+    findCli('codex'),
     anyExists(APP_PLACES.codex),
     anyExists(['/opt/homebrew/bin/brew', '/usr/local/bin/brew']),
     anyExists(['/opt/homebrew/bin/npm', '/usr/local/bin/npm']),
   ])
   return {
-    'claude-code': { cli: claudeCli, app: claudeApp },
-    codex: { cli: codexCli, app: codexApp },
+    'claude-code': { cli: Boolean(claudeCli), source: claudeCli?.source, app: claudeApp },
+    codex: { cli: Boolean(codexCli), source: codexCli?.source, app: codexApp },
     brew,
     npm,
   }
@@ -101,7 +175,20 @@ export async function setupStatus(): Promise<SetupStatus> {
  * changes theirs, this is the one place to update.
  */
 export function setupScript(tool: SetupTool, status: SetupStatus): string | null {
-  const lines = ['#!/bin/zsh', 'clear', 'echo "Agentic Grove setup"', 'echo ""']
+  // A login shell, and a last look before installing anything: if the tool turned up since the
+  // Grove last checked, say where and stop, rather than install a second copy.
+  const name = tool === 'claude-code' ? 'claude' : 'codex'
+  const lines = [
+    '#!/bin/zsh -l',
+    'clear',
+    'echo "Agentic Grove setup"',
+    'echo ""',
+    `if command -v ${name} >/dev/null 2>&1; then`,
+    `  echo "${tool === 'claude-code' ? 'Claude Code' : 'Codex'} is already installed at $(command -v ${name}). Nothing to install."`,
+    '  echo "You can close this window."',
+    '  exit 0',
+    'fi',
+  ]
   if (tool === 'claude-code') {
     lines.push(
       'echo "Installing Claude Code with Anthropic\'s official installer..."',

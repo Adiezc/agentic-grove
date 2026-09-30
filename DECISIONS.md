@@ -1164,3 +1164,21 @@ A deployment from it sets out from the heart of the canopy. The Projects panel g
 project" box once there are more than six projects, matching any part of a name. Grey rather than
 amber for both lines: amber means something needs you, and `panel-note` (amber) had crept into two
 places tonight that were only information; they now use a grey `panel-aside`.
+
+## Find a tool before offering to install it
+
+*30 September 2026, Adrian's report*
+
+Set up ran the Claude Code installer although the Claude desktop app already carries its own copy
+(under `~/Library/Application Support/Claude/claude-code/<version>/`), and the ChatGPT app carries
+Codex (`ChatGPT.app/Contents/Resources/codex-cli/bin/codex`). The Grove only looked in the standard
+install folders. Now `findCli` in `core/setup.ts` looks in three places, in order: the standard
+install folders, wherever the user's own login shell finds it (`command -v`, fixed names only, four
+second limit), and the copy inside the desktop app (newest version). Set up only appears when all
+three are empty, the setup script itself checks `command -v` first and stops with "already
+installed" if it finds one, and Settings says which copy is in use. Checked on this Mac: Claude Code
+found at `~/.local/bin/claude`, Codex found inside ChatGPT.app, and the script stops early.
+
+Found at the same time: neither copy is signed in for use from Terminal (`claude auth status`
+exits 1 for both); the desktop app signs its own copy in privately. So one browser sign-in is
+needed for the Terminal launcher whichever copy runs.
