@@ -127,7 +127,7 @@ Picked on 27 September 2026, after step 6. Ranked, most important first.
     finishes in the same project, a pulse travels through the roots between them, so chained work
     reads as a chain. Hooks already give exact start and end times, so this can come any time after
     step 6.
-14. **Mushrooms (about half a session). Can be built now.** Small caps spring up where the roots of two
+14. **Mushrooms. Done 30 September 2026** (`core/state/pairings.ts`, `src/scene/Mushrooms.tsx`). Small caps spring up where the roots of two
     stones cross, when both stones had a session in the same hour. They map which projects you work
     on together, and fade if the pairing stops.
 15. **Caustics under the stones (about half a session). Can be built now.** A running stone throws

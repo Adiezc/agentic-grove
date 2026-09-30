@@ -16,6 +16,7 @@ import { Providers } from './hud/Providers'
 import { SessionList } from './SessionList'
 import { AgentCard, DeployToast, GrowCard, PickHint, RunPanel, STATE_LABEL, StonePanel, useRuns } from './hud/Flow'
 import type { RunState } from '../core/spawn/runs.ts'
+import { pairings, type Pairing } from '../core/state/pairings.ts'
 
 /** Run states in which the agent is still at the stone: sent and not yet confirmed, working, or asking. */
 const LIVE_RUN: ReadonlySet<RunState> = new Set(['starting', 'running', 'waiting'])
@@ -48,6 +49,11 @@ const DEMO_STONES = SPLIT
 
 /** Who the demo shows working on its running stones, as in the concept art's frame 1. */
 const DEMO_WORKERS: Record<string, string> = { research: 'researcher', build: 'builder', connect: 'researcher' }
+/** Two pairings for judging the mushrooms against the art: one busy and fresh, one light and fading. */
+const DEMO_PAIRS: Pairing[] = [
+  { a: 'compute', b: 'data', hours: 8, freshness: 1 },
+  { a: 'build', b: 'connect', hours: 2, freshness: 0.4 },
+]
 
 const ARROWS: Record<string, Direction | undefined> = {
   ArrowLeft: 'left',
@@ -140,6 +146,9 @@ export function App() {
       return { ...stone, status: lit ?? stone.status, workers }
     })
   }, [real, deployment, statusOverrides, runs])
+  // Worked out once per snapshot, against the snapshot's own clock, so a quiet grove does not redo it.
+  const snapshotAt = snapshot?.at ?? 0
+  const pairs = useMemo(() => (DEMO ? DEMO_PAIRS : pairings(real, snapshotAt)), [real, snapshotAt])
   const topLevel = topLevelCount(real)
   const empty = useMemo(() => (DEMO ? [] : emptyPlaces(topLevel)), [topLevel])
   const selectedName = stones.find((stone) => stone.id === stoneId)?.name
@@ -308,6 +317,7 @@ export function App() {
         <GroveScene
           stones={stones}
           empty={empty}
+          pairs={pairs}
           quality={quality}
           // Under `prefers-reduced-motion` the scene renders once and holds: no heartbeat, no
           // motes, no parallax, no travelling light. It is still the same picture, which is the

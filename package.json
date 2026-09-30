@@ -26,7 +26,8 @@
     "build:tree-model": "node scripts/build-world-tree-model.mjs",
     "typecheck": "tsc --noEmit",
     "app": "bash scripts/make-app.sh",
-    "verify:spawn": "tsx test/verify-spawn.ts"
+    "verify:spawn": "tsx test/verify-spawn.ts",
+    "verify:pairings": "tsx test/verify-pairings.ts"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

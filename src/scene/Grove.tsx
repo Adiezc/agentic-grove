@@ -29,6 +29,8 @@ import { EmptyPlace } from './EmptyPlace'
 import type { EmptyPlace as Place } from './layout'
 import { useTree } from '../agents/tree'
 import { useFlow, type FlowView } from '../store/flow'
+import type { Pairing } from '../../core/state/pairings.ts'
+import { Mushrooms } from './Mushrooms'
 
 /**
  * The six stones, placed to match the concept art.
@@ -292,13 +294,18 @@ interface GroveSceneProps {
    * those grow their roots and rise out of the ground.
    */
   ready?: boolean
+  /** Stones worked on in the same hours, drawn as mushrooms between them. See `Mushrooms.tsx`. */
+  pairs?: Pairing[]
 }
+
+const NO_PAIRS: Pairing[] = []
 
 const NONE_ARRIVING: ReadonlySet<string> = new Set()
 
 export function GroveScene({
   stones = [],
   empty = [],
+  pairs = NO_PAIRS,
   quality = 'high',
   animate = true,
   post = true,
@@ -469,6 +476,8 @@ export function GroveScene({
       {empty.map((place) => (
         <EmptyPlace key={place.index} place={place} />
       ))}
+
+      <Mushrooms pairs={pairs} stones={stones} animate={animate} />
 
       {view === 'agents' ? <Canopy animate={animate} /> : null}
       {deployment?.phase === 'flight' && deployFrom && deployTo ? (

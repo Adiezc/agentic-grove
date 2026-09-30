@@ -1013,3 +1013,16 @@ watch, answer and stop.
 Not built: stopping a run from the Grove (Ctrl-C in its window does it), Codex transcripts in the
 panel, and the rune console sending tasks (step 10). An API-key engine could be added later as an
 opt-in without changing run records.
+
+## Mushrooms: projects worked on in the same hour
+
+*30 September 2026*
+
+Small dim-green caps grow on the ground between two stones when each had a session start, or
+last move, in the same clock hour during the past week (`core/state/pairings.ts`). Only those two
+moments count, because a session left open for days has not been worked on for days, and counting
+its span would pair everything. One to five caps by shared hours; they fade over the week and are
+gone after it. A sub-stone never pairs with its parent. Placed halfway round between the two
+stones, a little nearer the tree, never on the dais. Sized so the tallest is about a sixth of a
+stone: smaller vanished into the floor from the home view. `?demo` shows one fresh and one fading
+pair. `npm run verify:pairings` checks the rule.
