@@ -14,7 +14,11 @@ import { Announcer, Counts, Rail, RuneConsole, useFullScreen, useIdle, usePrefer
 import { ProjectsPanel, RunesPanel } from './hud/Panels'
 import { Providers } from './hud/Providers'
 import { SessionList } from './SessionList'
-import { AgentCard, DeployToast, GrowCard, PickHint, STATE_LABEL, StonePanel } from './hud/Flow'
+import { AgentCard, DeployToast, GrowCard, PickHint, RunPanel, STATE_LABEL, StonePanel, useRuns } from './hud/Flow'
+import type { RunState } from '../core/spawn/runs.ts'
+
+/** Run states in which the agent is still at the stone: sent and not yet confirmed, working, or asking. */
+const LIVE_RUN: ReadonlySet<RunState> = new Set(['starting', 'running', 'waiting'])
 import { Intro } from './hud/Intro'
 import { SettingsPanel } from './hud/Settings'
 import { useFlow } from './store/flow'
@@ -103,6 +107,7 @@ export function App() {
 
   const snapshot = useGrove((state) => state.snapshot)
   const deployment = useFlow((state) => state.deployment)
+  const runs = useRuns()
   useAdaptiveGraphics({
     chosen: settings.graphics,
     adaptive: settings.adaptiveGraphics,
@@ -115,22 +120,26 @@ export function App() {
    * tree, Researcher, and three empty circles. The concept art's six stones appear only in demo
    * mode (`?demo`), for judging the scene against the art in a browser tab.
    *
-   * Deploying is still only an animation, so on real stones it may light the target while the
-   * light is travelling and no longer: saying a project is running when nothing was started
-   * there would break the one rule the grove cannot break, which is not to invent state. The
-   * demo stones are pretend anyway, so there the deployment is allowed to stick. */
+   * A real stone lights only when the scan or the hooks say work is happening there, never
+   * because a deployment is in flight: a Terminal window that has not started Claude Code yet is
+   * not work, and saying otherwise would break the one rule the grove cannot break, which is not
+   * to invent state. The demo stones are pretend, so there the deployment is allowed to stick.
+   *
+   * An agent you sent shows its face above the stone for as long as its run is live, so "who is
+   * working there" names the agent, not only the tool. */
   const real = snapshot?.grove.stones ?? NO_STONES
   const stones = useMemo(() => {
     const base = DEMO ? DEMO_STONES : layoutStones(real)
     return base.map((stone) => {
-      const lit = DEMO ? statusOverrides[stone.id] : deployment?.stoneId === stone.id ? 'running' : undefined
+      const lit = DEMO ? statusOverrides[stone.id] : undefined
       // While an agent is on its way, or (in the demo) once it has landed, its face joins the
       // stone's workers so you can see who went where.
       const sent = deployment?.stoneId === stone.id ? deployment.agentId : DEMO ? DEMO_WORKERS[stone.id] : undefined
-      const workers = sent && !stone.workers?.includes(sent) ? [...(stone.workers ?? []), sent] : stone.workers
+      const live = runs.filter((run) => run.stoneId === stone.id && LIVE_RUN.has(run.state)).map((run) => run.agentId)
+      const workers = [...new Set([...(stone.workers ?? []), ...live, ...(sent ? [sent] : [])])]
       return { ...stone, status: lit ?? stone.status, workers }
     })
-  }, [real, deployment, statusOverrides])
+  }, [real, deployment, statusOverrides, runs])
   const topLevel = topLevelCount(real)
   const empty = useMemo(() => (DEMO ? [] : emptyPlaces(topLevel)), [topLevel])
   const selectedName = stones.find((stone) => stone.id === stoneId)?.name
@@ -313,7 +322,7 @@ export function App() {
         />
       </div>
 
-      <div className={`hud${view === 'stone' ? ' is-panel' : ''}${resting ? ' is-resting' : ''}`}>
+      <div className={`hud${view === 'stone' || view === 'run' ? ' is-panel' : ''}${resting ? ' is-resting' : ''}`}>
         <Rail
           panel={panel}
           onPanel={setPanel}
@@ -344,6 +353,7 @@ export function App() {
         <RuneConsole inputRef={consoleInput} placeholder={selectedName ? `Task for ${selectedName}...` : undefined} />
         <StonePanel stones={stones} onAddTask={() => consoleInput.current?.focus()} />
         <AgentCard stones={stones} />
+        <RunPanel stones={stones} />
         <GrowCard />
         <DeployToast stones={stones} />
         <PickHint />

@@ -132,7 +132,10 @@ const BUILT_IN = new Set(['researcher', 'builder', 'manager'])
  * form stops you getting there; this only matters for a hand-edited file, and `grove.json` still
  * has every entry.
  */
-export function placeAgents(definitions: AgentDefinition[]): { agents: TreeAgent[]; bud: [number, number, number] } {
+export function placeAgents(
+  definitions: AgentDefinition[],
+  busy: ReadonlySet<string> = new Set()
+): { agents: TreeAgent[]; bud: [number, number, number] } {
   let hanging = 0
   let drifting = 0
   const agents: TreeAgent[] = []
@@ -147,9 +150,9 @@ export function placeAgents(definitions: AgentDefinition[]): { agents: TreeAgent
       description: definition.description,
       harness: definition.harness,
       Glyph: GLYPHS[glyph].Icon,
-      // Nothing spawns yet, so nothing the Grove runs can be running. The demo shows the art's
+      // Running when a run it was sent on is working or asking right now. The demo shows the art's
       // "Running" on Researcher. A bot's state is unknowable, so it is null rather than false.
-      running: bot ? null : DEMO && definition.id === 'researcher',
+      running: bot ? null : DEMO ? definition.id === 'researcher' : busy.has(definition.id),
       at,
       own: !BUILT_IN.has(definition.id),
     })
@@ -170,12 +173,21 @@ export function useTree(): { agents: TreeAgent[]; bud: [number, number, number];
     const has = (id: string) => found?.some((harness) => harness.id === id && harness.detected) ?? false
     return !has('claude-code') && has('codex') ? 'codex' : 'claude-code'
   })
+  // Which agents have a run working or waiting right now, as one string so the tree only
+  // re-lays itself when that set changes, not on every snapshot.
+  const busyKey = useGrove((state) =>
+    (state.snapshot?.runs ?? [])
+      .filter((run) => run.state === 'running' || run.state === 'waiting')
+      .map((run) => run.agentId)
+      .sort()
+      .join(' ')
+  )
   return useMemo(() => {
     const yours = (DEMO ? EXAMPLES : connected).filter((agent) => showFireflies || kindOf(agent) === 'grove')
     const definitions = [...builtIns(preferred), ...yours]
-    const placed = placeAgents(definitions)
+    const placed = placeAgents(definitions, new Set(busyKey.split(' ').filter(Boolean)))
     const counts = { grove: 0, bot: 0 }
     for (const definition of definitions) counts[kindOf(definition)] += 1
     return { ...placed, counts }
-  }, [connected, preferred, showFireflies])
+  }, [connected, preferred, showFireflies, busyKey])
 }

@@ -22,7 +22,7 @@ import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
 import { addAgent, addProject, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
 import { LINK_HOME, defaultGrove, isHttpsUrl, isLinkOnly } from '../core/state/schema.ts'
-import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type ProjectResult, type UninstallPlan } from './bridge.ts'
+import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type ProjectResult, type RunResult, type UninstallPlan } from './bridge.ts'
 import { LiveState } from '../core/hooks/live.ts'
 import { startUsageLoop } from '../core/usage/index.ts'
 import { createShard, type Shard } from './tray.ts'
@@ -32,7 +32,11 @@ import { applyHooks, hookToken, hooksState, planHooks, type HooksAction } from '
 import { ipcMain } from 'electron'
 import { CHECK_EVERY_MS, RELEASES_PAGE, checkForUpdate, type UpdateStatus } from '../core/updates.ts'
 import { sampleLoad, type SystemLoad } from '../core/system.ts'
-import { APP_DOWNLOADS, TOOL_PAGES, setupScript, setupStatus, type SetupStatus, type SetupTool } from '../core/setup.ts'
+import { APP_DOWNLOADS, TOOL_PAGES, cliPath, setupScript, setupStatus, type SetupStatus, type SetupTool } from '../core/setup.ts'
+import { RunBook, type RunHarness } from '../core/spawn/runs.ts'
+import { launch } from '../core/spawn/launch.ts'
+import { BUILT_IN_BRIEFS, BUILT_IN_NAMES } from '../core/spawn/briefs.ts'
+import { readTranscript } from '../core/spawn/transcript.ts'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -70,6 +74,10 @@ let setup: SetupStatus = {
   npm: false,
 }
 const timers: ReturnType<typeof setInterval>[] = []
+/** Work the Grove started. Loaded before the first scan so runs from before a restart are matched again. */
+const runs = new RunBook()
+/** How many runs each snapshot carries. The file keeps more; the interface only ever shows recent ones. */
+const RUNS_IN_SNAPSHOT = 50
 
 /** Every open window that wants snapshots. Plural already, because the mini-window is coming. */
 const windows = new Set<BrowserWindow>()
@@ -130,6 +138,7 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
     setup,
     version: app.getVersion(),
     displays: screen.getAllDisplays().length,
+    runs: runs.list().slice(0, RUNS_IN_SNAPSHOT),
   }
 }
 
@@ -158,7 +167,10 @@ async function maybeCheckForUpdate(force = false): Promise<UpdateStatus> {
  */
 async function startListening(): Promise<void> {
   hookServer = await startHookServer(await hookToken(), (call) => {
-    const changed = live.record(call)
+    // Both always run: `||` would skip the run book whenever the stone's status changed.
+    const stoneChanged = live.record(call)
+    const runChanged = runs.onHook(call)
+    const changed = stoneChanged || runChanged
     const known = lastScan?.sessions.some((session) => session.id === `claude-code:${call.sessionId}`)
     // A session the scan has never seen needs a scan to learn which folder it is in. Anything
     // else redraws straight from the last scan: that is the sub-second path this all exists for.
@@ -464,6 +476,30 @@ function registerHandlers(): void {
     if (which === 'claude' || which === 'chatgpt') await shell.openExternal(APP_DOWNLOADS[which])
   })
 
+  ipcMain.handle(CHANNELS.launchRun, async (_event, request: unknown): Promise<RunResult> => launchRun(request))
+
+  ipcMain.handle(CHANNELS.resumeRun, async (_event, runId: unknown): Promise<RunResult> => {
+    const run = typeof runId === 'string' ? runs.get(runId) : undefined
+    if (!run) return { ok: false, error: 'No such run' }
+    // The folder must still be one of your stones: a run's folder came from the Grove, but a stone
+    // taken off the grove since should not keep a way to start work in it.
+    const { grove } = await loadGrove()
+    if (!grove.stones.some((stone) => stone.path === run.stoneId)) return { ok: false, error: 'That project is no longer on the grove' }
+    const result = await launch({ run, folder: run.stoneId, brief: '', model: '', resume: true }, shell.openPath)
+    if (!result.ok) return { ok: false, runId: run.id, error: result.error, missing: result.missing }
+    runs.resumed(run.id)
+    redraw()
+    return { ok: true, runId: run.id }
+  })
+
+  ipcMain.handle(CHANNELS.readTranscript, async (_event, runId: unknown) => {
+    const run = typeof runId === 'string' ? runs.get(runId) : undefined
+    if (!run) return { ok: false, error: 'No such run' }
+    if (run.harness !== 'claude-code') return { ok: false, error: 'Codex runs show their work in their Terminal window.' }
+    const lines = await readTranscript(run.id, run.stoneId).catch(() => null)
+    return lines ? { ok: true, lines } : { ok: true, lines: [] }
+  })
+
   ipcMain.handle(CHANNELS.planUninstall, async (): Promise<UninstallPlan> => planUninstall())
 
   ipcMain.handle(CHANNELS.uninstall, async (_event, options: unknown) => {
@@ -478,6 +514,54 @@ function registerHandlers(): void {
     // folder is created on the first save rather than here — this handler writes nothing.
     shell.showItemInFolder(file)
   })
+}
+
+/** Redraw from the last scan, for changes that do not need a new one. */
+function redraw(): void {
+  if (lastScan) void toSnapshot(lastScan).then(broadcast)
+}
+
+/** Most a task may be. Far past anything typed; a limit so a pasted file cannot fill the disk with runs. */
+const MAX_TASK_CHARS = 20_000
+
+/**
+ * Send an agent to a stone. Everything the page sends is checked against `grove.json`: the stone
+ * must be one of yours, the agent must be built in or on your tree, and link-only agents cannot be
+ * sent anywhere. The run is recorded *before* Terminal is asked to open, so a launch that fails is
+ * still in the history, as failed, rather than vanishing.
+ */
+async function launchRun(request: unknown): Promise<RunResult> {
+  if (typeof request !== 'object' || request === null) return { ok: false, error: 'Not a request' }
+  const { stoneId, agentId, task } = request as Record<string, unknown>
+  if (typeof stoneId !== 'string' || typeof agentId !== 'string' || typeof task !== 'string') return { ok: false, error: 'Not a request' }
+  if (task.length > MAX_TASK_CHARS) return { ok: false, error: 'That task is too long to send' }
+
+  const { grove } = await loadGrove()
+  if (!grove.stones.some((stone) => stone.path === stoneId)) return { ok: false, error: 'Not one of your stones' }
+
+  const own = grove.agents.find((agent) => agent.id === agentId)
+  const builtIn = agentId in BUILT_IN_BRIEFS
+  if (!own && !builtIn) return { ok: false, error: 'No such agent' }
+  if (own && isLinkOnly(own.harness)) return { ok: false, error: `${own.name} lives in its own app and cannot be sent to a stone` }
+
+  // Built-ins run on Claude Code when its command is here, otherwise Codex. With neither, Claude
+  // Code is tried so the failure names the tool most people will want to install.
+  let harness: RunHarness
+  if (own) harness = own.harness === 'codex' ? 'codex' : 'claude-code'
+  else harness = (await cliPath('claude-code')) || !(await cliPath('codex')) ? 'claude-code' : 'codex'
+
+  const run = runs.create({
+    harness,
+    agentId,
+    agentName: own?.name ?? BUILT_IN_NAMES[agentId] ?? agentId,
+    stoneId,
+    task: task.trim(),
+  })
+  const brief = own ? (own.systemPrompt ?? '') : (BUILT_IN_BRIEFS[agentId] ?? '')
+  const result = await launch({ run, folder: stoneId, brief, model: own?.model ?? '' }, shell.openPath)
+  if (!result.ok) runs.fail(run.id, result.error)
+  redraw()
+  return result.ok ? { ok: true, runId: run.id } : { ok: false, runId: run.id, error: result.error, missing: result.missing }
 }
 
 /**
@@ -541,11 +625,13 @@ async function restartScanning(): Promise<void> {
   const { grove } = await loadGrove()
   stopScanning = startScanLoop((result) => {
     lastScan = result
+    runs.onScan(live.apply(result.sessions))
     void toSnapshot(result).then(broadcast)
   }, grove.settings.scanIntervalMs)
 }
 
 void app.whenReady().then(async () => {
+  await runs.load()
   registerHandlers()
   await startListening()
   await restartScanning()
@@ -599,6 +685,7 @@ function showWindow(): void {
 }
 
 app.on('before-quit', () => {
+  void runs.flushed()
   stopScanning?.()
   stopUsage?.()
   shard?.destroy()

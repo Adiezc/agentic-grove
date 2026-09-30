@@ -107,7 +107,7 @@ const HOME_OFFSET = new THREE.Vector3(...cameraSpec.position).sub(new THREE.Vect
  * of the screen, as it does in the art.
  */
 function shotFor(view: FlowView, stone: StoneSpec | undefined): Shot {
-  if (view === 'stone' && stone) {
+  if ((view === 'stone' || view === 'run') && stone) {
     // From the home direction, never round the side: every rune is carved on the face that
     // looks at the home camera, and swinging round a stone shows you its blank back. Aimed right
     // of the stone, so it lands left of centre with the tree beside it and the panel clear.
@@ -440,7 +440,7 @@ export function GroveScene({
       <group scale={1.12}>
         <ReferenceTree activity={activity} attention={attention.size > 0 || failed.size > 0} network={network} animate={animate} />
       </group>
-      {view === 'home' || view === 'stone' ? <TreeHitbox onOpen={openAgents} /> : null}
+      {view === 'home' || view === 'stone' || view === 'run' ? <TreeHitbox onOpen={openAgents} /> : null}
 
       {stones.map((stone) => (
         <Runestone

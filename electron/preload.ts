@@ -52,6 +52,9 @@ const api: GroveApi = {
   getApp: (app) => ipcRenderer.invoke(CHANNELS.getApp, app),
   planUninstall: () => ipcRenderer.invoke(CHANNELS.planUninstall),
   uninstall: (options) => ipcRenderer.invoke(CHANNELS.uninstall, options),
+  launchRun: (request) => ipcRenderer.invoke(CHANNELS.launchRun, request),
+  resumeRun: (runId) => ipcRenderer.invoke(CHANNELS.resumeRun, runId),
+  readTranscript: (runId) => ipcRenderer.invoke(CHANNELS.readTranscript, runId),
 }
 
 contextBridge.exposeInMainWorld('grove', api)

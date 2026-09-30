@@ -65,6 +65,16 @@ const exists = (file: string) =>
   )
 const anyExists = async (files: string[]) => (await Promise.all(files.map(exists))).some(Boolean)
 
+/**
+ * Where the tool's command is, or `null` if it is not installed. An absolute path from the list
+ * above, never a name looked up on `PATH`: the Grove's launch scripts run it directly, and a path
+ * it found itself cannot be swapped for something else by whatever happens to be first on `PATH`.
+ */
+export async function cliPath(tool: SetupTool): Promise<string | null> {
+  for (const file of CLI_PLACES[tool]) if (await exists(file)) return file
+  return null
+}
+
 export async function setupStatus(): Promise<SetupStatus> {
   const [claudeCli, claudeApp, codexCli, codexApp, brew, npm] = await Promise.all([
     anyExists(CLI_PLACES['claude-code']),

@@ -22,6 +22,8 @@ import type { UsageReport } from '../core/usage/types.ts'
 import type { UpdateStatus } from '../core/updates.ts'
 import type { SystemLoad } from '../core/system.ts'
 import type { DesktopApp, SetupStatus, SetupTool } from '../core/setup.ts'
+import type { Run } from '../core/spawn/runs.ts'
+import type { TranscriptLine } from '../core/spawn/transcript.ts'
 
 /**
  * One complete picture of the grove, sent after every scan.
@@ -61,6 +63,8 @@ export interface GroveSnapshot {
   setup: SetupStatus
   /** This build's version, from package.json. */
   version: string
+  /** Work the Grove started, newest first. Separate from the sessions it only watches. See `core/spawn/runs.ts`. */
+  runs: Run[]
   /**
    * How many screens are connected. With one, a grove you have not looked at for a while steps its
    * graphics down; with several, it is probably on a screen of its own and stays at full detail.
@@ -179,6 +183,17 @@ export interface GroveApi {
   setUpTool(tool: SetupTool): Promise<{ ok: boolean; opened?: 'terminal' | 'page'; error?: string }>
   /** Open the Claude or ChatGPT desktop app's official download page. The address is fixed here. */
   getApp(app: DesktopApp): Promise<void>
+  /**
+   * Send an agent to a stone with a task: Terminal opens in the project folder running Claude Code
+   * or Codex. Takes ids only. The node side looks up the folder and the agent itself, so page code
+   * never names a folder to run in or a command to run. Resolves once Terminal has been asked to
+   * open, with the run's id; whether a session really started arrives later, on the run.
+   */
+  launchRun(request: { stoneId: string; agentId: string; task: string }): Promise<RunResult>
+  /** Reopen a Claude Code run's session in Terminal (`claude --resume`). */
+  resumeRun(runId: string): Promise<RunResult>
+  /** The last lines of a run's transcript, for the live view. Claude Code runs only. */
+  readTranscript(runId: string): Promise<{ ok: boolean; lines?: TranscriptLine[]; error?: string }>
   /** What uninstalling would do on this Mac, so the confirmation can list it before anything happens. */
   planUninstall(): Promise<UninstallPlan>
   /**
@@ -195,6 +210,14 @@ export interface UninstallPlan {
   appPath: string | null
   /** Your grove: projects list, agents, settings and backups. Kept unless you choose otherwise. */
   grovePath: string
+}
+
+export interface RunResult {
+  ok: boolean
+  runId?: string
+  error?: string
+  /** Set when the tool's command is not installed, so the interface can offer its one-button setup. */
+  missing?: SetupTool
 }
 
 export interface AgentResult {
@@ -235,4 +258,7 @@ export const CHANNELS = {
   getApp: 'grove:get-app',
   planUninstall: 'grove:plan-uninstall',
   uninstall: 'grove:uninstall',
+  launchRun: 'grove:launch-run',
+  resumeRun: 'grove:resume-run',
+  readTranscript: 'grove:read-transcript',
 } as const

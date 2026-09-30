@@ -6,26 +6,36 @@
  * here rather than in `App` means the scene and the interface read the same answer without
  * passing it down through every component in between.
  *
- * **Visual only, for now.** Deploying plays the whole animation and marks the stone as running,
- * but spawns nothing. The real spawn path is session nine; when it lands, `deploy` is the one
- * function that changes, and every screen above it stays as it is.
+ * **Deploying starts real work** (session nine). `deploy` asks the node side to open Terminal in
+ * the stone's folder with the agent and the task, and the light flies while it does. Nothing here
+ * claims the agent has started: the toast reads the run's state from the snapshot, which only
+ * moves when Claude Code itself says a session exists. Demo stones still only animate.
  */
 import { create } from 'zustand'
 import type { SessionStatus } from '../../core/harnesses/types.ts'
+import type { SetupTool } from '../../core/setup.ts'
+import { DEMO } from '../demo'
 
 /**
  *   home     the grove at rest, frame 1
  *   stone    one stone chosen, its panel open, frame 2
  *   agents   the camera inside the canopy, frame 3
  *   picking  an agent chosen with no stone yet: the next stone clicked receives it
+ *   run      one run on the chosen stone: its task, state and live transcript
  */
-export type FlowView = 'home' | 'stone' | 'agents' | 'picking'
+export type FlowView = 'home' | 'stone' | 'agents' | 'picking' | 'run'
 
 export interface Deployment {
   agentId: string
   stoneId: string
   /** `flight` while the light travels to the stone, `landed` for the moment after it arrives. */
   phase: 'flight' | 'landed'
+  /** The run it started, once the node side has recorded one. */
+  runId: string | null
+  /** Why it could not start. The toast stays until dismissed, since a failure should not slip by. */
+  error: string | null
+  /** Which tool is not installed, when that is the reason, so the toast can offer its setup. */
+  missing: SetupTool | null
 }
 
 interface FlowStore {
@@ -38,6 +48,10 @@ interface FlowStore {
   growing: boolean
   /** An agent waiting for a stone to be picked, in `picking` view. */
   pendingAgentId: string | null
+  /** The task typed for it, carried until the stone is picked. */
+  pendingTask: string
+  /** The run the `run` view is showing. */
+  runId: string | null
   deployment: Deployment | null
   /** Status a deployment has put on a stone, laid over the fixtures until real spawning exists. */
   statusOverrides: Record<string, SessionStatus>
@@ -57,7 +71,9 @@ interface FlowStore {
   grow: () => void
   /** Close the form; with an id, turn to face the agent that just grew. */
   grown: (id?: string) => void
-  deploy: (agentId: string) => void
+  /** Send an agent with a task to the chosen stone, or wait for one to be picked. */
+  deploy: (agentId: string, task: string) => void
+  openRun: (id: string) => void
   land: () => void
   finish: () => void
   openPlace: (index: number) => void
@@ -72,6 +88,8 @@ export const useFlow = create<FlowStore>((set, get) => ({
   agentId: 'researcher',
   growing: false,
   pendingAgentId: null,
+  pendingTask: '',
+  runId: null,
   deployment: null,
   statusOverrides: {},
   placeIndex: null,
@@ -92,7 +110,7 @@ export const useFlow = create<FlowStore>((set, get) => ({
     if (deployment) return
     set({ stoneId: id, placeIndex: null })
     // In picking mode the click *is* the target, so it goes straight to deploying.
-    if (view === 'picking' && pendingAgentId) get().deploy(pendingAgentId)
+    if (view === 'picking' && pendingAgentId) get().deploy(pendingAgentId, get().pendingTask)
     else set({ view: 'stone' })
   },
 
@@ -104,21 +122,36 @@ export const useFlow = create<FlowStore>((set, get) => ({
 
   grown: (id) => set((state) => ({ growing: false, agentId: id ?? state.agentId })),
 
-  deploy: (agentId) => {
+  deploy: (agentId, task) => {
     const { stoneId } = get()
     // No stone yet means the agents were opened from the rail. Go back out to the grove and let
     // the next stone clicked be the target, rather than guessing one.
     if (!stoneId) {
-      set({ view: 'picking', pendingAgentId: agentId })
+      set({ view: 'picking', pendingAgentId: agentId, pendingTask: task })
       return
     }
     set((state) => ({
       view: 'home',
       pendingAgentId: null,
-      deployment: { agentId, stoneId, phase: 'flight' },
-      statusOverrides: { ...state.statusOverrides, [stoneId]: 'running' },
+      pendingTask: '',
+      deployment: { agentId, stoneId, phase: 'flight', runId: null, error: null, missing: null },
+      // Demo stones are pretend, so there the deployment may light the stone for good. Real ones
+      // light only when the scan or the hooks say work is happening.
+      statusOverrides: DEMO ? { ...state.statusOverrides, [stoneId]: 'running' } : state.statusOverrides,
     }))
+    if (DEMO || !window.grove) return
+    const settle = (patch: Partial<Deployment>) => {
+      const current = get().deployment
+      // Only if this is still the deployment on screen; a dismissed one needs no answer.
+      if (current && current.agentId === agentId && current.stoneId === stoneId) set({ deployment: { ...current, ...patch } })
+    }
+    window.grove
+      .launchRun({ stoneId, agentId, task })
+      .then((result) => settle({ runId: result.runId ?? null, error: result.ok ? null : (result.error ?? 'It did not start'), missing: result.missing ?? null }))
+      .catch((reason: unknown) => settle({ error: String(reason) }))
   },
+
+  openRun: (id) => set({ view: 'run', runId: id }),
 
   land: () => {
     const { deployment } = get()
@@ -132,7 +165,8 @@ export const useFlow = create<FlowStore>((set, get) => ({
     if (placeIndex !== null) set({ placeIndex: null })
     else if (growing) set({ growing: false })
     else if (view === 'agents') set({ view: stoneId ? 'stone' : 'home' })
+    else if (view === 'run') set({ view: stoneId ? 'stone' : 'home', runId: null })
     else if (view === 'home' && !stoneId) set({ focused: null })
-    else set({ view: 'home', stoneId: null, pendingAgentId: null })
+    else set({ view: 'home', stoneId: null, pendingAgentId: null, pendingTask: '' })
   },
 }))

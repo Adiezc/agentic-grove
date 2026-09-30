@@ -965,3 +965,51 @@ to the Trash (off by default, so coming back is painless), move the app bundle t
 Trash rather than delete throughout, so a regretted uninstall is one drag to undo. It stops at the
 first failure. Project folders, sessions, Claude Code and Codex are never touched. Running from
 source there is no app bundle, so it only cleans up and quits.
+
+## Sending an agent opens Terminal with your own Claude Code, not the Agent SDK
+
+*30 September 2026, step 9*
+
+The plan was to spawn agents inside the Grove through `@anthropic-ai/claude-agent-sdk`. Checked
+before building: Anthropic's Agent SDK documentation says third-party developers may not offer
+claude.ai login or subscription limits in their products, including agents built on the SDK,
+without prior approval. So an SDK route would need an Anthropic API key billed per token, outside
+a Pro or Max plan (at Opus 5.5 prices, roughly $1–10 per coding session). Adrian chose the launcher.
+
+What happens now: "Send to <stone>" writes a one-off `.command` script and macOS opens it in
+Terminal. The script `cd`s into the project and runs the official `claude` command with
+`--session-id <uuid the Grove chose>`, `--name "<agent>: <task>"`, the agent's brief through
+`--append-system-prompt`, an optional `--model`, and the task as the opening prompt. Codex gets the
+brief and task as one opening prompt. The session is yours, on your plan, in a window you can
+watch, answer and stop.
+
+- **No shell injection.** The task, folder, name, model and brief are written to files and read
+  inside double quotes, then gathered into a zsh array, so the task is always exactly one argument
+  and nothing in it runs. Text starting with a dash gets a leading space so it cannot be read as an
+  option. The temporary folder is deleted by the script before the tool starts.
+  `test/verify-spawn.ts` runs real scripts against a stand-in `claude` to prove it.
+- **The command's path is found, not looked up.** Only the fixed install places in
+  `core/setup.ts` (`cliPath`), so nothing earlier on `PATH` can stand in for `claude`.
+- **Runs are their own record** (`core/spawn/runs.ts`, `~/.agentic-grove/runs.json`), apart from
+  `grove.json`, as the 30 September review asked: intent you edit stays separate from history the
+  Grove writes. Saves go through one ordered queue with unique temporary files. Last 200 kept.
+- **States move only on evidence**: starting → running / waiting (needs you) / finished → ended, or
+  failed. The chosen session id lets hooks and the scan match a run exactly. Once hooks have spoken
+  for a run, the scan may confirm it but not overrule them, because only hooks can tell "needs you"
+  from "finished". Codex has no id flag or hooks, so its run takes the first new Codex session in
+  that folder after launch, oldest run first. Nothing seen for 15 minutes is "failed", with why.
+- **The deploy toast ticks only when the session is confirmed**, not when Terminal opens (review
+  item 2). Before that it says "Starting in Terminal", and after eight seconds points you at the
+  window in case Claude Code is asking to trust the folder. A missing command gets a "Set up" button.
+  Real stones no longer light during a deployment; only the scan or hooks light them.
+- **Built-in briefs** (`core/spawn/briefs.ts`): Researcher investigates and does not edit unless
+  asked, Builder makes and checks the change, Manager plans and does not edit. Your own agents use
+  their `systemPrompt`. The project's CLAUDE.md still applies.
+- **The run panel** shows one run's task, state and the last 60 lines of its transcript (your
+  words, the agent's text, one line per tool call), re-read every two seconds while open, read-only
+  and tail-only. "Resume in Terminal" runs `claude --resume <id>` in the same folder; it is offered
+  once the run is finished, closed or failed, so it does not open a second window on a live session.
+
+Not built: stopping a run from the Grove (Ctrl-C in its window does it), Codex transcripts in the
+panel, and the rune console sending tasks (step 10). An API-key engine could be added later as an
+opt-in without changing run records.

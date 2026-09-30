@@ -25,7 +25,8 @@
     "build": "tsc --noEmit && vite build",
     "build:tree-model": "node scripts/build-world-tree-model.mjs",
     "typecheck": "tsc --noEmit",
-    "app": "bash scripts/make-app.sh"
+    "app": "bash scripts/make-app.sh",
+    "verify:spawn": "tsx test/verify-spawn.ts"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

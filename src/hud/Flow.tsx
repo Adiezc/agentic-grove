@@ -6,8 +6,11 @@
  * line under it, and actions that are an icon plus a word or two. State is a coloured dot or a
  * glow, never a sentence.
  */
-import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowSquareOut, CaretLeft, CaretRight, Check, Eye, FolderOpen, GitFork, Plus, Trash, User, X } from '@phosphor-icons/react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { ArrowClockwise, ArrowSquareOut, CaretLeft, CaretRight, Check, Eye, FolderOpen, GitFork, Plus, Trash, User, Warning, X } from '@phosphor-icons/react'
+import type { Run, RunState } from '../../core/spawn/runs.ts'
+import type { TranscriptLine } from '../../core/spawn/transcript.ts'
+import { useGrove } from '../store/grove'
 import { isLinkOnly, LINK_HOME, type AgentGlyph, type AgentHarness } from '../../core/state/schema.ts'
 import { GLYPH_CHOICES, GLYPHS } from '../agents/glyphs'
 import { HARNESS_MARK, kindOf, ROOM, useTree } from '../agents/tree'
@@ -31,6 +34,26 @@ export const STATE_LABEL: Record<StoneSpec['status'], string> = {
   running: 'Running',
   waiting: 'Needs you',
   errored: 'Failed',
+}
+
+/** How each run state reads, and which of the grove's tones it borrows. Amber only for "needs you". */
+export const RUN_LABEL: Record<RunState, { label: string; tone: StoneSpec['status'] }> = {
+  starting: { label: 'Starting', tone: 'idle' },
+  running: { label: 'Working', tone: 'running' },
+  waiting: { label: 'Needs you', tone: 'waiting' },
+  finished: { label: 'Finished', tone: 'idle' },
+  ended: { label: 'Closed', tone: 'idle' },
+  failed: { label: 'Failed', tone: 'errored' },
+}
+
+const NO_RUNS: Run[] = []
+/** Every run the Grove started, newest first, from the latest snapshot. */
+export const useRuns = () => useGrove((state) => state.snapshot?.runs ?? NO_RUNS)
+
+/** A task cut to one line for a list. */
+const oneLine = (text: string, length = 60) => {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  return flat.length > length ? `${flat.slice(0, length - 1)}…` : flat
 }
 
 /** Frame 2: the chosen stone, and the three things you can do with it. */
@@ -117,6 +140,7 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
               ))}
             </ul>
           ) : null}
+          <StoneRuns stoneId={stone.id} />
           {stone.splits?.length && canOpen ? (
             <div className="split-offer">
               <p>Work here has spread over {stone.splits.length} big parts. Give each its own stone?</p>
@@ -173,6 +197,142 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
   )
 }
 
+/**
+ * The work the Grove started on this stone, newest first: who, what, and how it is going. Only
+ * runs, never sessions it merely watched, so this list is exactly "what I sent here". Each opens
+ * the run panel with its transcript.
+ */
+function StoneRuns({ stoneId }: { stoneId: string }) {
+  const runs = useRuns()
+  const openRun = useFlow((state) => state.openRun)
+  const here = runs.filter((run) => run.stoneId === stoneId).slice(0, 4)
+  if (!here.length) return null
+  return (
+    <ul className="panel-runs" aria-label="Sent here">
+      {here.map((run) => {
+        const { label, tone } = RUN_LABEL[run.state]
+        return (
+          <li key={run.id}>
+            <button type="button" className="panel-run" onClick={() => openRun(run.id)} title={`${run.agentName}: ${label}`}>
+              <span className={`state-dot tone-${tone}`} aria-hidden="true" />
+              <span className="run-what">
+                {run.agentName}
+                <small>{run.task ? oneLine(run.task) : 'Opened with no task'}</small>
+              </span>
+              <span className="tell-when">{label === 'Working' ? label : ago(run.updatedAt, Date.now())}</span>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+/**
+ * One run: what was asked, how it is going, and the last few things it said and did, read live
+ * from its transcript every two seconds while the panel is open. Read-only; the conversation
+ * itself is in Terminal, and "Resume in Terminal" is the way back into it.
+ */
+export function RunPanel({ stones }: { stones: StoneSpec[] }) {
+  const view = useFlow((state) => state.view)
+  const runId = useFlow((state) => state.runId)
+  const back = useFlow((state) => state.back)
+  const runs = useRuns()
+  const { agents } = useTree()
+  const run = runs.find((each) => each.id === runId)
+  const open = view === 'run' && Boolean(run)
+  const stone = stones.find((each) => each.id === run?.stoneId)
+  const Glyph = agents.find((agent) => agent.id === run?.agentId)?.Glyph ?? User
+  const [lines, setLines] = useState<TranscriptLine[] | null>(null)
+  const [note, setNote] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const list = useRef<HTMLOListElement>(null)
+
+  useEffect(() => {
+    setLines(null)
+    setNote(null)
+    setError(null)
+    if (!open || !run || !window.grove) return
+    let alive = true
+    const read = async () => {
+      const result = await window.grove!.readTranscript(run.id).catch(() => null)
+      if (!alive || !result) return
+      if (result.ok) setLines(result.lines ?? [])
+      else setNote(result.error ?? null)
+    }
+    void read()
+    const timer = window.setInterval(read, 2000)
+    return () => {
+      alive = false
+      window.clearInterval(timer)
+    }
+  }, [open, run?.id])
+
+  // Follow the newest line, the way a terminal does.
+  useEffect(() => {
+    list.current?.scrollTo({ top: list.current.scrollHeight })
+  }, [lines?.length])
+
+  const resume = async () => {
+    if (!run) return
+    const result = await window.grove?.resumeRun(run.id)
+    setError(result && !result.ok ? (result.error ?? 'Could not reopen it') : null)
+  }
+
+  const state = run ? RUN_LABEL[run.state] : null
+  const canResume = run?.harness === 'claude-code' && (run.state === 'finished' || run.state === 'ended' || run.state === 'failed')
+
+  return (
+    <aside className={`flow-panel run-panel${open ? ' is-open' : ''}`} aria-hidden={!open} inert={!open}>
+      {run && state ? (
+        <>
+          <button type="button" className="panel-close" onClick={back} aria-label="Back to the stone">
+            <X size={16} weight="thin" />
+          </button>
+          <header className="panel-head">
+            <span className="agent-face" aria-hidden="true">
+              <Glyph size={22} weight="thin" />
+            </span>
+            <div>
+              <h2 className="panel-title">{run.agentName}</h2>
+              <p className="panel-line">{stone?.name ?? run.stoneId.split('/').pop()}</p>
+              <p className={`panel-state tone-${state.tone}`}>
+                <span className="state-dot" aria-hidden="true" />
+                {state.label}
+                <span className="tell-when"> · {ago(run.createdAt, Date.now())}</span>
+              </p>
+            </div>
+          </header>
+          {run.task ? <p className="run-task">{run.task}</p> : null}
+          {run.error ? <p className="panel-error">{run.error}</p> : null}
+          {note ? (
+            <p className="panel-note">{note}</p>
+          ) : (
+            <ol className="run-lines" ref={list} aria-label="Latest from the transcript" aria-live="polite">
+              {lines?.length ? (
+                lines.map((line, index) => (
+                  <li key={index} className={`run-line is-${line.kind}`}>
+                    {line.text}
+                  </li>
+                ))
+              ) : (
+                <li className="run-line is-empty">{lines ? 'Nothing written yet.' : 'Reading…'}</li>
+              )}
+            </ol>
+          )}
+          {error ? <p className="panel-error">{error}</p> : null}
+          {canResume ? (
+            <button type="button" className="panel-send" onClick={resume}>
+              <span>Resume in Terminal</span>
+              <ArrowClockwise size={14} weight="thin" />
+            </button>
+          ) : null}
+        </>
+      ) : null}
+    </aside>
+  )
+}
+
 /** Frame 3: the agent the canopy is showing, and a way to send it. */
 export function AgentCard({ stones }: { stones: StoneSpec[] }) {
   const view = useFlow((state) => state.view)
@@ -196,10 +356,24 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
   const [error, setError] = useState<string | null>(null)
   // Removing asks twice: the first press turns the bin amber, the second takes the agent away.
   const [confirming, setConfirming] = useState(false)
+  // The task travels with the agent. Kept while you page between agents, so trying Researcher
+  // and then Builder for the same job does not mean typing it twice; cleared when the card closes.
+  const [task, setTask] = useState('')
   useEffect(() => {
     setConfirming(false)
     setError(null)
   }, [agent.id, open])
+  useEffect(() => {
+    if (!open) setTask('')
+  }, [open])
+  const send = () => deploy(agent.id, task)
+  // Enter sends, as in the console; Shift+Enter is a new line for a longer task.
+  const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault()
+      send()
+    }
+  }
 
   const openLink = async () => {
     const result = await window.grove?.openAgentLink(agent.id)
@@ -261,10 +435,23 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
           <ArrowSquareOut size={14} weight="thin" />
         </button>
       ) : (
-        <button type="button" className="panel-send" onClick={() => deploy(agent.id)}>
-          <span>{target ? `Send to ${target.name}` : 'Send to runestone'}</span>
-          <CaretRight size={14} weight="thin" />
-        </button>
+        <>
+          <label className="grow-field task-field">
+            <span>Task</span>
+            <textarea
+              value={task}
+              onChange={(event) => setTask(event.target.value)}
+              onKeyDown={onKey}
+              rows={3}
+              maxLength={20_000}
+              placeholder={`What should ${agent.name} do?`}
+            />
+          </label>
+          <button type="button" className="panel-send" onClick={send}>
+            <span>{target ? `Send to ${target.name}` : 'Send to runestone'}</span>
+            <CaretRight size={14} weight="thin" />
+          </button>
+        </>
       )}
 
       {error ? <p className="panel-error">{error}</p> : null}
@@ -434,27 +621,58 @@ export function GrowCard() {
   )
 }
 
-/** Frame 4: the quiet confirmation at the bottom while an agent travels, then lands. */
+/**
+ * Frame 4: the quiet confirmation at the bottom while an agent travels, then lands.
+ *
+ * The tick means the tool has confirmed a session exists (a hook or the scan saw it), never
+ * merely that a window was asked to open. Until then the ring keeps turning; if Claude Code is
+ * waiting on a question in Terminal first (trusting a new folder, say), the line says where to
+ * look. A failure stays until you dismiss it, and offers the one-button setup when the reason is
+ * a missing tool.
+ */
 export function DeployToast({ stones }: { stones: StoneSpec[] }) {
   const deployment = useFlow((state) => state.deployment)
   const finish = useFlow((state) => state.finish)
+  const runs = useRuns()
   const { agents } = useTree()
   const agent = agents.find((each) => each.id === deployment?.agentId)
   const stone = stones.find((each) => each.id === deployment?.stoneId)
   const landed = deployment?.phase === 'landed'
+  const run = runs.find((each) => each.id === deployment?.runId)
+  const error = deployment?.error ?? (run?.state === 'failed' ? (run.error ?? 'It did not start') : null)
+  // Demo mode and a plain browser tab have no runs, so there the landing itself is the answer.
+  const confirmed = DEMO || !window.grove ? landed : Boolean(run && run.state !== 'starting' && run.state !== 'failed')
+  const [slow, setSlow] = useState(false)
 
-  // Hold the landed state for a moment so the tick registers, then get out of the way.
+  // Hold the confirmed state for a moment so the tick registers, then get out of the way.
   useEffect(() => {
-    if (!landed) return
+    if (!landed || !confirmed || error) return
     const timer = window.setTimeout(finish, 2200)
     return () => window.clearTimeout(timer)
-  }, [landed, finish])
+  }, [landed, confirmed, error, finish])
+
+  // Past a few seconds without a session, Terminal is most likely asking something first.
+  useEffect(() => {
+    setSlow(false)
+    if (!landed || confirmed || error) return
+    const timer = window.setTimeout(() => setSlow(true), 8000)
+    return () => window.clearTimeout(timer)
+  }, [landed, confirmed, error])
 
   const open = Boolean(deployment && agent && stone)
   const Glyph = agent?.Glyph
+  const setUp = () => {
+    if (deployment?.missing) void window.grove?.setUpTool(deployment.missing)
+    finish()
+  }
+
+  let line = stone ? `To ${stone.name}` : ''
+  if (error) line = error
+  else if (confirmed && stone) line = stone.name
+  else if (landed) line = slow ? 'Waiting in Terminal. Answer it there if it asks.' : 'Starting in Terminal'
 
   return (
-    <div className={`deploy-toast${open ? ' is-open' : ''}`} role="status" aria-live="polite">
+    <div className={`deploy-toast${open ? ' is-open' : ''}${error ? ' is-failed' : ''}`} role="status" aria-live="polite">
       {agent && stone && Glyph ? (
         <>
           <span className="agent-face is-small" aria-hidden="true">
@@ -462,13 +680,28 @@ export function DeployToast({ stones }: { stones: StoneSpec[] }) {
           </span>
           <div className="toast-text">
             <p className="toast-title">{agent.name}</p>
-            <p className="toast-line">{landed ? stone.name : `To ${stone.name}`}</p>
+            <p className="toast-line">{line}</p>
           </div>
-          {landed ? (
-            <Check size={18} weight="thin" className="toast-done" aria-label="Deployed" />
+          {error ? (
+            <>
+              {deployment?.missing ? (
+                <button type="button" className="setting-button" onClick={setUp}>
+                  Set up
+                </button>
+              ) : (
+                <Warning size={18} weight="thin" className="toast-failed" aria-hidden="true" />
+              )}
+            </>
+          ) : confirmed ? (
+            <Check size={18} weight="thin" className="toast-done" aria-label="Started" />
           ) : (
-            <span className="toast-ring" aria-label="Deploying" />
+            <span className="toast-ring" aria-label="Starting" />
           )}
+          {error || slow ? (
+            <button type="button" className="toast-close" onClick={finish} aria-label="Dismiss">
+              <X size={13} weight="thin" />
+            </button>
+          ) : null}
         </>
       ) : null}
     </div>

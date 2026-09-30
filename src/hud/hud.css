@@ -2357,3 +2357,167 @@
 .setting-button.is-danger:focus-visible {
   border-color: var(--wait);
 }
+
+/* ---- Runs: work the Grove started (session nine). ----
+   The stone panel lists what was sent there; the run panel takes the stone panel's place with one
+   run's task and the tail of its transcript. Same glass, same rows, nothing new to learn. */
+
+.panel-runs {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.8rem 0 0;
+  padding: 0.55rem 0 0;
+  border-top: 1px solid rgb(46 111 72 / 0.22);
+  list-style: none;
+}
+
+.panel-run {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.35rem 0.4rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.panel-run:hover,
+.panel-run:focus-visible {
+  background: rgb(9 43 21 / 0.55);
+  outline: none;
+}
+
+.run-what small {
+  display: block;
+  overflow: hidden;
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.run-what {
+  min-width: 0;
+}
+
+.run-task {
+  margin: 0.9rem 0 0;
+  padding: 0.55rem 0.7rem;
+  max-height: 6.5rem;
+  overflow-y: auto;
+  border-left: 2px solid var(--vein);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #8fa197;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The transcript tail: your words dim, the agent's plain, each tool call one quiet mono line. */
+.run-lines {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 38vh;
+  margin: 0.9rem 0;
+  padding: 0.6rem 0.2rem 0.2rem 0;
+  overflow-y: auto;
+  border-top: 1px solid rgb(46 111 72 / 0.22);
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(46 111 72 / 0.5) transparent;
+}
+
+.run-line {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.run-line.is-you {
+  color: var(--text-dim);
+}
+
+.run-line.is-you::before {
+  content: '› ';
+}
+
+.run-line.is-tool {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.6875rem;
+  color: var(--vein);
+}
+
+.run-line.is-empty {
+  color: var(--text-dim);
+}
+
+/* The task box on the agent card: the grow form's field, grown to a few lines. */
+.task-field textarea {
+  min-height: 4.2rem;
+  max-height: 12rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 10px;
+  background: rgb(2 9 4 / 0.55);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  resize: vertical;
+  transition: border-color 0.2s ease;
+}
+
+.task-field textarea::placeholder {
+  color: var(--text-dim);
+}
+
+.task-field textarea:focus-visible {
+  border-color: var(--live);
+  outline: none;
+}
+
+.task-field + .panel-send {
+  margin-top: 0.75rem;
+}
+
+/* The toast takes clicks once it has something to click: Set up, or dismiss. */
+.deploy-toast.is-open {
+  pointer-events: auto;
+}
+
+.deploy-toast.is-failed {
+  border-color: rgb(232 144 58 / 0.45);
+}
+
+.toast-failed {
+  color: var(--bad);
+}
+
+.toast-close {
+  display: grid;
+  place-items: center;
+  padding: 0.2rem;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.toast-close:hover,
+.toast-close:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.deploy-toast .toast-line {
+  max-width: 22rem;
+}
