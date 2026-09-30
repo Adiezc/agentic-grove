@@ -83,15 +83,25 @@ check(
     `${byHarness('claude-code').length}`
 )
 
-// Every nested transcript really is a sidechain. If this ever fails, the exclusion above is
-// throwing away somebody's actual work and the shape of the data has changed.
-const nestedAreSidechains = nested.every((file) => firstRecord(file)?.isSidechain === true)
+// Every nested file is either a subagent's conversation (a sidechain) or a workflow's journal.
+// If this ever fails, the exclusion above may be throwing away somebody's actual work, and the
+// shape of the data has changed.
+//
+// Workflow journals (`subagents/workflows/wf_<id>/journal.jsonl`, first record
+// `{"type":"launched"}`) were found on 30 September 2026: Claude Code keeps one per multi-agent
+// workflow, holding only launched / started / result markers. They are bookkeeping, not
+// conversations, so leaving them out of the session count is right.
+const isWorkflowJournal = (file: string) =>
+  path.basename(file) === 'journal.jsonl' && file.split(path.sep).includes('workflows') && firstRecord(file)?.type === 'launched'
+const unexplained = nested.filter((file) => firstRecord(file)?.isSidechain !== true && !isWorkflowJournal(file))
+const journals = nested.filter(isWorkflowJournal).length
 check(
-  'every nested transcript is genuinely a sidechain',
-  nested.length === 0 || nestedAreSidechains,
-  nested.length === 0
-    ? 'no nested transcripts on this machine'
-    : `all ${nested.length} carry isSidechain: true on their first record`
+  'every nested transcript is a sidechain or a workflow journal',
+  unexplained.length === 0,
+  unexplained.length
+    ? `${unexplained.length} of ${nested.length} are neither, for example ${path.relative(claudeProjects, unexplained[0]!)} ` +
+        `(first record type "${String(firstRecord(unexplained[0]!)?.type ?? 'unreadable')}")`
+    : `${nested.length - journals} carry isSidechain: true on their first record, ${journals} are workflow journals`
 )
 
 /* -------------------------------------------------------------------------------------------
