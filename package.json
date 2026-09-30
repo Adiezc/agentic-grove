@@ -27,7 +27,8 @@
     "typecheck": "tsc --noEmit",
     "app": "bash scripts/make-app.sh",
     "verify:spawn": "tsx test/verify-spawn.ts",
-    "verify:pairings": "tsx test/verify-pairings.ts"
+    "verify:pairings": "tsx test/verify-pairings.ts",
+    "verify:reliability": "tsx test/verify-reliability.ts"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

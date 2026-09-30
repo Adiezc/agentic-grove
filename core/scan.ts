@@ -161,7 +161,10 @@ export function startScanLoop(onResult: (result: ScanResult) => void, intervalMs
   const tick = async () => {
     if (stopped) return
     try {
-      onResult(await scan())
+      const result = await scan()
+      // Stopped while that pass was reading the disk: its answer belongs to a loop nobody is
+      // listening to any more, and publishing it could put older data over newer.
+      if (!stopped) onResult(result)
     } catch (error) {
       // scan() catches per-harness failures itself, so arriving here means something broke in
       // the loop rather than in an adapter. Report it and keep polling: the next pass may well

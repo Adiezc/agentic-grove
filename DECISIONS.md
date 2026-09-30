@@ -1026,3 +1026,20 @@ gone after it. A sub-stone never pairs with its parent. Placed halfway round bet
 stones, a little nearer the tree, never on the dais. Sized so the tallest is about a sixth of a
 stone: smaller vanished into the floor from the home view. `?demo` shows one fresh and one fading
 pair. `npm run verify:pairings` checks the rule.
+
+## One ordered way to change grove.json, and one scan loop at a time
+
+*30 September 2026, from the project review*
+
+Every change to `grove.json` now goes through `updateGrove` in `core/state/grove.ts`: read,
+change, write as one step, queued behind any other change, with a unique temporary file per write.
+If the file changes on disk between the read and the write (a hand edit), the change is made again
+on the new version, up to three times. This fixes the lost update the review reproduced (two
+settings saved together, one silently dropped) and makes two agents grown at once with one name
+get distinct ids.
+
+The scan loop drops a pass that finishes after the loop was stopped. `restartScanning` numbers each
+restart and only the newest starts a loop, so overlapping refreshes cannot leave two loops running.
+Snapshots are numbered when they start being built and one that finishes after a newer one was sent
+is dropped, so older data never replaces newer on screen. `npm run verify:reliability` reproduces
+all three faults; against the previous code four of its five checks fail.

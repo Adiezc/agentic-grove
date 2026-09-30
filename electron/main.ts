@@ -143,6 +143,24 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
 }
 
 /**
+ * Build a snapshot and send it, never letting an older one overwrite a newer one.
+ *
+ * Building a snapshot waits on disk (`grove.json`, the hooks' state), so two started close
+ * together can finish in either order. Each gets a number when it starts, and one that finishes
+ * after a later-numbered one has already gone out is dropped.
+ */
+let snapshotsStarted = 0
+let snapshotsSent = 0
+function publish(result: ScanResult): void {
+  const number = ++snapshotsStarted
+  void toSnapshot(result).then((snapshot) => {
+    if (number < snapshotsSent) return
+    snapshotsSent = number
+    broadcast(snapshot)
+  })
+}
+
+/**
  * The daily update check. Runs hourly but only asks GitHub when a day has passed since the last
  * answer, the setting is on, and the Mac is online. An offline Mac is not asked and not counted as a
  * check, so the question goes out soon after the connection returns.
@@ -157,7 +175,7 @@ async function maybeCheckForUpdate(force = false): Promise<UpdateStatus> {
     return update
   }
   update = await checkForUpdate(app.getVersion())
-  if (lastScan) void toSnapshot(lastScan).then(broadcast)
+  if (lastScan) publish(lastScan)
   return update
 }
 
@@ -175,7 +193,7 @@ async function startListening(): Promise<void> {
     // A session the scan has never seen needs a scan to learn which folder it is in. Anything
     // else redraws straight from the last scan: that is the sub-second path this all exists for.
     if (!known) scheduleRescan()
-    else if (changed && lastScan) void toSnapshot(lastScan).then(broadcast)
+    else if (changed && lastScan) publish(lastScan)
   })
   if (!hookServer.listening) {
     console.warn(`agentic-grove: hooks listener not started: ${hookServer.error}`)
@@ -518,7 +536,7 @@ function registerHandlers(): void {
 
 /** Redraw from the last scan, for changes that do not need a new one. */
 function redraw(): void {
-  if (lastScan) void toSnapshot(lastScan).then(broadcast)
+  if (lastScan) publish(lastScan)
 }
 
 /** Most a task may be. Far past anything typed; a limit so a pasted file cannot fill the disk with runs. */
@@ -620,13 +638,23 @@ async function uninstall(removeGrove: boolean): Promise<{ ok: boolean; error?: s
   return { ok: true }
 }
 
+/**
+ * Which restart is the latest. Restarts can overlap (a hook, a saved setting and a click all at
+ * once), and each waits on reading `grove.json` before starting its loop; only the newest may
+ * start one, so there is never more than one loop running.
+ */
+let scanGeneration = 0
+
 async function restartScanning(): Promise<void> {
+  const generation = ++scanGeneration
   stopScanning?.()
+  stopScanning = undefined
   const { grove } = await loadGrove()
+  if (generation !== scanGeneration) return
   stopScanning = startScanLoop((result) => {
     lastScan = result
     runs.onScan(live.apply(result.sessions))
-    void toSnapshot(result).then(broadcast)
+    publish(result)
   }, grove.settings.scanIntervalMs)
 }
 
@@ -643,7 +671,7 @@ void app.whenReady().then(async () => {
   stopUsage = startUsageLoop((report) => {
     usage = report
     shard?.update(report)
-    if (lastScan) void toSnapshot(lastScan).then(broadcast)
+    if (lastScan) publish(lastScan)
   })
   setup = await setupStatus()
   timers.push(
