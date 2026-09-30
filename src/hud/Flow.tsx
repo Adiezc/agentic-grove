@@ -321,6 +321,17 @@ export function RunPanel({ stones }: { stones: StoneSpec[] }) {
             </ol>
           )}
           {error ? <p className="panel-error">{error}</p> : null}
+          {/* Answer or wait: the Grove never answers for an agent. It says where the question is
+              and takes you there; until you go, the run simply waits. */}
+          {run.state === 'waiting' ? (
+            <>
+              <p className="panel-note run-waiting">Waiting for your answer in its Terminal window.</p>
+              <button type="button" className="panel-send is-attention" onClick={() => void window.grove?.focusTerminal()}>
+                <span>Answer in Terminal</span>
+                <ArrowSquareOut size={14} weight="thin" />
+              </button>
+            </>
+          ) : null}
           {canResume ? (
             <button type="button" className="panel-send" onClick={resume}>
               <span>Resume in Terminal</span>

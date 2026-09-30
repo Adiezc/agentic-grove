@@ -19,7 +19,7 @@ the Grove already has (the scan plus Claude Code hooks). Decisions made along th
 | 8 | Agent definitions, the tree panel, the agent carousel | Partly: built-in Researcher, Builder, Manager |
 | 9 | Spawning agents, deploy-to-runestone animation, live transcript view | Done: launches your own Claude Code or Codex in Terminal (see DECISIONS.md) |
 | 10 | The rune console: natural-language routing to an agent and a stone | Done: plain rules with a preview (`core/console.ts`) |
-| 11 | Attention: motes, notifications, answer-or-wait behaviour | |
+| 11 | Attention: motes, notifications, answer-or-wait behaviour | Done: see DECISIONS.md |
 | 12–13 | Settings, onboarding, empty states, keyboard shortcuts, performance presets | Partly: settings, graphics modes, one-button setup, update check |
 | 14 | Packaging, notarised Mac build, DMG | |
 | 15 | README with an honest capability table, screenshots, a demo GIF | |
@@ -160,7 +160,7 @@ Picked on 27 September 2026, after step 6. Ranked, most important first.
 
 Recorded so they are not lost. Ranked the same way.
 
-1. **Fireflies as notifications.** When an agent needs you, a mote detaches from its stone and
+1. **Fireflies as notifications. Built in step 11** (`src/scene/AttentionMotes.tsx`). When an agent needs you, a mote detaches from its stone and
    drifts to hover near the trunk. Subtle, but you notice it from the corner of your eye. Likely absorbed
    by step 11.
 2. **Withering.** A project untouched for weeks slowly loses leaves above its stone. A visual

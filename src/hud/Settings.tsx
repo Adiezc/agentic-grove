@@ -11,7 +11,7 @@
  * change too.
  */
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowsClockwise, Asterisk, Eye, Monitor, Plugs, Trash, X } from '@phosphor-icons/react'
+import { ArrowsClockwise, Asterisk, Bell, Eye, Monitor, Plugs, Trash, X } from '@phosphor-icons/react'
 import { ToolSetup } from './Setup'
 import type { HooksAction, HooksPlan } from '../../core/hooks/install.ts'
 import type { HooksStatus, UninstallPlan } from '../../electron/bridge.ts'
@@ -117,6 +117,29 @@ function Showing({ settings }: { settings: GroveSettings }) {
   )
 }
 
+/**
+ * When the Grove may show a macOS notification about work it started. Always silent, and never
+ * while a Grove window is in front. See `core/attention.ts` for the rules.
+ */
+function Notifications({ settings }: { settings: GroveSettings }) {
+  return (
+    <Section icon={<Bell size={14} weight="regular" />} name="Notifications">
+      <Switch
+        label="When an agent finishes"
+        detail="Jobs that took a minute or more. Failures are always shown."
+        on={settings.notifyFinished}
+        onChange={(on) => void saveSettings({ notifyFinished: on })}
+      />
+      <Switch
+        label="When an agent needs you"
+        detail="Otherwise its stone turns amber and waits for you"
+        on={settings.notifyNeedsYou}
+        onChange={(on) => void saveSettings({ notifyNeedsYou: on })}
+      />
+    </Section>
+  )
+}
+
 function Updates({ settings }: { settings: GroveSettings }) {
   const update = useGrove((state) => state.snapshot?.update)
   const version = useGrove((state) => state.snapshot?.version)
@@ -214,6 +237,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       </Section>
       <Graphics settings={settings} />
       <Showing settings={settings} />
+      <Notifications settings={settings} />
       <Updates settings={settings} />
       <LiveUpdates open={open} />
       <Uninstall open={open} />

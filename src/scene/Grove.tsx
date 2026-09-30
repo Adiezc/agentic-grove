@@ -31,6 +31,7 @@ import { useTree } from '../agents/tree'
 import { useFlow, type FlowView } from '../store/flow'
 import type { Pairing } from '../../core/state/pairings.ts'
 import { Mushrooms } from './Mushrooms'
+import { AttentionMotes } from './AttentionMotes'
 
 /**
  * The six stones, placed to match the concept art.
@@ -478,6 +479,7 @@ export function GroveScene({
       ))}
 
       <Mushrooms pairs={pairs} stones={stones} animate={animate} />
+      <AttentionMotes stones={stones} animate={animate} />
 
       {view === 'agents' ? <Canopy animate={animate} /> : null}
       {deployment?.phase === 'flight' && deployFrom && deployTo ? (

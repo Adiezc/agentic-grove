@@ -37,6 +37,9 @@ import { RunBook, type RunHarness } from '../core/spawn/runs.ts'
 import { launch } from '../core/spawn/launch.ts'
 import { BUILT_IN_BRIEFS, BUILT_IN_NAMES } from '../core/spawn/briefs.ts'
 import { readTranscript } from '../core/spawn/transcript.ts'
+import { noticeFor } from '../core/attention.ts'
+import { notify } from './notify.ts'
+import { execFile } from 'node:child_process'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -76,6 +79,32 @@ let setup: SetupStatus = {
 const timers: ReturnType<typeof setInterval>[] = []
 /** Work the Grove started. Loaded before the first scan so runs from before a restart are matched again. */
 const runs = new RunBook()
+/**
+ * A run a clicked notification asked to show, kept until a window has loaded to show it in: the
+ * click may have had to open a fresh window, which cannot receive anything until its page is up.
+ */
+let focusPending: string | null = null
+
+/** Open the Grove on one run. */
+function focusRun(runId: string): void {
+  focusPending = runId
+  showWindow()
+  for (const window of windows) {
+    if (!window.isDestroyed() && !window.webContents.isLoading()) {
+      window.webContents.send(CHANNELS.focusRun, runId)
+      focusPending = null
+    }
+  }
+}
+
+// Every run state change is offered to the attention rules; most are not worth a notification.
+runs.onStateChange = (run, from, since) => {
+  const settings = latest?.settings ?? defaultGrove().settings
+  const name = latest?.grove.stones.find((stone) => stone.id === run.stoneId)?.name
+  const notice = noticeFor(run, from, since, Date.now(), settings, name)
+  if (notice) notify(notice, () => focusRun(run.id))
+}
+
 /** How many runs each snapshot carries. The file keeps more; the interface only ever shows recent ones. */
 const RUNS_IN_SNAPSHOT = 50
 
@@ -251,6 +280,10 @@ function createWindow(): void {
   // window just after a scan means up to a full interval of blank grove for no reason.
   window.webContents.on('did-finish-load', () => {
     if (latest && !window.isDestroyed()) window.webContents.send(CHANNELS.snapshot, latest)
+    if (focusPending && !window.isDestroyed()) {
+      window.webContents.send(CHANNELS.focusRun, focusPending)
+      focusPending = null
+    }
   })
 
   if (devServerUrl) {
@@ -516,6 +549,12 @@ function registerHandlers(): void {
     if (run.harness !== 'claude-code') return { ok: false, error: 'Codex runs show their work in their Terminal window.' }
     const lines = await readTranscript(run.id, run.stoneId).catch(() => null)
     return lines ? { ok: true, lines } : { ok: true, lines: [] }
+  })
+
+  ipcMain.handle(CHANNELS.focusTerminal, async () => {
+    // By bundle id, so it finds Terminal wherever macOS keeps it. macOS only; the Windows port
+    // needs its own answer here (see the Windows-before-release note).
+    await new Promise<void>((resolve) => execFile('open', ['-b', 'com.apple.Terminal'], () => resolve()))
   })
 
   ipcMain.handle(CHANNELS.planUninstall, async (): Promise<UninstallPlan> => planUninstall())

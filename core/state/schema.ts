@@ -201,6 +201,10 @@ export interface GroveSettings {
   alwaysShowNames: boolean
   /** The motes drifting through the air. Purely atmosphere; off saves a little work. */
   ambientMotion: boolean
+  /** A macOS notification when an agent you sent finishes a job that took a minute or more. */
+  notifyFinished: boolean
+  /** A macOS notification when an agent you sent is waiting on you. Off by default: amber is enough. */
+  notifyNeedsYou: boolean
 }
 
 /** The settings a brand-new grove starts with. One place, so the loader and the default agree. */
@@ -215,6 +219,8 @@ export function defaultSettings(): GroveSettings {
     showCounts: true,
     alwaysShowNames: false,
     ambientMotion: true,
+    notifyFinished: true,
+    notifyNeedsYou: false,
   }
 }
 
@@ -226,6 +232,8 @@ export const SETTING_SWITCHES = [
   'showCounts',
   'alwaysShowNames',
   'ambientMotion',
+  'notifyFinished',
+  'notifyNeedsYou',
 ] as const satisfies readonly (keyof GroveSettings)[]
 
 export interface GroveFile {

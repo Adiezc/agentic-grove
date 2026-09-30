@@ -1061,3 +1061,27 @@ goes through the step 9 launcher, and the text clears only once Terminal opened 
 Attached files go into the task as their paths (`webUtils.getPathForFile` in the preload, only for
 files you dropped or picked). `npm run verify:console` checks the rules. The echo line is roadmap
 idea 7 ("Echo test") in its simplest form.
+
+## Attention: amber motes, quiet notifications, and the Grove always waits
+
+*30 September 2026, step 11*
+
+Following the brief's defaults, with one addition. In the grove: a stone that needs you is amber,
+and an amber mote lifts off it and drifts to the trunk every seven seconds or so until you answer
+(`src/scene/AttentionMotes.tsx`; none under reduced motion, where amber alone says it). Ambient motes
+never leave the canopy, so only this one travels.
+
+macOS notifications (`core/attention.ts`, `electron/notify.ts`) only for work the Grove started,
+always silent, never while a Grove window is in front, and clicking one opens that run:
+
+- **Failed**: always.
+- **Finished**: when it had worked for a minute or more, so a quick back-and-forth in Terminal
+  does not ping on every reply. A switch in Settings, on by default.
+- **Needs you**: the addition. Off by default as the brief says, but a switch in Settings, because
+  an agent blocked on a permission prompt makes no progress until you answer, and that is the one
+  thing worth interrupting for if you leave the Grove behind other windows.
+
+Answer or wait: the Grove never answers an agent's question or permission prompt. The run panel
+says it is waiting and offers "Answer in Terminal", which brings Terminal forward
+(`open -b com.apple.Terminal`; macOS only, listed for the Windows port). Auto-answering stays out,
+as the brief's default. `npm run verify:attention` checks the rules.

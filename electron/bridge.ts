@@ -200,6 +200,16 @@ export interface GroveApi {
    * chose; it cannot name any other file. Empty when there is no path (a file made in the page).
    */
   pathForFile(file: File): string
+  /**
+   * Called when a notification about a run is clicked: the interface opens that run. Returns an
+   * unsubscribe function, like `onSnapshot`.
+   */
+  onFocusRun(listener: (runId: string) => void): () => void
+  /**
+   * Bring Terminal to the front, where an agent that needs you is waiting. The Grove never answers
+   * for it; this only takes you to where you can.
+   */
+  focusTerminal(): Promise<void>
   /** What uninstalling would do on this Mac, so the confirmation can list it before anything happens. */
   planUninstall(): Promise<UninstallPlan>
   /**
@@ -267,4 +277,6 @@ export const CHANNELS = {
   launchRun: 'grove:launch-run',
   resumeRun: 'grove:resume-run',
   readTranscript: 'grove:read-transcript',
+  focusRun: 'grove:focus-run',
+  focusTerminal: 'grove:focus-terminal',
 } as const

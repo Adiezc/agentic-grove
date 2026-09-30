@@ -118,6 +118,11 @@ export class RunBook {
    * exists, never to overrule them. In memory: after a restart the scan leads until the next call.
    */
   private readonly heard = new Set<string>()
+  /**
+   * Told about every state change, with the state left and when it began. The attention rules in
+   * `core/attention.ts` decide from this whether a change is worth a notification.
+   */
+  onStateChange: ((run: Run, from: RunState, since: number) => void) | null = null
 
   constructor(private readonly file = runsPath()) {}
 
@@ -219,10 +224,13 @@ export class RunBook {
     const idChanged = patch.sessionId !== undefined && patch.sessionId !== run.sessionId
     const errorChanged = 'error' in patch && patch.error !== run.error
     if (!stateChanged && !idChanged && !errorChanged) return false
+    const from = run.state
+    const since = run.updatedAt
     Object.assign(run, patch)
     if (patch.error === undefined && 'error' in patch) delete run.error
     if (stateChanged) run.updatedAt = now
     this.save()
+    if (stateChanged) this.onStateChange?.({ ...run }, from, since)
     return true
   }
 

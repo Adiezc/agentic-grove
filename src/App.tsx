@@ -198,6 +198,17 @@ export function App() {
   // the data panel shows something immediately rather than scanning from cold.
   const connect = useGrove((state) => state.connect)
   useEffect(() => connect(), [connect])
+  // A clicked notification opens its run: the stone chosen, the run panel showing.
+  useEffect(
+    () =>
+      window.grove?.onFocusRun((runId) => {
+        const run = useGrove.getState().snapshot?.runs.find((each) => each.id === runId)
+        if (!run || useFlow.getState().deployment) return
+        useFlow.setState({ stoneId: run.stoneId, placeIndex: null })
+        useFlow.getState().openRun(runId)
+      }),
+    []
+  )
 
   /**
    * The keyboard grove's keys. Returns true when it handled the key.

@@ -2574,3 +2574,18 @@
   color: var(--text-dim);
   font-style: italic;
 }
+
+/* ---- Answer or wait (step 11). Amber, because this is the one thing here that needs you. ---- */
+
+.run-waiting {
+  color: var(--wait);
+}
+
+.panel-send.is-attention {
+  border-color: rgb(242 180 76 / 0.5);
+}
+
+.panel-send.is-attention:hover:not(:disabled),
+.panel-send.is-attention:focus-visible {
+  border-color: var(--wait);
+}

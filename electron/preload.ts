@@ -30,6 +30,15 @@ const api: GroveApi = {
     }
   },
 
+  onFocusRun(listener) {
+    // As with snapshots, the event object is dropped: only the run id crosses.
+    const handler = (_event: unknown, runId: string) => listener(runId)
+    ipcRenderer.on(CHANNELS.focusRun, handler)
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.focusRun, handler)
+    }
+  },
+
   refresh: () => ipcRenderer.invoke(CHANNELS.refresh),
   openSession: (harness, ref) => ipcRenderer.invoke(CHANNELS.openSession, harness, ref),
   revealGroveFile: () => ipcRenderer.invoke(CHANNELS.revealGroveFile),
@@ -55,6 +64,7 @@ const api: GroveApi = {
   launchRun: (request) => ipcRenderer.invoke(CHANNELS.launchRun, request),
   resumeRun: (runId) => ipcRenderer.invoke(CHANNELS.resumeRun, runId),
   readTranscript: (runId) => ipcRenderer.invoke(CHANNELS.readTranscript, runId),
+  focusTerminal: () => ipcRenderer.invoke(CHANNELS.focusTerminal),
   pathForFile: (file) => {
     try {
       return webUtils.getPathForFile(file)
