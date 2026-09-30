@@ -2521,3 +2521,56 @@
 .deploy-toast .toast-line {
   max-width: 22rem;
 }
+
+/* ---- The console's echo (step 10): who would take the job, and where, before it is sent. ----
+   One quiet line just above the pill, only while there is something typed. The agent is a button,
+   because a wrong guess should cost one click. */
+
+.console-echo {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 1.5rem;
+  padding: 0 1rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  opacity: 0;
+  transform: translateY(0.25rem);
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.console-echo.is-open {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.echo-agent {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.18rem 0.55rem 0.18rem 0.45rem;
+  border: 1px solid rgb(46 111 72 / 0.45);
+  border-radius: 999px;
+  background: rgb(2 9 4 / 0.7);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.echo-agent:hover,
+.echo-agent:focus-visible {
+  border-color: var(--live);
+  outline: none;
+}
+
+.echo-stone {
+  color: var(--text);
+}
+
+.echo-stone.is-open-choice {
+  color: var(--text-dim);
+  font-style: italic;
+}

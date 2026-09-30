@@ -28,7 +28,8 @@
     "app": "bash scripts/make-app.sh",
     "verify:spawn": "tsx test/verify-spawn.ts",
     "verify:pairings": "tsx test/verify-pairings.ts",
-    "verify:reliability": "tsx test/verify-reliability.ts"
+    "verify:reliability": "tsx test/verify-reliability.ts",
+    "verify:console": "tsx test/verify-console.ts"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

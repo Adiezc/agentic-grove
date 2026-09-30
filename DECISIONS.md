@@ -1043,3 +1043,21 @@ restart and only the newest starts a loop, so overlapping refreshes cannot leave
 Snapshots are numbered when they start being built and one that finishes after a newer one was sent
 is dropped, so older data never replaces newer on screen. `npm run verify:reliability` reproduces
 all three faults; against the previous code four of its five checks fail.
+
+## The rune console reads with rules, and shows its reading before sending
+
+*30 September 2026, step 10*
+
+Typing a job in the console and pressing Enter now sends it. `core/console.ts` decides who and
+where with plain rules rather than a language model, because a model would need a per-token API
+key or would run the subscription through this app. Who: an agent named at the start ("@builder",
+"Researcher:", "ask the manager to"), else by how the job starts (planning words → Manager,
+questions and looking-into words or a trailing "?" → Researcher, everything else → Builder; "do",
+"can" and "should" are not question words, since "do the refactor" is building). Where: the
+selected stone, else one named as a whole word (longest name first), else the only stone, else you
+pick. A line above the pill shows the reading ("Builder → Shellter"); clicking the agent cycles
+through the agents that can work in a folder, which is the override the review asked for. Enter
+goes through the step 9 launcher, and the text clears only once Terminal opened without error.
+Attached files go into the task as their paths (`webUtils.getPathForFile` in the preload, only for
+files you dropped or picked). `npm run verify:console` checks the rules. The echo line is roadmap
+idea 7 ("Echo test") in its simplest form.

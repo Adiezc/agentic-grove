@@ -15,8 +15,11 @@
  * Icons come from Phosphor. The runes on the stones are brand marks and are drawn in
  * `scene/runes.ts`; nothing in the interface hand-rolls an SVG path.
  */
-import { useEffect, useRef, useState, type RefObject } from 'react'
-import { BookOpen, Cube, File, Gear, PlusCircle, Pulse, Record, User, X } from '@phosphor-icons/react'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { ArrowRight, BookOpen, Cube, File, Gear, PlusCircle, Pulse, Record, User, X } from '@phosphor-icons/react'
+import { readCommand, type ConsoleStone } from '../../core/console.ts'
+import { kindOf, useTree } from '../agents/tree'
+import { useFlow } from '../store/flow'
 
 /** Every icon at one weight. Phosphor's `thin` is what matches the art's hairline rail. */
 const ICON = { size: 17, weight: 'thin' } as const
@@ -113,27 +116,54 @@ export function Counts({ agents, running, tasks }: { agents: number; running: nu
 }
 
 /**
- * The rune console.
+ * The rune console: type a job, and the Grove sends the right agent to the right stone.
  *
- * A pill with the placeholder from the art and a plus on its right edge that attaches files, the
- * way the plus beside Claude's and ChatGPT's own message boxes does. Files can also be dropped
- * straight onto the pill. They wait as small chips above it until the console can send them
- * somewhere, which is roadmap step 10; Enter sends the words.
+ * As you type, a line above the pill says what it will do ("Builder → Shellter"), read by the
+ * rules in `core/console.ts`. Clicking the agent there steps through the other agents that can
+ * work in a folder, for when the reading guessed wrong. With no stone selected or named, Enter
+ * asks you to choose one, as sending from the tree does. Enter then goes through the same launch
+ * as the agent card; the text is cleared only once Terminal has been asked to open without error,
+ * so a job that failed to start is still there to try again.
+ *
+ * The plus attaches files (or drop them on the pill). Each one's location is added to the task,
+ * so the agent can open it; Claude Code asks before reading anything outside the project.
  *
  * The art also had a sparkle button beside the pill. It was a placeholder with no job, so it went
  * (30 September 2026): a button that does nothing teaches people that buttons here do nothing.
  */
 export function RuneConsole({
   inputRef,
+  stones,
   placeholder = 'Ask. Build. Orchestrate...',
 }: {
   inputRef?: RefObject<HTMLInputElement | null>
+  stones: ConsoleStone[]
   placeholder?: string
 }) {
   const [value, setValue] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
+  /** An agent you chose by clicking the preview, over what the rules read. Cleared with the text. */
+  const [chosen, setChosen] = useState<string | null>(null)
   const picker = useRef<HTMLInputElement>(null)
+  const { agents } = useTree()
+  const selectedStoneId = useFlow((state) => state.stoneId)
+  const deployTo = useFlow((state) => state.deployTo)
+  const busy = useFlow((state) => state.deployment !== null)
+
+  // Only agents that can work in a folder; Dots and Cowork cannot be sent to a stone.
+  const sendable = useMemo(() => agents.filter((agent) => kindOf(agent) === 'grove'), [agents])
+  const reading = useMemo(
+    () => readCommand(value, { stones, agents: sendable, selectedStoneId }),
+    [value, stones, sendable, selectedStoneId]
+  )
+  const agent = sendable.find((each) => each.id === (chosen ?? reading.agentId)) ?? sendable[0]
+  const stone = stones.find((each) => each.id === reading.stoneId)
+  const typed = value.trim().length > 0
+
+  useEffect(() => {
+    if (!typed) setChosen(null)
+  }, [typed])
 
   // The same file twice is one attachment, not two chips with the same name.
   const attach = (incoming: FileList | null) => {
@@ -143,6 +173,25 @@ export function RuneConsole({
       return [...current, ...[...incoming].filter((file) => !known.has(`${file.name}:${file.size}`))]
     })
   }
+
+  const nextAgent = () => {
+    if (!agent || sendable.length < 2) return
+    const index = sendable.findIndex((each) => each.id === agent.id)
+    setChosen(sendable[(index + 1) % sendable.length]!.id)
+  }
+
+  const send = () => {
+    if (!typed || !agent || busy) return
+    const paths = files.map((file) => window.grove?.pathForFile(file) ?? '').filter(Boolean)
+    const task = paths.length ? `${reading.task}\n\nFiles to use:\n${paths.map((each) => `- ${each}`).join('\n')}` : reading.task
+    deployTo(reading.stoneId, agent.id, task, () => {
+      setValue('')
+      setFiles([])
+      setChosen(null)
+    })
+  }
+
+  const Glyph = agent?.Glyph
 
   return (
     <div className="console-group">
@@ -163,11 +212,30 @@ export function RuneConsole({
           ))}
         </ul>
       ) : null}
+      {/* The echo: who would take this, and where, before anything is sent. */}
+      <div className={`console-echo${typed && agent ? ' is-open' : ''}`} aria-live="polite">
+        {typed && agent && Glyph ? (
+          <>
+            <button
+              type="button"
+              className="echo-agent"
+              onClick={nextAgent}
+              title={sendable.length > 1 ? 'Choose another agent' : agent.name}
+              aria-label={`${agent.name} will take this. Choose another agent`}
+            >
+              <Glyph size={14} weight="thin" aria-hidden="true" />
+              {agent.name}
+            </button>
+            <ArrowRight size={12} weight="thin" aria-hidden="true" />
+            <span className={`echo-stone${stone ? '' : ' is-open-choice'}`}>{stone ? stone.name : 'you choose the stone'}</span>
+          </>
+        ) : null}
+      </div>
       <form
         className={`console${dragging ? ' is-dropping' : ''}`}
         onSubmit={(event) => {
           event.preventDefault()
-          setValue('')
+          send()
         }}
         onDragOver={(event) => {
           if (!event.dataTransfer.types.includes('Files')) return

@@ -50,6 +50,8 @@ interface FlowStore {
   pendingAgentId: string | null
   /** The task typed for it, carried until the stone is picked. */
   pendingTask: string
+  /** Called once that task has really started, so the console can clear only then. */
+  pendingOnSent: (() => void) | null
   /** The run the `run` view is showing. */
   runId: string | null
   deployment: Deployment | null
@@ -71,8 +73,14 @@ interface FlowStore {
   grow: () => void
   /** Close the form; with an id, turn to face the agent that just grew. */
   grown: (id?: string) => void
-  /** Send an agent with a task to the chosen stone, or wait for one to be picked. */
-  deploy: (agentId: string, task: string) => void
+  /**
+   * Send an agent with a task to the chosen stone, or wait for one to be picked. `onSent` runs
+   * once Terminal has been asked to open without error, which is when the console clears: a task
+   * that failed to start stays where you typed it.
+   */
+  deploy: (agentId: string, task: string, onSent?: () => void) => void
+  /** Choose the stone, then deploy: the console's way in, which may name a stone you are not looking at. */
+  deployTo: (stoneId: string | null, agentId: string, task: string, onSent?: () => void) => void
   openRun: (id: string) => void
   land: () => void
   finish: () => void
@@ -89,6 +97,7 @@ export const useFlow = create<FlowStore>((set, get) => ({
   growing: false,
   pendingAgentId: null,
   pendingTask: '',
+  pendingOnSent: null,
   runId: null,
   deployment: null,
   statusOverrides: {},
@@ -110,7 +119,7 @@ export const useFlow = create<FlowStore>((set, get) => ({
     if (deployment) return
     set({ stoneId: id, placeIndex: null })
     // In picking mode the click *is* the target, so it goes straight to deploying.
-    if (view === 'picking' && pendingAgentId) get().deploy(pendingAgentId, get().pendingTask)
+    if (view === 'picking' && pendingAgentId) get().deploy(pendingAgentId, get().pendingTask, get().pendingOnSent ?? undefined)
     else set({ view: 'stone' })
   },
 
@@ -122,24 +131,28 @@ export const useFlow = create<FlowStore>((set, get) => ({
 
   grown: (id) => set((state) => ({ growing: false, agentId: id ?? state.agentId })),
 
-  deploy: (agentId, task) => {
+  deploy: (agentId, task, onSent) => {
     const { stoneId } = get()
     // No stone yet means the agents were opened from the rail. Go back out to the grove and let
     // the next stone clicked be the target, rather than guessing one.
     if (!stoneId) {
-      set({ view: 'picking', pendingAgentId: agentId, pendingTask: task })
+      set({ view: 'picking', pendingAgentId: agentId, pendingTask: task, pendingOnSent: onSent ?? null })
       return
     }
     set((state) => ({
       view: 'home',
       pendingAgentId: null,
       pendingTask: '',
+      pendingOnSent: null,
       deployment: { agentId, stoneId, phase: 'flight', runId: null, error: null, missing: null },
       // Demo stones are pretend, so there the deployment may light the stone for good. Real ones
       // light only when the scan or the hooks say work is happening.
       statusOverrides: DEMO ? { ...state.statusOverrides, [stoneId]: 'running' } : state.statusOverrides,
     }))
-    if (DEMO || !window.grove) return
+    if (DEMO || !window.grove) {
+      onSent?.()
+      return
+    }
     const settle = (patch: Partial<Deployment>) => {
       const current = get().deployment
       // Only if this is still the deployment on screen; a dismissed one needs no answer.
@@ -147,11 +160,20 @@ export const useFlow = create<FlowStore>((set, get) => ({
     }
     window.grove
       .launchRun({ stoneId, agentId, task })
-      .then((result) => settle({ runId: result.runId ?? null, error: result.ok ? null : (result.error ?? 'It did not start'), missing: result.missing ?? null }))
+      .then((result) => {
+        if (result.ok) onSent?.()
+        settle({ runId: result.runId ?? null, error: result.ok ? null : (result.error ?? 'It did not start'), missing: result.missing ?? null })
+      })
       .catch((reason: unknown) => settle({ error: String(reason) }))
   },
 
   openRun: (id) => set({ view: 'run', runId: id }),
+
+  deployTo: (stoneId, agentId, task, onSent) => {
+    if (get().deployment) return
+    set({ stoneId, placeIndex: null })
+    get().deploy(agentId, task, onSent)
+  },
 
   land: () => {
     const { deployment } = get()
@@ -167,6 +189,6 @@ export const useFlow = create<FlowStore>((set, get) => ({
     else if (view === 'agents') set({ view: stoneId ? 'stone' : 'home' })
     else if (view === 'run') set({ view: stoneId ? 'stone' : 'home', runId: null })
     else if (view === 'home' && !stoneId) set({ focused: null })
-    else set({ view: 'home', stoneId: null, pendingAgentId: null, pendingTask: '' })
+    else set({ view: 'home', stoneId: null, pendingAgentId: null, pendingTask: '', pendingOnSent: null })
   },
 }))

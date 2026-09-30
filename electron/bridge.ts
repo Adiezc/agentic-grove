@@ -194,6 +194,12 @@ export interface GroveApi {
   resumeRun(runId: string): Promise<RunResult>
   /** The last lines of a run's transcript, for the live view. Claude Code runs only. */
   readTranscript(runId: string): Promise<{ ok: boolean; lines?: TranscriptLine[]; error?: string }>
+  /**
+   * Where a file you dropped on or picked for the console lives, so an agent can be told to read
+   * it. Only works on a `File` the page got from a drop or the file picker, which is a file you
+   * chose; it cannot name any other file. Empty when there is no path (a file made in the page).
+   */
+  pathForFile(file: File): string
   /** What uninstalling would do on this Mac, so the confirmation can list it before anything happens. */
   planUninstall(): Promise<UninstallPlan>
   /**

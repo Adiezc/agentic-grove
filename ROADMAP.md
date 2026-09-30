@@ -18,7 +18,7 @@ the Grove already has (the scan plus Claude Code hooks). Decisions made along th
 | 7 | The crystal (usage and rate-limit headroom, with provenance), and a menu-bar shard | Done |
 | 8 | Agent definitions, the tree panel, the agent carousel | Partly: built-in Researcher, Builder, Manager |
 | 9 | Spawning agents, deploy-to-runestone animation, live transcript view | Done: launches your own Claude Code or Codex in Terminal (see DECISIONS.md) |
-| 10 | The rune console: natural-language routing to an agent and a stone | |
+| 10 | The rune console: natural-language routing to an agent and a stone | Done: plain rules with a preview (`core/console.ts`) |
 | 11 | Attention: motes, notifications, answer-or-wait behaviour | |
 | 12–13 | Settings, onboarding, empty states, keyboard shortcuts, performance presets | Partly: settings, graphics modes, one-button setup, update check |
 | 14 | Packaging, notarised Mac build, DMG | |

@@ -360,7 +360,7 @@ export function App() {
           running={running}
           tasks={DEMO ? 12 : real.reduce((sum, stone) => sum + stone.runes.length, 0)}
         /> : null}
-        <RuneConsole inputRef={consoleInput} placeholder={selectedName ? `Task for ${selectedName}...` : undefined} />
+        <RuneConsole inputRef={consoleInput} stones={stones} placeholder={selectedName ? `Task for ${selectedName}...` : undefined} />
         <StonePanel stones={stones} onAddTask={() => consoleInput.current?.focus()} />
         <AgentCard stones={stones} />
         <RunPanel stones={stones} />

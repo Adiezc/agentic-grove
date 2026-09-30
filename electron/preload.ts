@@ -10,7 +10,7 @@
  * channel in the app, including ones added later by somebody who had not thought about it, which
  * defeats having a bridge at all. Each function below names its own channel.
  */
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { CHANNELS, type GroveApi, type GroveSnapshot } from './bridge.ts'
 
 const api: GroveApi = {
@@ -55,6 +55,13 @@ const api: GroveApi = {
   launchRun: (request) => ipcRenderer.invoke(CHANNELS.launchRun, request),
   resumeRun: (runId) => ipcRenderer.invoke(CHANNELS.resumeRun, runId),
   readTranscript: (runId) => ipcRenderer.invoke(CHANNELS.readTranscript, runId),
+  pathForFile: (file) => {
+    try {
+      return webUtils.getPathForFile(file)
+    } catch {
+      return ''
+    }
+  },
 }
 
 contextBridge.exposeInMainWorld('grove', api)
