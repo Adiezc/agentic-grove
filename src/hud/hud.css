@@ -2589,3 +2589,84 @@
 .panel-send.is-attention:focus-visible {
   border-color: var(--wait);
 }
+
+/* ---- Health line (review item 6): bottom left, under the counts, always there. ---- */
+
+.health {
+  position: absolute;
+  left: 3%;
+  bottom: 4.6%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.625rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color 0.2s ease;
+}
+
+.health:hover,
+.health:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.health.tone-fine .count-dot {
+  background: var(--vein);
+}
+
+.health.tone-stale .count-dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--text-dim);
+}
+
+.health.tone-problem {
+  color: #b58a64;
+}
+
+.health.tone-problem .count-dot {
+  background: var(--bad);
+}
+
+/* ---- The scene could not be drawn: a plain message where the grove would be. ---- */
+
+.scene-failed {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 2rem;
+  background: var(--ground);
+  color: var(--text);
+  /* Outside the HUD, so it does not inherit the HUD's face. */
+  font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  text-align: center;
+}
+
+.scene-failed-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.scene-failed-line {
+  max-width: 28rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #8fa197;
+}
+
+.scene-failed-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}

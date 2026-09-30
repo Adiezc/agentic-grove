@@ -18,6 +18,8 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { ArrowRight, BookOpen, Cube, File, Gear, PlusCircle, Pulse, Record, User, X } from '@phosphor-icons/react'
 import { readCommand, type ConsoleStone } from '../../core/console.ts'
+import { healthOf } from '../../core/health.ts'
+import { useGrove } from '../store/grove'
 import { kindOf, useTree } from '../agents/tree'
 import { useFlow } from '../store/flow'
 
@@ -112,6 +114,52 @@ export function Counts({ agents, running, tasks }: { agents: number; running: nu
         </p>
       ))}
     </div>
+  )
+}
+
+/**
+ * The health line, bottom left: whether what the grove shows is current and complete.
+ *
+ * Quiet when all is well ("Live" or "Watching", in the counts' dim grey), and only coloured when
+ * it is not: grey-orange for a part that could not be read, dim for stale. Never amber, which is
+ * kept for "something needs you". Always there, even with the counts switched off, because a
+ * scanner that has stopped must not look like a quiet afternoon. Clicking it opens Activity,
+ * where the full reasons are. The rules are in `core/health.ts`.
+ */
+export function HealthLine({ onOpen }: { onOpen: () => void }) {
+  const snapshot = useGrove((state) => state.snapshot)
+  const loading = useGrove((state) => state.loading)
+  const bridgeMissing = useGrove((state) => state.bridgeMissing)
+  // Its own clock, so "Updated 3 minutes ago" keeps counting when no snapshot arrives, which is
+  // exactly the case it exists for.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 5000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  // In a plain browser tab there is no scanner to report on.
+  if (bridgeMissing) return null
+  const health = snapshot
+    ? healthOf(
+        {
+          at: snapshot.at,
+          scanIntervalMs: snapshot.settings.scanIntervalMs,
+          unreadable: snapshot.problems.map(
+            (problem) => snapshot.harnesses.find((harness) => harness.id === problem.harness)?.name ?? problem.harness
+          ),
+          groveProblems: snapshot.groveProblems.length,
+          hooks: snapshot.hooks,
+        },
+        now
+      )
+    : { tone: 'stale' as const, text: loading ? 'Looking' : 'No data', detail: 'Waiting for the first scan.' }
+
+  return (
+    <button type="button" className={`health tone-${health.tone}`} onClick={onOpen} title={health.detail} aria-label={`${health.text}. ${health.detail} Open Activity.`}>
+      <span className="count-dot" aria-hidden="true" />
+      {health.text}
+    </button>
   )
 }
 

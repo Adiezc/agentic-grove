@@ -1085,3 +1085,20 @@ Answer or wait: the Grove never answers an agent's question or permission prompt
 says it is waiting and offers "Answer in Terminal", which brings Terminal forward
 (`open -b com.apple.Terminal`; macOS only, listed for the Windows port). Auto-answering stays out,
 as the brief's default. `npm run verify:attention` checks the rules.
+
+## A health line, and a scene that fails visibly
+
+*30 September 2026, from the project review (item 6)*
+
+A calm grove is only trustworthy if a broken one cannot look calm. A small line under the counts,
+bottom left, always shown (even with counts off), says one of: "Live" (hooks working), "Watching"
+(scan only), "Updated 3 minutes ago" (no fresh picture for three scan intervals, at least 20
+seconds), "Codex unread" (a tool could not be read), "grove.json has an error", or "Live updates
+paused" (hooks on, listener not running). Stale wins over everything, since then nothing on screen
+can be trusted. Never amber, which stays reserved for "needs you". Hover gives a sentence; clicking
+opens Activity. Rules in `core/health.ts`, checked by `npm run verify:health`.
+
+The 3D scene now sits inside `SceneGuard`: a component that throws, or the Mac taking the WebGL
+context away, shows "The grove could not be drawn" with Try again and Use Performance graphics,
+while the rail, console, crystal and panels keep working. Checked in the browser by forcing a
+context loss and recovering.

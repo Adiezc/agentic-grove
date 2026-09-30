@@ -289,6 +289,8 @@ interface GroveSceneProps {
   viewResetKey?: number
   /** Hold the frame rate at this, whatever the screen can do. Performance mode's 60. */
   maxFps?: number
+  /** Told when the Mac takes the graphics context away, so the scene guard can say so. */
+  onContextLost?: () => void
   /**
    * True once the first real list of stones has arrived. Stones present at that moment were
    * already there and simply stand; any that appear afterwards arrived while you watched, and
@@ -315,6 +317,7 @@ export function GroveScene({
   viewResetKey = 0,
   ready = true,
   maxFps,
+  onContextLost,
 }: GroveSceneProps) {
   const { alwaysShowNames, ambientMotion } = useSettings()
   const [hovered, setHovered] = useState<string | null>(null)
@@ -412,6 +415,7 @@ export function GroveScene({
       // so anything that re-grades it moves us off the art — and ACES in particular would pull
       // every bright green towards white, which is exactly the fidelity we are trying to keep.
       onCreated={({ gl, scene }) => {
+        gl.domElement.addEventListener('webglcontextlost', () => onContextLost?.(), { once: true })
         gl.toneMapping = THREE.NoToneMapping
         // Manual, because EffectComposer's final fullscreen pass resets these counters itself
         // and the readout then says "1 draw call" however busy the scene is. Reset once a

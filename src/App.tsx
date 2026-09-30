@@ -10,10 +10,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X } from '@phosphor-icons/react'
 import '@fontsource-variable/geist'
 import { GroveScene, SPIKE_STONES, type PerfSample, type QualityPreset } from './scene/Grove'
-import { Announcer, Counts, Rail, RuneConsole, useFullScreen, useIdle, usePrefersReducedMotion, type RailPanel } from './hud/Hud'
+import { Announcer, Counts, HealthLine, Rail, RuneConsole, useFullScreen, useIdle, usePrefersReducedMotion, type RailPanel } from './hud/Hud'
 import { ProjectsPanel, RunesPanel } from './hud/Panels'
 import { Providers } from './hud/Providers'
 import { SessionList } from './SessionList'
+import { SceneGuard } from './scene/SceneGuard'
 import { AgentCard, DeployToast, GrowCard, PickHint, RunPanel, STATE_LABEL, StonePanel, useRuns } from './hud/Flow'
 import type { RunState } from '../core/spawn/runs.ts'
 import { pairings, type Pairing } from '../core/state/pairings.ts'
@@ -29,7 +30,7 @@ import { childPlace, emptyPlaces, layoutStones, topLevelCount } from './scene/la
 import { step, type Direction, type Target } from './scene/navigation'
 import { DEMO } from './demo'
 import { useTree } from './agents/tree'
-import { useSettings } from './store/settings'
+import { saveSettings, useSettings } from './store/settings'
 import { sceneFor, useAdaptiveGraphics, useDrawing } from './scene/graphics'
 import './hud/hud.css'
 
@@ -84,6 +85,9 @@ const NO_STONES: never[] = []
 
 export function App() {
   const [dataOpen, setDataOpen] = useState(false)
+  /** Bumped to draw the scene again from scratch, after it failed. */
+  const [sceneKey, setSceneKey] = useState(0)
+  const [contextLost, setContextLost] = useState(false)
   const [panel, setPanel] = useState<RailPanel>(null)
   const settingsOpen = panel === 'settings'
   const [perf, setPerf] = useState<PerfSample | null>(null)
@@ -325,7 +329,21 @@ export function App() {
   return (
     <div className="grove-root">
       <div className="grove-canvas">
+        <SceneGuard
+          lost={contextLost}
+          onRetry={() => {
+            setContextLost(false)
+            setSceneKey((key) => key + 1)
+          }}
+          onLighter={() => {
+            void saveSettings({ graphics: 'performance' })
+            setContextLost(false)
+            setSceneKey((key) => key + 1)
+          }}
+        >
         <GroveScene
+          key={sceneKey}
+          onContextLost={() => setContextLost(true)}
           stones={stones}
           empty={empty}
           pairs={pairs}
@@ -341,6 +359,7 @@ export function App() {
           viewResetKey={viewResetKey}
           ready={DEMO || snapshot !== null}
         />
+        </SceneGuard>
       </div>
 
       <div className={`hud${view === 'stone' || view === 'run' ? ' is-panel' : ''}${resting ? ' is-resting' : ''}`}>
@@ -371,6 +390,7 @@ export function App() {
           running={running}
           tasks={DEMO ? 12 : real.reduce((sum, stone) => sum + stone.runes.length, 0)}
         /> : null}
+        <HealthLine onOpen={() => setDataOpen(true)} />
         <RuneConsole inputRef={consoleInput} stones={stones} placeholder={selectedName ? `Task for ${selectedName}...` : undefined} />
         <StonePanel stones={stones} onAddTask={() => consoleInput.current?.focus()} />
         <AgentCard stones={stones} />
