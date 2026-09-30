@@ -53,7 +53,7 @@ function fakeRun(fields: Partial<Run> = {}): Run {
 
 const session = (id: string, fields: Partial<Session> = {}): Session =>
   ({ id, harness: id.split(':')[0], status: 'running', cwd: folder, createdAt: 5000, ...fields }) as Session
-const hook = (event: HookCall['event'], sessionId: string, at = 9000): HookCall => ({ event, sessionId, cwd: folder, tool: '', at })
+const hook = (event: HookCall['event'], sessionId: string, at = 9000): HookCall => ({ event, sessionId, cwd: folder, tool: '', idle: false, at })
 
 const cases: [string, () => Promise<void>][] = [
   ['Claude Code gets the task as one argument, untouched, and nothing in it runs', async () => {
@@ -116,6 +116,9 @@ const cases: [string, () => Promise<void>][] = [
     assert.equal(book.get(run.id)?.state, 'finished')
     // Once hooks have spoken, a scan that reads "waiting" off the transcript must not overrule them.
     book.onScan([session(`claude-code:${run.id}`, { status: 'running' })], 9500)
+    assert.equal(book.get(run.id)?.state, 'finished')
+    // Claude Code's idle reminder a minute later is not a question: the run stays finished, not amber.
+    assert.equal(book.onHook({ ...hook('Notification', run.id), idle: true }), false)
     assert.equal(book.get(run.id)?.state, 'finished')
     book.onHook(hook('SessionEnd', run.id))
     assert.equal(book.get(run.id)?.state, 'ended')

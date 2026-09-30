@@ -170,6 +170,9 @@ export class RunBook {
     const run = this.runs.find((each) => each.harness === 'claude-code' && each.id === call.sessionId)
     if (!run || run.state === 'failed') return false
     this.heard.add(run.id)
+    // Claude Code's "waiting for your input" reminder arrives a minute after every finished turn.
+    // It is not a question, so a finished run stays finished rather than turning amber.
+    if (call.idle) return false
     return this.change(run.id, { state: stateAfter(call.event), sessionId: call.sessionId }, call.at)
   }
 

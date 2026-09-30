@@ -51,6 +51,11 @@ export interface HookCall {
   cwd: string
   /** For tool events, which tool. Kept for a future "what is it doing" readout; empty otherwise. */
   tool: string
+  /**
+   * A `Notification` that only says the session has sat idle ("Claude is waiting for your input",
+   * sent about a minute after a turn ends), not a permission prompt or a question. False otherwise.
+   */
+  idle: boolean
   at: number
 }
 
@@ -68,7 +73,9 @@ export function parseHookCall(raw: unknown, now = Date.now()): HookCall | null {
   if (!(HOOK_EVENTS as readonly string[]).includes(event)) return null
   const sessionId = str(raw.session_id)
   if (!SESSION_ID.test(sessionId)) return null
-  return { event, sessionId, cwd: str(raw.cwd), tool: str(raw.tool_name), at: now }
+  // Newer Claude Code names the kind (`idle_prompt`); older versions only send the message.
+  const idle = event === 'Notification' && (str(raw.notification_type) === 'idle_prompt' || /waiting for your input/i.test(str(raw.message)))
+  return { event, sessionId, cwd: str(raw.cwd), tool: str(raw.tool_name), idle, at: now }
 }
 
 /**

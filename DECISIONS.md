@@ -1209,3 +1209,14 @@ step again from fresh facts before acting. `npm run verify:readiness` (11 checks
 hand it to: check the Mac and Node, clone, `npm ci`, `npm run app`, open, then hand over to the
 Get ready button. It tells the agent not to edit Claude Code's or the Grove's settings itself. A
 Mac-built app is not quarantined, so this route also skips the "Open Anyway" step a download needs.
+
+## Claude Code's idle reminder is not "needs you"
+
+*30 September 2026, found in the end-of-session checkup*
+
+About a minute after a turn ends, Claude Code sends a `Notification` hook saying "Claude is waiting
+for your input". The run book treated every `Notification` as a question, so the test run that
+had finished turned amber a minute later and would have stayed that way. `parseHookCall` now marks
+that reminder as `idle` (by `notification_type: "idle_prompt"`, or by its words on older
+versions), and the run book ignores it. Permission prompts and questions still turn a run amber.
+Stones are unchanged: for a stone, a finished turn already means "back with you".
