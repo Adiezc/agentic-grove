@@ -74,6 +74,34 @@ mention here.
 
 ## Ideas we use, without taking code
 
+### matank001/clodfarm — MIT
+
+<https://github.com/matank001/clodfarm> · Copyright (c) 2026 Duke Security, Inc.
+
+A server-side "farm" of Claude Code agents. We read the whole repository at release 1.8.1 on
+1 October 2026 (licence file read that day), as we did with bot-crossing and the projects above,
+to see what it had worked out that the Grove had not. No code was copied.
+
+**What we learnt and plan to use:**
+
+- **Where Claude's official limits can be read.** Claude Code prints a `rate_limit_event` line in
+  its `--output-format stream-json` output, carrying the five-hour and weekly figures. clodfarm
+  reads it in `clodfarm/governor.py` and `clodfarm/runner.py`. That is the source for the Grove's
+  press-to-check probe; see DECISIONS.md, "Official Claude limits: a probe you press, not the
+  keychain".
+- **A pace line.** Its budget governor spreads a weekly allowance over the week with one small pure
+  function and gives a plain reason for every decision. A candidate for routing advice here.
+- **A run as a folder of plain files** (what was started, its output, its exit code, a stop flag),
+  so work survives the app restarting.
+- **A stand-in `claude` for tests** that behaves over time (slow, failing, waiting), so a whole
+  run can be checked without a subscription.
+- **Schedules said in plain words** rather than as cron lines.
+
+**What we deliberately did not take:** running agents with permission prompts switched off,
+merging and pushing without review, probing usage on a timer, treating a missing figure as room
+to spare, and sharing work across several people's accounts. Those suit an unattended server in a
+container; the Grove runs on your own Mac, with your real files, and never invents a number.
+
 ### Maciek-roboblog/Claude-Code-Usage-Monitor — MIT
 
 <https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor> · Copyright (c) 2025 Maciej

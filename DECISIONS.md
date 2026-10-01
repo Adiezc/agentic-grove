@@ -1220,3 +1220,40 @@ had finished turned amber a minute later and would have stayed that way. `parseH
 that reminder as `idle` (by `notification_type: "idle_prompt"`, or by its words on older
 versions), and the run book ignores it. Permission prompts and questions still turn a run amber.
 Stones are unchanged: for a stone, a finished turn already means "back with you".
+
+## Official Claude limits: a probe you press, not the keychain
+
+*1 October 2026, Adrian's call. Decided, not built yet.*
+
+This replaces the choice recorded under "Official Claude five-hour figure: waiting on a decision".
+The keychain route would read a sign-in credential to ask Anthropic for the figures. The probe
+reads no credential: it runs your own Claude Code once and reads what Claude Code prints. The
+keychain code stays in the git stash as a fallback and is not to be finished without a new decision.
+
+**What the probe is.** One headless call to your own `claude`:
+`claude -p --output-format stream-json --verbose "Reply with: ok"`. Among the lines it prints is
+one of type `rate_limit_event`. Run by Adrian on this Mac on 1 October 2026 (Claude Code 2.1.286),
+that line carried `rate_limit_info` with `status`, `rateLimitType`, `resetsAt`, `utilization`,
+`isUsingOverage`, `surpassedThreshold`, and `unifiedWindows.five_hour` and `.seven_day`, each with
+`utilization` (0 to 1) and `resetsAt` (epoch seconds). That day it read 91% of five hours and 12%
+of the week. The idea and the field names come from clodfarm (MIT, `clodfarm/governor.py` and
+`runner.py`); add it to `CREDITS.md` before writing the code.
+
+**Rules for building it.**
+
+- Off by default, behind a Settings switch (`officialClaudeLimits`), with the sentence beside it
+  saying that each check sends one small request on your plan.
+- It runs only when you press "Check now". No timer, and no check before a send. clodfarm probes
+  every five minutes on its main model with no back-off; the Grove does not.
+- Always the cheapest model, in an empty temporary folder, with a session id the Grove chose, so
+  the scan and the hook listener can leave that session out of the scene and the notifications.
+- Figures are labelled `official` with the time they were read, as Codex's are. A window missing
+  from the line is `unknown`. A window whose reset time has passed is `unknown`. Nothing is filled in.
+- If a check returns no such line, say "Claude Code did not report limits" and do not retry by
+  itself. Anthropic's headless documentation is reported to say `-p` will later need an API key by
+  default; if that happens the probe stops working and the figure goes back to `unknown`.
+- The probe's own tokens are real use and stay in the measured count.
+
+**Still to find out before or while building.** What one check costs in tokens (the result line
+says); whether the hooks fire for a headless session; and whether the same figures already sit
+somewhere under `~/.claude` that could be read for free, which would beat the probe.
