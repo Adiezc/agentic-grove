@@ -31,24 +31,38 @@ interface Reading {
   secondary: unknown
 }
 
-/** The newest rollout files, by modification time, newest first. */
-async function newestRollouts(): Promise<string[]> {
-  // Folders are YYYY/MM/DD, so sorting names descending walks backwards through time and the
-  // search can stop as soon as it has enough files. No need to stat the whole history.
-  const found: { file: string; mtime: number }[] = []
-  const years = (await listDirs(SESSIONS_DIR)).sort().reverse()
-  for (const year of years) {
+/**
+ * How many day folders back to look. A conversation is filed under the day it *started*, and
+ * resuming it writes to that same old file, so the newest reading can sit in an older folder than
+ * a quieter, newer conversation. Stopping at the first six files found (as this once did) missed
+ * it. Thirty folders is thirty days Codex was actually used, which costs a few hundred `stat`
+ * calls once a minute; a conversation resumed after longer than that is not seen until its next
+ * new session.
+ */
+const DAY_FOLDERS = 30
+
+/** The newest day folders, newest first. Names are YYYY/MM/DD, so sorting them walks back in time. */
+async function newestDays(): Promise<string[]> {
+  const days: string[] = []
+  for (const year of (await listDirs(SESSIONS_DIR)).sort().reverse()) {
     for (const month of (await listDirs(year)).sort().reverse()) {
       for (const day of (await listDirs(month)).sort().reverse()) {
-        for (const file of await listFiles(day, (n) => n.startsWith('rollout-') && n.endsWith('.jsonl'))) {
-          const mtime = await fsp.stat(file).then((s) => s.mtimeMs, () => 0)
-          if (mtime) found.push({ file, mtime })
-        }
-        if (found.length >= NEWEST_FILES) break
+        days.push(day)
+        if (days.length >= DAY_FOLDERS) return days
       }
-      if (found.length >= NEWEST_FILES) break
     }
-    if (found.length >= NEWEST_FILES) break
+  }
+  return days
+}
+
+/** The newest rollout files, by modification time, newest first. */
+async function newestRollouts(): Promise<string[]> {
+  const found: { file: string; mtime: number }[] = []
+  for (const day of await newestDays()) {
+    for (const file of await listFiles(day, (n) => n.startsWith('rollout-') && n.endsWith('.jsonl'))) {
+      const mtime = await fsp.stat(file).then((s) => s.mtimeMs, () => 0)
+      if (mtime) found.push({ file, mtime })
+    }
   }
   return found.sort((a, b) => b.mtime - a.mtime).slice(0, NEWEST_FILES).map((f) => f.file)
 }
