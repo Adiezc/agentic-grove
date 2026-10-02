@@ -156,6 +156,9 @@ export interface AgentDefinition {
   systemPrompt?: string
 }
 
+/** Long enough for a page of instructions; a limit so a pasted file does not end up in `grove.json`. */
+export const MAX_BRIEF_CHARS = 4000
+
 /**
  * Which Claude plan's limits the crystal should be drawn against.
  *

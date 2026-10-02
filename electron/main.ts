@@ -19,7 +19,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
-import { addAgent, addProject, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings } from '../core/state/grove.ts'
+import { addAgent, addProject, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings, updateAgent, type AgentDraft } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
 import { LINK_HOME, defaultGrove, isHttpsUrl, isLinkOnly } from '../core/state/schema.ts'
 import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type LimitsCheck, type ProjectResult, type ReadyResult, type RunResult, type UninstallPlan } from './bridge.ts'
@@ -425,18 +425,34 @@ function registerHandlers(): void {
     return addAndRescan(picked.filePath, asPlace(place))
   })
 
-  ipcMain.handle(CHANNELS.addAgent, async (_event, draft: unknown): Promise<AgentResult> => {
-    // Only plain fields are read off the draft; `addAgent` then checks each one like a hand edit.
-    if (typeof draft !== 'object' || draft === null) return { ok: false, error: 'Not an agent' }
+  // Only plain text fields are read off a draft; the grove then checks each one like a hand edit.
+  const asDraft = (draft: unknown): AgentDraft | null => {
+    if (typeof draft !== 'object' || draft === null) return null
     const fields = draft as Record<string, unknown>
     const text = (value: unknown) => (typeof value === 'string' ? value : undefined)
-    const result = await addAgent({
+    return {
       name: text(fields.name) ?? '',
       description: text(fields.description) ?? '',
       harness: text(fields.harness) ?? '',
       glyph: text(fields.glyph),
       link: text(fields.link),
-    }).catch((error: unknown) => ({ ok: false, error: String(error) }))
+      brief: text(fields.brief),
+      model: text(fields.model),
+    }
+  }
+
+  ipcMain.handle(CHANNELS.addAgent, async (_event, draft: unknown): Promise<AgentResult> => {
+    const fields = asDraft(draft)
+    if (!fields) return { ok: false, error: 'Not an agent' }
+    const result = await addAgent(fields).catch((error: unknown) => ({ ok: false, error: String(error) }))
+    if (result.ok) await restartScanning()
+    return result
+  })
+
+  ipcMain.handle(CHANNELS.updateAgent, async (_event, id: unknown, draft: unknown): Promise<AgentResult> => {
+    const fields = asDraft(draft)
+    if (typeof id !== 'string' || !fields) return { ok: false, error: 'Not an agent' }
+    const result = await updateAgent(id, fields).catch((error: unknown) => ({ ok: false, error: String(error) }))
     if (result.ok) await restartScanning()
     return result
   })

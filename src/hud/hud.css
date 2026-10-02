@@ -1125,6 +1125,11 @@
   transition: color 0.2s ease;
 }
 
+/* The pencil sits one place further in than the bin. */
+.panel-remove.panel-edit {
+  right: 3.9rem;
+}
+
 .panel-remove:hover,
 .panel-remove:focus-visible {
   color: var(--text);
@@ -1205,9 +1210,20 @@
   color: #8fa197;
 }
 
+.grow-field textarea {
+  min-height: 4.2rem;
+  padding: 0.55rem 0.8rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+
 .grow-field input {
   height: 2.3rem;
   padding: 0 0.8rem;
+}
+
+.grow-field input,
+.grow-field textarea {
   border: 1px solid rgb(46 111 72 / 0.3);
   border-radius: 10px;
   background: rgb(2 9 4 / 0.55);
@@ -1217,11 +1233,13 @@
   transition: border-color 0.2s ease;
 }
 
-.grow-field input::placeholder {
+.grow-field input::placeholder,
+.grow-field textarea::placeholder {
   color: var(--text-dim);
 }
 
-.grow-field input:focus-visible {
+.grow-field input:focus-visible,
+.grow-field textarea:focus-visible {
   border-color: var(--live);
   outline: none;
 }

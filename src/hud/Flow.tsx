@@ -7,11 +7,11 @@
  * glow, never a sentence.
  */
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { ArrowClockwise, ArrowSquareOut, CaretLeft, CaretRight, Check, Eye, FolderOpen, GitFork, Plus, Trash, User, Warning, X } from '@phosphor-icons/react'
+import { ArrowClockwise, ArrowSquareOut, CaretLeft, CaretRight, Check, Eye, FolderOpen, GitFork, PencilSimple, Plus, Trash, User, Warning, X } from '@phosphor-icons/react'
 import type { Run, RunState } from '../../core/spawn/runs.ts'
 import type { TranscriptLine } from '../../core/spawn/transcript.ts'
 import { useGrove } from '../store/grove'
-import { isLinkOnly, LINK_HOME, type AgentGlyph, type AgentHarness } from '../../core/state/schema.ts'
+import { isLinkOnly, LINK_HOME, MAX_BRIEF_CHARS, type AgentGlyph, type AgentHarness } from '../../core/state/schema.ts'
 import { GLYPH_CHOICES, GLYPHS } from '../agents/glyphs'
 import { HARNESS_MARK, kindOf, ROOM, useTree } from '../agents/tree'
 import type { StoneSpec } from '../scene/Runestone'
@@ -409,6 +409,17 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
       {agent.own && canWrite ? (
         <button
           type="button"
+          className="panel-remove panel-edit"
+          onClick={() => useFlow.getState().edit(agent.id)}
+          aria-label={`Change ${agent.name}`}
+          title="Change"
+        >
+          <PencilSimple size={15} weight="thin" />
+        </button>
+      ) : null}
+      {agent.own && canWrite ? (
+        <button
+          type="button"
           className={`panel-remove${confirming ? ' is-confirming' : ''}`}
           onClick={remove}
           onBlur={() => setConfirming(false)}
@@ -505,6 +516,7 @@ export function GrowCard() {
   const growing = useFlow((state) => state.growing)
   const grown = useFlow((state) => state.grown)
   const back = useFlow((state) => state.back)
+  const editingId = useFlow((state) => state.editingId)
   const { counts } = useTree()
   const open = view === 'agents' && growing
 
@@ -513,30 +525,45 @@ export function GrowCard() {
   const [line, setLine] = useState('')
   const [glyph, setGlyph] = useState<AgentGlyph>('spark')
   const [link, setLink] = useState('')
+  const [brief, setBrief] = useState('')
+  const [model, setModel] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // A fresh form each time it opens, so a half-typed agent from last time does not reappear.
+  // A fresh form each time it opens, so a half-typed agent from last time does not reappear. Opened
+  // on one of your agents, it starts from that agent as `grove.json` has it.
   useEffect(() => {
     if (!open) return
-    setHarness('claude-code')
-    setName('')
-    setLine('')
-    setGlyph('spark')
-    setLink('')
+    const editing = editingId ? useGrove.getState().snapshot?.agents.find((agent) => agent.id === editingId) : undefined
+    setHarness(editing?.harness ?? 'claude-code')
+    setName(editing?.name ?? '')
+    setLine(editing?.description ?? '')
+    setGlyph(editing?.glyph ?? 'spark')
+    setLink(editing?.link ?? '')
+    setBrief(editing?.systemPrompt ?? '')
+    setModel(editing?.model ?? '')
     setError(null)
-  }, [open])
+  }, [open, editingId])
 
   const isBot = isLinkOnly(harness)
-  const full = isBot ? counts.bot >= ROOM.bot : counts.grove >= ROOM.grove
+  // Changing an agent takes no new place on the tree.
+  const full = editingId ? false : isBot ? counts.bot >= ROOM.bot : counts.grove >= ROOM.grove
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (!window.grove || busy || full) return
     setBusy(true)
     setError(null)
-    const result = await window.grove
-      .addAgent({ harness, name, description: line, glyph, link: isBot && link.trim() ? link.trim() : undefined })
+    const draft = {
+      harness,
+      name,
+      description: line,
+      glyph,
+      link: isBot && link.trim() ? link.trim() : undefined,
+      brief: isBot ? undefined : brief,
+      model: isBot ? undefined : model,
+    }
+    const result = await (editingId ? window.grove.updateAgent(editingId, draft) : window.grove.addAgent(draft))
       .catch((reason: unknown) => ({ ok: false, error: String(reason), id: undefined }))
     setBusy(false)
     if (result.ok) grown(result.id)
@@ -556,13 +583,15 @@ export function GrowCard() {
             <Face size={24} weight="thin" />
           </span>
           <div>
-            <h2 className="panel-title">New agent</h2>
+            <h2 className="panel-title">{editingId ? 'Change agent' : 'New agent'}</h2>
             <p className="panel-harness">
               {isBot ? `Everyday work. Opens in ${HARNESS_MARK[harness].opens}` : 'Works in your project folders'}
             </p>
           </div>
         </header>
 
+        {/* An agent's tool is fixed once it has grown: a different tool is a different agent. */}
+        {editingId ? null : (
         <div className="grow-kinds" role="radiogroup" aria-label="Tool">
           {KINDS.map((kind) => {
             const { Mark, label } = HARNESS_MARK[kind]
@@ -581,6 +610,7 @@ export function GrowCard() {
             )
           })}
         </div>
+        )}
 
         <label className="grow-field">
           <span>Name</span>
@@ -601,7 +631,30 @@ export function GrowCard() {
               spellCheck={false}
             />
           </label>
-        ) : null}
+        ) : (
+          <>
+            <label className="grow-field">
+              <span>Brief (optional)</span>
+              <textarea
+                value={brief}
+                onChange={(event) => setBrief(event.target.value)}
+                maxLength={MAX_BRIEF_CHARS}
+                rows={3}
+                placeholder="How it should work. Sent ahead of every job you give it."
+              />
+            </label>
+            <label className="grow-field">
+              <span>Model (optional)</span>
+              <input
+                value={model}
+                onChange={(event) => setModel(event.target.value)}
+                maxLength={80}
+                placeholder={`${HARNESS_MARK[harness].label}'s own choice`}
+                spellCheck={false}
+              />
+            </label>
+          </>
+        )}
 
         <div className="grow-glyphs" role="radiogroup" aria-label="Face">
           {GLYPH_CHOICES.map((choice) => {
@@ -624,8 +677,8 @@ export function GrowCard() {
         </div>
 
         <button type="submit" className="panel-send" disabled={!window.grove || busy || full || !name.trim()}>
-          <span>{full ? 'No room on the tree' : 'Grow'}</span>
-          <Plus size={14} weight="thin" />
+          <span>{full ? 'No room on the tree' : editingId ? 'Save' : 'Grow'}</span>
+          {editingId ? <Check size={14} weight="thin" /> : <Plus size={14} weight="thin" />}
         </button>
         {error ? <p className="panel-error">{error}</p> : null}
       </form>

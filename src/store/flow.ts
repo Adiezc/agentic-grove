@@ -49,6 +49,8 @@ interface FlowStore {
   agentId: string
   /** True while the grow form is open in place of the agent card. */
   growing: boolean
+  /** The agent the form is changing, when it was opened to edit one rather than grow one. */
+  editingId: string | null
   /** An agent waiting for a stone to be picked, in `picking` view. */
   pendingAgentId: string | null
   /** The task typed for it, carried until the stone is picked. */
@@ -76,6 +78,8 @@ interface FlowStore {
   showAgent: (id: string) => void
   /** Open the grow form, from the bud in the canopy. */
   grow: () => void
+  /** Open the same form on one of your agents, to change it. */
+  edit: (id: string) => void
   /** Close the form; with an id, turn to face the agent that just grew. */
   grown: (id?: string) => void
   /**
@@ -100,6 +104,7 @@ export const useFlow = create<FlowStore>((set, get) => ({
   stoneId: null,
   agentId: 'researcher',
   growing: false,
+  editingId: null,
   pendingAgentId: null,
   pendingTask: '',
   pendingOnSent: null,
@@ -129,13 +134,15 @@ export const useFlow = create<FlowStore>((set, get) => ({
     else set({ view: 'stone' })
   },
 
-  openAgents: () => set({ view: 'agents', growing: false }),
+  openAgents: () => set({ view: 'agents', growing: false, editingId: null }),
 
-  showAgent: (id) => set({ agentId: id, growing: false }),
+  showAgent: (id) => set({ agentId: id, growing: false, editingId: null }),
 
-  grow: () => set({ view: 'agents', growing: true }),
+  grow: () => set({ view: 'agents', growing: true, editingId: null }),
 
-  grown: (id) => set((state) => ({ growing: false, agentId: id ?? state.agentId })),
+  edit: (id) => set({ view: 'agents', growing: true, editingId: id }),
+
+  grown: (id) => set((state) => ({ growing: false, editingId: null, agentId: id ?? state.agentId })),
 
   deploy: (agentId, task, onSent, harness) => {
     const { stoneId } = get()
@@ -192,7 +199,7 @@ export const useFlow = create<FlowStore>((set, get) => ({
   back: () => {
     const { view, stoneId, placeIndex, growing } = get()
     if (placeIndex !== null) set({ placeIndex: null })
-    else if (growing) set({ growing: false })
+    else if (growing) set({ growing: false, editingId: null })
     else if (view === 'agents') set({ view: stoneId ? 'stone' : 'home' })
     else if (view === 'run') set({ view: stoneId ? 'stone' : 'home', runId: null })
     else if (view === 'home' && !stoneId) set({ focused: null })

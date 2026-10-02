@@ -27,7 +27,7 @@ import fsp from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import os from 'node:os'
-import { type GroveFile, type GroveProblem, type StoneConfig, BUILT_IN_AGENT_IDS, defaultGrove, parseAgent, parseGrove } from './schema.ts'
+import { type GroveFile, type GroveProblem, type StoneConfig, BUILT_IN_AGENT_IDS, MAX_BRIEF_CHARS, defaultGrove, parseAgent, parseGrove } from './schema.ts'
 import { assignPlaces, placeFor } from './places.ts'
 
 /** `AGENTIC_GROVE_HOME` exists so tests can point somewhere disposable. */
@@ -228,6 +228,27 @@ export interface AgentDraft {
   harness: string
   glyph?: string
   link?: string
+  /** How this agent should work. Sent ahead of every job it is given. Agents that work in folders only. */
+  brief?: string
+  /** A model name for its tool, when you want one other than the tool's default. */
+  model?: string
+}
+
+const MAX_MODEL_CHARS = 80
+
+/** The draft's fields as a hand-typed entry would have them, ready for `parseAgent`. */
+function entryFrom(draft: AgentDraft, id: string, name: string, harness: string): Record<string, unknown> {
+  const text = (value: unknown, most: number) => (typeof value === 'string' ? value.trim().slice(0, most) : '')
+  return {
+    id,
+    name,
+    description: text(draft.description, 120),
+    harness,
+    glyph: draft.glyph,
+    link: draft.link,
+    model: text(draft.model, MAX_MODEL_CHARS),
+    systemPrompt: text(draft.brief, MAX_BRIEF_CHARS),
+  }
 }
 
 /**
@@ -249,18 +270,7 @@ export async function addAgent(draft: AgentDraft): Promise<{ ok: boolean; id?: s
       const taken = new Set<string>([...BUILT_IN_AGENT_IDS, ...grove.agents.map((agent) => agent.id)])
       const id = uniqueId(slugify(name) || 'agent', taken)
       const problems: GroveProblem[] = []
-      const agent = parseAgent(
-        {
-          id,
-          name,
-          description: typeof draft.description === 'string' ? draft.description.slice(0, 120) : '',
-          harness: draft.harness,
-          glyph: draft.glyph,
-          link: draft.link,
-        },
-        'new agent',
-        problems
-      )
+      const agent = parseAgent(entryFrom(draft, id, name, draft.harness), 'new agent', problems)
       if (!agent || problems.length) {
         return { result: { ok: false, error: problems[0]?.message ?? 'That agent could not be made' }, write: false }
       }
@@ -268,6 +278,32 @@ export async function addAgent(draft: AgentDraft): Promise<{ ok: boolean; id?: s
       return { result: { ok: true, id }, write: true }
     },
     { ok: false, error: 'grove.json has an error; fix it before adding agents' }
+  )
+}
+
+/**
+ * Change one of your agents: its name, line, face, brief, model or link. Its id and its tool stay
+ * as they are, because runes and past runs refer to the id, and a different tool is a different agent.
+ */
+export async function updateAgent(id: string, draft: AgentDraft): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const name = typeof draft.name === 'string' ? draft.name.trim() : ''
+  if (!name) return { ok: false, error: 'Give it a name' }
+  if (name.length > 40) return { ok: false, error: 'Keep the name under 40 characters' }
+
+  return updateGrove<{ ok: boolean; id?: string; error?: string }>(
+    (grove) => {
+      const index = grove.agents.findIndex((agent) => agent.id === id)
+      const current = grove.agents[index]
+      if (!current) return { result: { ok: false, error: 'No agent with that id' }, write: false }
+      const problems: GroveProblem[] = []
+      const agent = parseAgent(entryFrom(draft, id, name, current.harness), name, problems)
+      if (!agent || problems.length) {
+        return { result: { ok: false, error: problems[0]?.message ?? 'That change could not be made' }, write: false }
+      }
+      grove.agents[index] = agent
+      return { result: { ok: true, id }, write: true }
+    },
+    { ok: false, error: 'grove.json has an error; fix it before changing agents' }
   )
 }
 

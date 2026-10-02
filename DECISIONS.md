@@ -1346,3 +1346,23 @@ default, with a switch under Settings → In the grove ("Turn slowly when left a
 Checked in the browser preview with an empty grove: the view had turned after thirty seconds and
 returned home on the next pointer movement. The demo grove never drifts, because one of its stones
 is waiting.
+
+## Your own agents: a brief, a model, and changing them
+
+*2 October 2026. The rest of step 8.*
+
+An agent you grow could only be given a name, a line and a face; its brief and model existed in
+`grove.json` (`systemPrompt`, `model`) and were used at launch, but could only be typed by hand.
+The grow form now has both, for agents that work in folders, and a pencil on the agent's card
+opens the same form to change it.
+
+- **The brief is sent ahead of every job** the agent is given, as the built-in agents' briefs are.
+  Up to 4,000 characters. **The model** is passed to the tool as typed; empty means the tool's own
+  choice, never a guess by the Grove.
+- **Changing an agent keeps its id and its tool.** Runes and past runs refer to the id, and a
+  different tool is a different agent, so the tool buttons are not shown when changing one.
+- Everything goes through the same checks as a hand-typed entry (`updateAgent` beside `addAgent`).
+- The built-in three cannot be changed from the interface; their briefs are in `core/spawn/briefs.ts`.
+
+Checked in the Electron window against a disposable grove (`AGENTIC_GROVE_HOME`), and in
+`npm run verify:reliability`.

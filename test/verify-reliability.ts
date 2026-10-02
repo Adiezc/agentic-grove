@@ -12,7 +12,7 @@ import path from 'node:path'
 
 const home = await fsp.mkdtemp(path.join(os.tmpdir(), 'agentic-grove-verify-reliability-'))
 process.env.AGENTIC_GROVE_HOME = home
-const { addAgent, grovePath, loadGrove, saveSettings, updateGrove } = await import('../core/state/grove.ts')
+const { addAgent, grovePath, loadGrove, saveSettings, updateAgent, updateGrove } = await import('../core/state/grove.ts')
 const { startScanLoop } = await import('../core/scan.ts')
 
 const cases: [string, () => Promise<void>][] = [
@@ -28,6 +28,16 @@ const cases: [string, () => Promise<void>][] = [
     const ids = results.map((result) => result.id)
     assert.equal(new Set(ids).size, 10)
     assert.equal((await loadGrove()).grove.agents.length, 10)
+  }],
+  ['an agent keeps the brief and model it was given, and changing it keeps its id and tool', async () => {
+    const made = await addAgent({ name: 'Reviewer', description: 'Reads diffs', harness: 'codex', brief: '  Be blunt.  ', model: 'gpt-5' })
+    const find = async () => (await loadGrove()).grove.agents.find((agent) => agent.id === made.id)
+    assert.deepEqual([(await find())?.systemPrompt, (await find())?.model], ['Be blunt.', 'gpt-5'])
+    const changed = await updateAgent(made.id!, { name: 'Critic', description: '', harness: 'claude-code', brief: '', model: '' })
+    assert.equal(changed.ok, true)
+    const after = await find()
+    assert.deepEqual([after?.name, after?.harness, after?.systemPrompt, after?.model], ['Critic', 'codex', undefined, undefined])
+    assert.equal((await updateAgent('no-such-agent', { name: 'X', description: '', harness: 'codex' })).ok, false)
   }],
   ['a hand edit made while a change is in progress is kept, and the change is made on top of it', async () => {
     let first = true

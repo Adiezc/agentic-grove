@@ -154,6 +154,8 @@ export interface GroveApi {
    * refuse. Resolves with the new id, so the interface can turn to face it.
    */
   addAgent(draft: AgentDraft): Promise<AgentResult>
+  /** Change one of your agents. Same checks as `addAgent`; its id and tool do not change. */
+  updateAgent(id: string, draft: AgentDraft): Promise<AgentResult>
   /** Take one of your agents off the tree. Researcher cannot be removed. */
   removeAgent(id: string): Promise<AgentResult>
   /**
@@ -296,6 +298,7 @@ export const CHANNELS = {
   createProject: 'grove:create-project',
   removeProject: 'grove:remove-project',
   addAgent: 'grove:add-agent',
+  updateAgent: 'grove:update-agent',
   removeAgent: 'grove:remove-agent',
   openAgentLink: 'grove:open-agent-link',
   planHooks: 'grove:plan-hooks',
