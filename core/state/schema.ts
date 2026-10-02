@@ -206,6 +206,11 @@ export interface GroveSettings {
   alwaysShowNames: boolean
   /** The motes drifting through the air. Purely atmosphere; off saves a little work. */
   ambientMotion: boolean
+  /**
+   * After five quiet minutes the camera turns slowly round the grove, for a screen left on. Any
+   * movement brings the view home. Never while something needs you.
+   */
+  idleDrift: boolean
   /** A macOS notification when an agent you sent finishes a job that took a minute or more. */
   notifyFinished: boolean
   /** A macOS notification when an agent you sent is waiting on you. Off by default: amber is enough. */
@@ -229,6 +234,7 @@ export function defaultSettings(): GroveSettings {
     showCounts: true,
     alwaysShowNames: false,
     ambientMotion: true,
+    idleDrift: true,
     notifyFinished: true,
     notifyNeedsYou: false,
     officialClaudeLimits: false,
@@ -243,6 +249,7 @@ export const SETTING_SWITCHES = [
   'showCounts',
   'alwaysShowNames',
   'ambientMotion',
+  'idleDrift',
   'notifyFinished',
   'notifyNeedsYou',
   'officialClaudeLimits',

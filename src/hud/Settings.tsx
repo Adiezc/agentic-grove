@@ -113,6 +113,12 @@ function Showing({ settings }: { settings: GroveSettings }) {
         onChange={(on) => void saveSettings({ alwaysShowNames: on })}
       />
       <Switch label="Drifting motes" on={settings.ambientMotion} onChange={(on) => void saveSettings({ ambientMotion: on })} />
+      <Switch
+        label="Turn slowly when left alone"
+        detail="After five quiet minutes. Any movement brings the view home."
+        on={settings.idleDrift}
+        onChange={(on) => void saveSettings({ idleDrift: on })}
+      />
     </Section>
   )
 }

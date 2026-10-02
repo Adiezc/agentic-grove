@@ -140,7 +140,7 @@ Picked on 27 September 2026, after step 6. Ranked, most important first.
     the deeper and wider its roots spread under the ground. Driven by the span of its session history
     in the scan, eased so the difference between a week and a month shows more than between one year
     and two. The oldest projects look the most settled.
-17. **Idle drift (about half a session).** After 5 minutes with no input, the camera starts a very
+17. **Idle drift. Done 2 October 2026** (Settings → In the grove; `?drift=10` to judge it). After 5 minutes with no input, the camera starts a very
     slow orbit, so the Grove works as a screensaver on a spare screen. Any input stops it and eases
     the camera home. Off under reduced motion, and paused while a stone needs attention so the
     camera does not turn away from it.

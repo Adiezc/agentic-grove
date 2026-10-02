@@ -83,6 +83,10 @@ function focusSoon(selector: string): void {
   window.setTimeout(attempt, 0)
 }
 
+const driftSeconds = Number(new URLSearchParams(window.location.search).get('drift'))
+/** How long the grove waits, untouched, before the camera starts its slow turn. */
+const DRIFT_AFTER_MS = driftSeconds > 0 ? driftSeconds * 1000 : 5 * 60_000
+
 /** Shared, so an empty grove is the same value from one render to the next. */
 const NO_STONES: never[] = []
 
@@ -341,6 +345,16 @@ export function App() {
   // In full screen, with nothing open, the interface fades back after a few quiet seconds.
   const resting = useIdle(fullScreen && !panel && !dataOpen && view === 'home' && !deployment)
 
+  /* Idle drift: after five quiet minutes at the home view the camera turns slowly, so a grove left
+   * on a spare screen is never a frozen picture. Not while anything is open, not in photo mode, not
+   * under reduced motion, and never while a stone wants you: the camera must not turn away from the
+   * one thing on screen that matters. `?drift=10` shortens the wait to ten seconds, for judging it. */
+  const needsYou = stones.some((stone) => stone.status === 'waiting' || stone.status === 'errored')
+  const drifting = useIdle(
+    settings.idleDrift && !reducedMotion && !photo && !panel && !dataOpen && view === 'home' && !stoneId && !deployment && !needsYou,
+    DRIFT_AFTER_MS
+  )
+
   // The whole interface is sized in rem, so full screen scales it by changing one number.
   useEffect(() => {
     document.documentElement.classList.toggle('is-fullscreen', fullScreen)
@@ -381,6 +395,7 @@ export function App() {
           onPerf={onPerf}
           onHoverStone={setHovered}
           viewResetKey={viewResetKey}
+          drift={drifting}
           ready={DEMO || snapshot !== null}
         />
         </SceneGuard>

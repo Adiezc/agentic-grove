@@ -130,6 +130,9 @@ function shotFor(view: FlowView, stone: StoneSpec | undefined): Shot {
   return HOME
 }
 
+/** OrbitControls turns once in 60 seconds at a speed of 1 (at 60 frames a second), so this is ten minutes. */
+const DRIFT_SPEED = 0.1
+
 /**
  * Orbit the whole grove, and glide between the flow's shots.
  *
@@ -137,7 +140,7 @@ function shotFor(view: FlowView, stone: StoneSpec | undefined): Shot {
  * changes where it is heading with no jump. The orbit controls are switched off while it runs,
  * because two things steering one camera is how you get a shudder at the end of every move.
  */
-function CameraRig({ shot, resetKey, animate, free }: { shot: Shot; resetKey: number; animate: boolean; free: boolean }) {
+function CameraRig({ shot, resetKey, animate, free, drift }: { shot: Shot; resetKey: number; animate: boolean; free: boolean; drift: boolean }) {
   const { camera } = useThree()
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null)
   const gliding = useRef(true)
@@ -149,6 +152,15 @@ function CameraRig({ shot, resetKey, animate, free }: { shot: Shot; resetKey: nu
   useEffect(() => {
     gliding.current = true
   }, [goal, resetKey])
+
+  // When an idle drift ends, the view eases home, unless what ended it was you taking hold of
+  // the view yourself: then it is yours, from wherever the drift had got to.
+  const dragging = useRef(false)
+  const wasDrifting = useRef(false)
+  useEffect(() => {
+    if (wasDrifting.current && !drift && !dragging.current) gliding.current = true
+    wasDrifting.current = drift
+  }, [drift])
 
   useFrame((_, delta) => {
     const orbit = controls.current
@@ -185,9 +197,17 @@ function CameraRig({ shot, resetKey, animate, free }: { shot: Shot; resetKey: nu
       maxDistance={free ? 36 : 29}
       minPolarAngle={Math.PI * (free ? 0.06 : 0.22)}
       maxPolarAngle={Math.PI * 0.49}
+      // The idle drift: one turn of the grove in about ten minutes. Slow enough that you notice it
+      // has moved, not that it is moving.
+      autoRotate={drift}
+      autoRotateSpeed={DRIFT_SPEED}
       // Grabbing the view mid-glide hands it straight back to you.
       onStart={() => {
         gliding.current = false
+        dragging.current = true
+      }}
+      onEnd={() => {
+        dragging.current = false
       }}
     />
   )
@@ -291,6 +311,8 @@ interface GroveSceneProps {
   onHoverStone?: (id: string | null) => void
   /** Increment to return the orbit camera to the supplied Grove composition. */
   viewResetKey?: number
+  /** Turn the camera slowly round the grove. Set by the app after a few quiet minutes. */
+  drift?: boolean
   /** Hold the frame rate at this, whatever the screen can do. Performance mode's 60. */
   maxFps?: number
   /** Told when the Mac takes the graphics context away, so the scene guard can say so. */
@@ -323,6 +345,7 @@ export function GroveScene({
   viewResetKey = 0,
   ready = true,
   maxFps,
+  drift = false,
   onContextLost,
 }: GroveSceneProps) {
   const { alwaysShowNames, ambientMotion } = useSettings()
@@ -438,7 +461,7 @@ export function GroveScene({
         scene.fog = new THREE.Fog(palette.ground, 30, 62)
       }}
     >
-      <CameraRig shot={shot} resetKey={viewResetKey} animate={animate} free={photo} />
+      <CameraRig shot={shot} resetKey={viewResetKey} animate={animate} free={photo} drift={drift && animate && !photo} />
       {maxFps ? <FrameCap fps={maxFps} /> : null}
       {onPerf ? <Perf onSample={onPerf} /> : null}
 

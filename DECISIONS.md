@@ -1329,3 +1329,20 @@ line opens that stone. Esc, or the cross, puts the answer away.
 - Nothing is stored, and nothing leaves the Mac.
 
 Checked against real data in the Electron window through its debugging port.
+
+## Idle drift
+
+*2 October 2026. Roadmap idea 17.*
+
+After five minutes with no pointer or key activity, at the home view with nothing open, the camera
+turns round the grove once in about ten minutes. Any movement stops it and eases the view home;
+taking hold of the view yourself keeps it where the drift had got to.
+
+It does not run under reduced motion, in photo mode, while a panel is open, or while any stone is
+waiting or has failed: the camera must not turn away from the one thing that needs you. On by
+default, with a switch under Settings → In the grove ("Turn slowly when left alone"). Adding
+`?drift=10` to the dev preview's address shortens the wait to ten seconds, for judging the speed.
+
+Checked in the browser preview with an empty grove: the view had turned after thirty seconds and
+returned home on the next pointer movement. The demo grove never drifts, because one of its stones
+is waiting.
