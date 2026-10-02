@@ -112,7 +112,8 @@ Picked on 27 September 2026, after step 6. Ranked, most important first.
    Passing the note into the Claude Code session itself (through a `SessionStart` hook's output)
    would be a second step with its own consent, because the current hook deliberately says nothing
    back.
-10. **Photo mode (about half a session).** Hide the interface, adjust the angle and depth of field,
+10. **Photo mode. Done 2 October 2026** (`src/scene/Photo.tsx`, `src/hud/Photo.tsx`; P, or PHOTO beside
+    Home view). Hide the interface, adjust the angle and depth of field,
     and save a high-resolution image. Good for sharing, and it makes the README screenshots of
     step 15, so build it before then.
 11. **Pollination (about one session). Needs runes, and builds on suggested runes.** When a rune

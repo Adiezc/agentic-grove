@@ -2743,3 +2743,85 @@
 .get-ready-line {
   margin-top: 0.5rem;
 }
+
+/* ---- Photo mode: the interface steps aside, and one small bar stays. ---- */
+
+.hud {
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hud.is-photo {
+  opacity: 0;
+}
+
+/* Sits just left of Home view, in the same quiet lettering. */
+.view-home.view-photo {
+  right: 124px;
+}
+
+.photo-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  z-index: 9;
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  transform: translateX(-50%);
+  font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  animation: photo-bar-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes photo-bar-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+
+.photo-hint {
+  margin: 0;
+  color: var(--text-dim);
+  font: 500 9px/1 var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.photo-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.6rem 0.55rem 1rem;
+  border: 1px solid rgb(46 111 72 / 0.35);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ground) 84%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.photo-controls .setting-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.photo-depth {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.photo-depth input {
+  width: 8rem;
+  accent-color: var(--live);
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud,
+  .photo-bar {
+    transition: none;
+    animation: none;
+  }
+}

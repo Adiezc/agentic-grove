@@ -31,6 +31,8 @@ import { step, type Direction, type Target } from './scene/navigation'
 import { DEMO } from './demo'
 import { useTree } from './agents/tree'
 import { saveSettings, useSettings } from './store/settings'
+import { usePhoto } from './store/photo'
+import { PhotoBar } from './hud/Photo'
 import { sceneFor, useAdaptiveGraphics, useDrawing } from './scene/graphics'
 import './hud/hud.css'
 
@@ -114,6 +116,7 @@ export function App() {
   const stoneId = useFlow((state) => state.stoneId)
   const statusOverrides = useFlow((state) => state.statusOverrides)
   const openAgents = useFlow((state) => state.openAgents)
+  const photo = usePhoto((state) => state.on)
 
   const snapshot = useGrove((state) => state.snapshot)
   const deployment = useFlow((state) => state.deployment)
@@ -163,6 +166,16 @@ export function App() {
     setViewResetKey((key) => key + 1)
   }
   const showDebug = new URLSearchParams(window.location.search).has('debug')
+  // Photo mode starts from the home view with everything closed, and hands the home view back after.
+  const enterPhoto = () => {
+    setPanel(null)
+    goHome()
+    usePhoto.getState().enter()
+  }
+  const leavePhoto = () => {
+    usePhoto.getState().leave()
+    goHome()
+  }
 
   /* ---- Keyboard grove: arrows move between stones and empty circles, Enter opens. ---- */
 
@@ -272,6 +285,12 @@ export function App() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       // Esc steps back out of the flow, and works from inside the console too.
+      if (usePhoto.getState().on) {
+        // Photo mode owns the keyboard while it is up: Esc leaves, Enter takes the picture.
+        if (event.key === 'Escape') leavePhoto()
+        else if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) usePhoto.getState().save()
+        return
+      }
       if (event.key === 'Escape') {
         // Let go of whatever has focus, not only the console. Otherwise a button inside the menu
         // being closed keeps focus for a moment, and an Enter pressed straight after lands on it.
@@ -285,6 +304,7 @@ export function App() {
       if (moveFocus(event)) return
       if (event.key === 'd') setDataOpen((open) => !open)
       if (event.key === 'b') setPost((on) => !on)
+      if (event.key === 'p') enterPhoto()
       if (event.key === 's') void window.grove?.captureStill()
       if (event.key === 'q') {
         setForced((current) => (current === 'high' ? 'balanced' : current === 'balanced' ? 'low' : current === 'low' ? null : 'high'))
@@ -363,7 +383,8 @@ export function App() {
         </SceneGuard>
       </div>
 
-      <div className={`hud${view === 'stone' || view === 'run' ? ' is-panel' : ''}${resting ? ' is-resting' : ''}`}>
+      {photo ? <PhotoBar onDone={leavePhoto} /> : null}
+      <div className={`hud${view === 'stone' || view === 'run' ? ' is-panel' : ''}${resting ? ' is-resting' : ''}${photo ? ' is-photo' : ''}`} inert={photo}>
         <Rail
           panel={panel}
           onPanel={setPanel}
@@ -401,6 +422,9 @@ export function App() {
         <PickHint />
         <Intro hidden={panel !== null} />
         <Announcer message={announcement} />
+        <button type="button" className="view-home view-photo" onClick={enterPhoto} aria-label="Photo mode: frame the grove and save an image" title="Photo mode (P)">
+          PHOTO
+        </button>
         <button
           type="button"
           className="view-home"

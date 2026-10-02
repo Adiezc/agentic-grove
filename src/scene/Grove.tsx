@@ -28,6 +28,8 @@ import { Canopy, DeployWisp } from './Canopy'
 import { EmptyPlace } from './EmptyPlace'
 import type { EmptyPlace as Place } from './layout'
 import { useTree } from '../agents/tree'
+import { usePhoto } from '../store/photo'
+import { PhotoFocus, PhotoShot } from './Photo'
 import { useFlow, type FlowView } from '../store/flow'
 import type { Pairing } from '../../core/state/pairings.ts'
 import { Mushrooms } from './Mushrooms'
@@ -134,7 +136,7 @@ function shotFor(view: FlowView, stone: StoneSpec | undefined): Shot {
  * changes where it is heading with no jump. The orbit controls are switched off while it runs,
  * because two things steering one camera is how you get a shudder at the end of every move.
  */
-function CameraRig({ shot, resetKey, animate }: { shot: Shot; resetKey: number; animate: boolean }) {
+function CameraRig({ shot, resetKey, animate, free }: { shot: Shot; resetKey: number; animate: boolean; free: boolean }) {
   const { camera } = useThree()
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null)
   const gliding = useRef(true)
@@ -169,7 +171,8 @@ function CameraRig({ shot, resetKey, animate }: { shot: Shot; resetKey: number; 
       ref={controls}
       makeDefault
       target={cameraSpec.target}
-      enablePan={false}
+      // Photo mode loosens the view: closer, further, lower, higher, and the frame can be slid sideways.
+      enablePan={free}
       enableZoom
       enableRotate
       enableDamping={animate}
@@ -177,9 +180,9 @@ function CameraRig({ shot, resetKey, animate }: { shot: Shot; resetKey: number; 
       rotateSpeed={0.42}
       zoomSpeed={0.55}
       // Close enough for the canopy shot; the home shot sits at about 22.
-      minDistance={7}
-      maxDistance={29}
-      minPolarAngle={Math.PI * 0.22}
+      minDistance={free ? 3.5 : 7}
+      maxDistance={free ? 36 : 29}
+      minPolarAngle={Math.PI * (free ? 0.06 : 0.22)}
       maxPolarAngle={Math.PI * 0.49}
       // Grabbing the view mid-glide hands it straight back to you.
       onStart={() => {
@@ -336,6 +339,8 @@ export function GroveScene({
     [view, stoneId, stones]
   )
   const tree = useTree()
+  const photo = usePhoto((state) => state.on)
+  const photoDepth = usePhoto((state) => state.depth)
 
   /* Which stones are new. `known` is only written after a render has been committed, so a
    * render React throws away (StrictMode does this on purpose) cannot mark a stone as seen
@@ -430,7 +435,7 @@ export function GroveScene({
         scene.fog = new THREE.Fog(palette.ground, 30, 62)
       }}
     >
-      <CameraRig shot={shot} resetKey={viewResetKey} animate={animate} />
+      <CameraRig shot={shot} resetKey={viewResetKey} animate={animate} free={photo} />
       {maxFps ? <FrameCap fps={maxFps} /> : null}
       {onPerf ? <Perf onSample={onPerf} /> : null}
 
@@ -466,13 +471,14 @@ export function GroveScene({
           // keeps the resting scene almost wordless.
           // While picking a target every name shows, because that moment is a choice between them.
           showLabel={
-            alwaysShowNames ||
+            // A photograph has no labels in it.
+            !photo && (alwaysShowNames ||
             hovered === stone.id ||
             focused === stone.id ||
             stoneId === stone.id ||
             view === 'picking' ||
             stone.status === 'waiting' ||
-            stone.status === 'errored'
+            stone.status === 'errored')
           }
           onHover={handleHover}
           onSelect={selectStone}
@@ -495,7 +501,7 @@ export function GroveScene({
 
       {animate && ambientMotion ? <Motes activity={activity} /> : null}
 
-      {post ? (
+      {post || photo ? (
       <EffectComposer>
         {/* The bloom is the art direction, not an effect on top of it. The concept art's bright
             greens are all blown out into their surroundings, and a low threshold with a large
@@ -506,6 +512,7 @@ export function GroveScene({
             only what is genuinely bright — a lit rune, a pulse in a root, the hottest leaves —
             and leaves the rest crisp. MEDIUM kernel rather than LARGE: it is also most of the
             frame cost, and the difference is invisible next to the threshold change. */}
+        {photo && photoDepth > 0 ? <PhotoFocus depth={photoDepth} /> : null}
         <Bloom
           intensity={0.9}
           luminanceThreshold={0.36}
@@ -519,6 +526,7 @@ export function GroveScene({
         <Noise opacity={0.035} blendFunction={BlendFunction.OVERLAY} />
       </EffectComposer>
       ) : null}
+      {photo ? <PhotoShot /> : null}
     </Canvas>
   )
 }

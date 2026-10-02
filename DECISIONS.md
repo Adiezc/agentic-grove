@@ -1280,3 +1280,27 @@ Three places where the build differs from the rules above, each on purpose:
   is ever filled in.
 - **The reading is kept in memory only.** After a restart it shows "Not checked yet" until you
   press again. Switching the setting off forgets it at once.
+
+## Photo mode
+
+*2 October 2026. Roadmap idea 10, built ahead of the README screenshots (step 15).*
+
+Press P, or PHOTO beside Home view. The interface fades out and one small bar stays: a depth
+slider, Save image, Done. Esc or Done returns to the home view.
+
+- **The camera is looser, only here.** Closer, further and higher than normal, and right-drag slides
+  the frame. The everyday limits exist so nobody gets lost on a screen that is on all day; a
+  photograph is the one time you want to.
+- **Depth of field focuses on the point the camera turns about.** One slider, from everything sharp
+  to only the centre. No focus picker: centring the thing you want sharp does the same job.
+- **The image is the scene drawn again at three times the window's size** (longest side capped at
+  6,000 pixels), read in the frame it was drawn. The alternative, keeping every frame readable
+  (`preserveDrawingBuffer`), costs frame rate all day for a button pressed rarely.
+- **Saved as an ordinary download**, so the app asks where to put it. No new channel between the
+  page and the filesystem; `captureStill` stays development-only.
+- **Names are hidden; worker orbs and empty circles stay**, because they are part of the scene.
+- Photo mode always runs the bloom chain, even in Performance mode: the picture should be the
+  full look. Nothing is stored in `grove.json`.
+
+Checked in the browser demo: a 3072 × 2304 image from a 1024 × 768 window, and the drawing size
+back to normal afterwards. The app's save dialog was not exercised.
