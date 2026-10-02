@@ -6,11 +6,35 @@ working and whether anything needs you, and look away again.
 
 It is not a chat app. It is a cockpit.
 
+![The grove: a tree at the centre, a lit stone for each project, roots carrying light to the ones being worked on](assets/screenshots/grove-home.jpg)
+
+*The demo grove. A real one starts empty and grows a stone for each project you connect.*
+
 **Status: early, and changing quickly.** The grove shows your real projects and agent sessions,
 live, with usage headroom per provider, and sends agents to work in your projects through your own
 Claude Code or Codex.
 
 MIT licensed. No telemetry, ever.
+
+## What you can do with it
+
+- **See your work at a glance.** Each project is a stone. It lights while an agent works there and
+  turns amber, the grove's one warning colour, when an agent is waiting for you.
+- **Send an agent to a project.** Pick a stone, pick an agent from the tree, type the job. Terminal
+  opens in that project running your own Claude Code or Codex.
+- **Type instead of click.** The console at the bottom reads a job, shows who would take it and
+  where ("Builder → Shellter") before anything is sent, and lets you change either with a click.
+- **Ask about your own week.** "What did I do yesterday?" is answered by the Grove itself, from
+  the records on your Mac, and the stones involved light in the order you came to them.
+- **Know how much you have left.** Five-hour and weekly headroom for Claude and ChatGPT, each
+  figure marked official, counted or unknown.
+- **Use it without a mouse.** Arrow keys move between stones, Enter opens one, Esc goes back.
+- **Take its picture.** Press P for photo mode: the interface steps aside and you can save a large image.
+
+| | |
+| --- | --- |
+| ![A project's stone chosen, with its panel](assets/screenshots/grove-stone.jpg) | ![The tree's agents, with a task box](assets/screenshots/grove-agents.jpg) |
+| Choose a stone to see its state and what you can do there. | Choose an agent from the tree and send it. |
 
 ## Where it runs, and what it works with
 
@@ -77,8 +101,8 @@ interface is built to show the difference rather than hide it.
 
 | Tool | What the Grove can do |
 | --- | --- |
-| Claude Code (terminal and desktop) | **Watch, and soon drive.** Every session, live through its hooks |
-| Codex | **Watch, and soon drive.** Every session, with OpenAI's own five-hour and weekly figures |
+| Claude Code (terminal and desktop) | **Watch and send.** Every session, live through its hooks. Sends agents by opening your own Claude Code in Terminal. Official limits when you press Check now |
+| Codex | **Watch and send.** Every session, with OpenAI's own five-hour and weekly figures. Sends agents by opening your own Codex in Terminal |
 | Claude Cowork | **Link only.** Everyday work in the Claude app; the Grove opens it |
 | ChatGPT Dots | **Link only.** OpenAI's always-on agents; no public API yet |
 | Cursor | **Watch**, in principle. Adapter written but unverified; see `core/harnesses/README.md` |
@@ -86,6 +110,17 @@ interface is built to show the difference rather than hide it.
 "Link only" means the Grove can open it for you and nothing more, and the interface shows those
 as loose fireflies rather than agents on the tree. A figure the Grove cannot know honestly is shown
 as unknown rather than guessed.
+
+Three limits worth knowing before you rely on it:
+
+- **The Grove starts work; it does not run it.** A job you send runs in a Terminal window as your
+  own Claude Code or Codex, on your own plan. The Grove watches it, and cannot stop it or answer
+  for it; the Terminal window can.
+- **Claude's official limits are read only when you ask.** Claude Code's token use is counted from
+  its records all the time. The official five-hour and weekly percentages come from running your
+  Claude Code once, when you press Check now in Settings. It is off until you switch it on.
+- **History is as good as the records.** A session records when it started and when it was last
+  written to. The Grove will not claim you worked on something in between.
 
 ## Privacy and the network
 
@@ -95,6 +130,11 @@ day, while you are online, it asks GitHub's public releases page for the newest 
 That request carries no identifier. It exists so you can hear about new versions, and you can turn
 it off in Settings. The Grove never installs anything by itself; you download new versions when
 you choose.
+
+One more thing reaches the network, and only when you press it: **Check now** under Settings →
+Claude limits runs your own Claude Code once to read your official limits. That is one small
+request to Anthropic on your plan (about 600 tokens), made by Claude Code, not by the Grove. It is
+off by default and never runs on a timer.
 
 Your grove (projects, agents, settings) lives in `~/.agentic-grove/grove.json`, outside the app,
 so an update never touches it. It is plain JSON and meant to be edited by hand if you like.
@@ -119,7 +159,7 @@ npm run dmg      # build release/Agentic-Grove-<version>-arm64.dmg for a GitHub 
 ```
 
 Each part with rules of its own has a `verify:` script beside it (`spawn`, `console`, `attention`,
-`health`, `places`, `readiness`, `reliability`, `pairings`, `tells`); they run in seconds and touch nothing of
+`health`, `places`, `readiness`, `reliability`, `pairings`, `tells`, `probe`, `history`, `codex-usage`); they run in seconds and touch nothing of
 yours.
 
 `verify` is the one worth knowing about. It counts the files on disk with its own separate code

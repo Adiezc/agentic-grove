@@ -22,7 +22,7 @@ the Grove already has (the scan plus Claude Code hooks). Decisions made along th
 | 11 | Attention: motes, notifications, answer-or-wait behaviour | Done: see DECISIONS.md |
 | 12–13 | Settings, onboarding, empty states, keyboard shortcuts, performance presets | Partly: settings, graphics modes, one-button setup, update check |
 | 14 | Packaging, notarised Mac build, DMG | Done, unsigned: `npm run dmg` (no release published yet) |
-| 15 | README with an honest capability table, screenshots, a demo GIF | |
+| 15 | README with an honest capability table, screenshots, a demo GIF | Partly: table, limits and three screenshots (2 October 2026). No GIF yet |
 
 Before the public release:
 
