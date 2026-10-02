@@ -175,6 +175,12 @@ export interface GroveApi {
   openProjectFolder(stoneId: string): Promise<ProjectResult>
   /** Change settings. Checked with the same rules as a hand edit of `grove.json`. */
   saveSettings(patch: Partial<GroveSettings>): Promise<{ ok: boolean; error?: string }>
+  /**
+   * Read Claude's official limits now, by running your own Claude Code once (`core/usage/probe.ts`).
+   * Takes nothing from the page, and does nothing unless the setting is on. The figures arrive on
+   * the next snapshot; this resolves with whether the check worked and what it used.
+   */
+  checkClaudeLimits(): Promise<LimitsCheck>
   /** Ask GitHub now rather than waiting for the daily check. */
   checkForUpdates(): Promise<UpdateStatus>
   /** Open the latest release's page in the browser. The address is fixed on the node side. */
@@ -239,6 +245,14 @@ export interface UninstallPlan {
   grovePath: string
 }
 
+/** What pressing "Check now" for Claude's limits did. */
+export interface LimitsCheck {
+  ok: boolean
+  /** Tokens the check itself used, as Claude Code reported them. */
+  tokens?: number
+  error?: string
+}
+
 /** What the "Get ready" button did. */
 export interface ReadyResult {
   ok: boolean
@@ -289,6 +303,7 @@ export const CHANNELS = {
   openProjectFolder: 'grove:open-project-folder',
   saveSettings: 'grove:save-settings',
   checkForUpdates: 'grove:check-for-updates',
+  checkClaudeLimits: 'grove:check-claude-limits',
   openRelease: 'grove:open-release',
   setUpTool: 'grove:set-up-tool',
   getReady: 'grove:get-ready',

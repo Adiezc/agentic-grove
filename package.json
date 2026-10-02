@@ -34,6 +34,7 @@
     "verify:health": "tsx test/verify-health.ts",
     "verify:places": "tsx test/verify-places.ts",
     "verify:readiness": "tsx test/verify-readiness.ts",
+    "verify:probe": "tsx test/verify-probe.ts",
     "dmg": "node scripts/package.mjs --dmg"
   },
   "devDependencies": {

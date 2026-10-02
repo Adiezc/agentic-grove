@@ -29,10 +29,10 @@ Before the public release:
 - **A downloadable build.** Step 14 (packaging, DMG) and a first GitHub release, or the update
   check has nothing to find. Unsigned, so the README explains the one-time "Open anyway".
 - **Windows support.**
-- **Official Claude limits for terminal users.** Claude Code's statusline carries the official
-  five-hour and weekly percentages, but only the terminal runs it; the desktop app does not
-  (tested). It needs its own consent step, because Claude Code allows one statusline and people
-  often have one already.
+- **Official Claude limits. Done 2 October 2026**, by a different route: a check you press in
+  Settings runs your own Claude Code once and reads the limits it prints (`core/usage/probe.ts`).
+  Off by default. It works for desktop-app and terminal users alike, so the statusline route is
+  no longer needed.
 
 ## The long-run aim
 
@@ -60,7 +60,7 @@ by default, read-only towards other tools.
 | 10 | Full screen more immersive, interface a little larger | Done |
 | 11 | Agents / Open / Task clearer | Done |
 | 12 | Graphics modes: Performance, Balanced, Grove, adapting to load | Done |
-| 13 | Five-hour usage at a glance, week on hover, per provider | Done for Codex; Claude chosen (keychain, with consent), code parked in a git stash, see DECISIONS.md |
+| 13 | Five-hour usage at a glance, week on hover, per provider | Done. Codex from its own records; Claude from a check you press in Settings (off by default), see DECISIONS.md |
 | 19 | Help install the Claude and ChatGPT apps too | Done (opens each maker's download page) |
 | 20 | README: platforms (Mac only; Linux, then Windows) and room for other models | Done |
 | 14 | Thicker mycelium | Done |

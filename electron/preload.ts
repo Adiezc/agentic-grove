@@ -55,6 +55,7 @@ const api: GroveApi = {
   openProjectFolder: (stoneId) => ipcRenderer.invoke(CHANNELS.openProjectFolder, stoneId),
   saveSettings: (patch) => ipcRenderer.invoke(CHANNELS.saveSettings, patch),
   checkForUpdates: () => ipcRenderer.invoke(CHANNELS.checkForUpdates),
+  checkClaudeLimits: () => ipcRenderer.invoke(CHANNELS.checkClaudeLimits),
   openRelease: () => ipcRenderer.invoke(CHANNELS.openRelease),
   setUpTool: (tool) => ipcRenderer.invoke(CHANNELS.setUpTool, tool),
   getReady: () => ipcRenderer.invoke(CHANNELS.getReady),

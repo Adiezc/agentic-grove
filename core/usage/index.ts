@@ -8,10 +8,13 @@
  */
 import { claudeUsage } from './claude.ts'
 import { codexUsage } from './codex.ts'
+import { withOfficial, type ClaudeReading } from './probe.ts'
 import type { ProviderUsage, UsageReport } from './types.ts'
 
-export async function usage(now = Date.now()): Promise<UsageReport> {
-  const results = await Promise.allSettled([claudeUsage(now), codexUsage(now)])
+/** `claudeReading` is the last press of "Check now", if there was one; see `probe.ts`. */
+export async function usage(now = Date.now(), claudeReading: ClaudeReading | null = null): Promise<UsageReport> {
+  const claude = claudeUsage(now).then((counted) => withOfficial(counted, claudeReading, now))
+  const results = await Promise.allSettled([claude, codexUsage(now)])
   const providers = results
     .map((result) => (result.status === 'fulfilled' ? result.value : null))
     .filter((provider): provider is ProviderUsage => provider !== null)
@@ -19,11 +22,15 @@ export async function usage(now = Date.now()): Promise<UsageReport> {
 }
 
 /** Refresh every `intervalMs`, one pass at a time. Returns a stop function. */
-export function startUsageLoop(onReport: (report: UsageReport) => void, intervalMs = 60_000): () => void {
+export function startUsageLoop(
+  onReport: (report: UsageReport) => void,
+  intervalMs = 60_000,
+  claudeReading: () => ClaudeReading | null = () => null
+): () => void {
   let stopped = false
   let timer: ReturnType<typeof setTimeout> | undefined
   const tick = async () => {
-    const report = await usage().catch(() => null)
+    const report = await usage(Date.now(), claudeReading()).catch(() => null)
     if (stopped) return
     if (report) onReport(report)
     timer = setTimeout(() => void tick(), intervalMs)

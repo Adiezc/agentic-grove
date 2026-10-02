@@ -2,8 +2,8 @@
  * Settings, opened from the gear on the rail.
  *
  * Everything here is saved in `grove.json` in `~/.agentic-grove`, outside the app, so updating the
- * Grove never resets it. Four groups, most used first: how the grove draws, what it shows, updates,
- * and live updates from Claude Code.
+ * Grove never resets it. Most used first: how the grove draws, what it shows, notifications, Claude's
+ * official limits, updates, and live updates from Claude Code.
  *
  * The live-updates section is where the Grove asks to edit another tool's file, so it follows
  * DECISIONS.md to the letter. Nothing is written until you have seen the exact lines that will
@@ -11,12 +11,12 @@
  * change too.
  */
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowsClockwise, Asterisk, Bell, Eye, Monitor, Plugs, Trash, X } from '@phosphor-icons/react'
+import { ArrowsClockwise, Asterisk, Bell, Eye, Gauge, Monitor, Plugs, Trash, X } from '@phosphor-icons/react'
 import { ToolSetup } from './Setup'
 import type { HooksAction, HooksPlan } from '../../core/hooks/install.ts'
 import type { HooksStatus, UninstallPlan } from '../../electron/bridge.ts'
 import { GRAPHICS_MODES, type GraphicsMode, type GroveSettings } from '../../core/state/schema.ts'
-import { ago } from '../../core/usage/format.ts'
+import { WINDOW_NAME, ago, figure } from '../../core/usage/format.ts'
 import { useGrove } from '../store/grove'
 import { saveSettings, useSettings, useSettingsError } from '../store/settings'
 import { useDrawing, type Reason } from '../scene/graphics'
@@ -140,6 +140,69 @@ function Notifications({ settings }: { settings: GroveSettings }) {
   )
 }
 
+/**
+ * Claude's official five-hour and weekly figures, read by running your own Claude Code once. Off
+ * until switched on, and a check happens only when the button is pressed, because each one is a
+ * small request on your plan. See `core/usage/probe.ts`.
+ */
+function ClaudeLimits({ settings }: { settings: GroveSettings }) {
+  const claude = useGrove((state) => state.snapshot?.usage?.providers.find((provider) => provider.provider === 'claude-code'))
+  const installed = useGrove((state) => state.snapshot?.setup['claude-code'].cli)
+  const [checking, setChecking] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const now = Date.now()
+  const official = claude?.windows.filter((window) => window.provenance === 'official') ?? []
+  const checkedAt = official[0]?.observedAt ?? null
+
+  const check = async () => {
+    if (!window.grove) return
+    setChecking(true)
+    setMessage(null)
+    const result = await window.grove.checkClaudeLimits()
+    setChecking(false)
+    const used = result.tokens ? ` The check used ${result.tokens.toLocaleString('en-GB')} tokens.` : ''
+    setMessage(result.ok ? `Checked.${used}` : `${result.error ?? 'The check did not work.'}${used}`)
+  }
+
+  return (
+    <Section icon={<Gauge size={14} weight="regular" />} name="Claude limits">
+      <Switch
+        label="Official Claude limits"
+        detail="Runs your own Claude Code once when you press Check now. Each check sends one small request on your plan."
+        on={settings.officialClaudeLimits}
+        onChange={(on) => {
+          setMessage(null)
+          void saveSettings({ officialClaudeLimits: on })
+        }}
+      />
+      {settings.officialClaudeLimits ? (
+        <>
+          <p className="setting-line">
+            {official.length
+              ? `${official.map((window) => `${WINDOW_NAME[window.key]}: ${figure(window, now)}`).join('. ')}.`
+              : 'Not checked yet.'}
+          </p>
+          <div className="setting-actions">
+            <button type="button" className="setting-button" disabled={!window.grove || !installed || checking} onClick={() => void check()}>
+              {checking ? 'Checking…' : 'Check now'}
+            </button>
+          </div>
+          <p className="setting-fine">
+            {message ??
+              (!window.grove
+                ? 'Needs the app'
+                : !installed
+                  ? 'Needs Claude Code set up on this Mac.'
+                  : checkedAt
+                    ? `Checked ${ago(checkedAt, now)}. Never checks by itself.`
+                    : 'Never checks by itself. Uses the smallest Claude model, with none of your settings or files.')}
+          </p>
+        </>
+      ) : null}
+    </Section>
+  )
+}
+
 function Updates({ settings }: { settings: GroveSettings }) {
   const update = useGrove((state) => state.snapshot?.update)
   const version = useGrove((state) => state.snapshot?.version)
@@ -238,6 +301,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       <Graphics settings={settings} />
       <Showing settings={settings} />
       <Notifications settings={settings} />
+      <ClaudeLimits settings={settings} />
       <Updates settings={settings} />
       <LiveUpdates open={open} />
       <Uninstall open={open} />

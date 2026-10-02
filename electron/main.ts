@@ -22,9 +22,10 @@ import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
 import { addAgent, addProject, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
 import { LINK_HOME, defaultGrove, isHttpsUrl, isLinkOnly } from '../core/state/schema.ts'
-import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type ProjectResult, type ReadyResult, type RunResult, type UninstallPlan } from './bridge.ts'
+import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type LimitsCheck, type ProjectResult, type ReadyResult, type RunResult, type UninstallPlan } from './bridge.ts'
 import { LiveState } from '../core/hooks/live.ts'
-import { startUsageLoop } from '../core/usage/index.ts'
+import { startUsageLoop, usage as readUsage } from '../core/usage/index.ts'
+import { isProbeFolder, runProbe, type ClaudeReading } from '../core/usage/probe.ts'
 import { createShard, type Shard } from './tray.ts'
 import type { UsageReport } from '../core/usage/types.ts'
 import { startHookServer, type HookServer } from '../core/hooks/server.ts'
@@ -66,6 +67,12 @@ let hookServer: HookServer | null = null
 /** The crystal's figures. Refreshed once a minute on their own timer; see `core/usage/`. */
 let usage: UsageReport | null = null
 let stopUsage: (() => void) | undefined
+/**
+ * Claude's official limits from the last press of "Check now". Kept in memory only: after a
+ * restart the figure is old news, and the honest state is "not checked" until you press again.
+ */
+let claudeReading: ClaudeReading | null = null
+let checkingLimits: Promise<LimitsCheck> | null = null
 let shard: Shard | null = null
 /** How busy the Mac is, sampled on its own five-second timer so hook-driven redraws do not skew it. */
 let system: SystemLoad = { cpu: 0, memory: 0 }
@@ -217,6 +224,8 @@ async function maybeCheckForUpdate(force = false): Promise<UpdateStatus> {
  */
 async function startListening(): Promise<void> {
   hookServer = await startHookServer(await hookToken(), (call) => {
+    // A limits check is the Grove's own housekeeping, not work to show. See `core/usage/probe.ts`.
+    if (isProbeFolder(call.cwd)) return
     // Both always run: `||` would skip the run book whenever the stone's status changed.
     const stoneChanged = live.record(call)
     const runChanged = runs.onHook(call)
@@ -500,11 +509,18 @@ function registerHandlers(): void {
       await restartScanning()
       // Turning the check on should check, not wait up to an hour to find out.
       if ((patch as Record<string, unknown>).checkForUpdates === true) void maybeCheckForUpdate()
+      // Switching official limits off forgets the last reading, so the crystal goes back to counting.
+      if ((patch as Record<string, unknown>).officialClaudeLimits === false && claudeReading) {
+        claudeReading = null
+        void readUsage().then(showUsage, () => {})
+      }
     }
     return result
   })
 
   ipcMain.handle(CHANNELS.checkForUpdates, async () => maybeCheckForUpdate(true))
+
+  ipcMain.handle(CHANNELS.checkClaudeLimits, async (): Promise<LimitsCheck> => checkClaudeLimits())
 
   ipcMain.handle(CHANNELS.openRelease, async () => {
     await shell.openExternal(RELEASES_PAGE)
@@ -625,6 +641,35 @@ async function refreshSetup(force = false): Promise<void> {
   setupLookedAt = now
   setup = await setupStatus()
   redraw()
+}
+
+/** A new usage report redraws from the last scan rather than waiting up to a scan interval. */
+function showUsage(report: UsageReport): void {
+  usage = report
+  shard?.update(report)
+  redraw()
+}
+
+/**
+ * Press "Check now": run your own Claude Code once and read the limits it prints. Only with the
+ * setting on, only one at a time (a second press joins the first), and never on a timer.
+ */
+function checkClaudeLimits(): Promise<LimitsCheck> {
+  checkingLimits ??= (async (): Promise<LimitsCheck> => {
+    const { grove } = await loadGrove()
+    if (!grove.settings.officialClaudeLimits) return { ok: false, error: 'Switch on official Claude limits first.' }
+    const cli = await cliPath('claude-code')
+    if (!cli) return { ok: false, error: 'Claude Code is not set up on this Mac.' }
+    const result = await runProbe(cli)
+    if (result.reading) {
+      claudeReading = result.reading
+      await readUsage(Date.now(), claudeReading).then(showUsage, () => {})
+    }
+    return { ok: result.ok, tokens: result.tokens, error: result.error }
+  })().finally(() => {
+    checkingLimits = null
+  })
+  return checkingLimits
 }
 
 /** Redraw from the last scan, for changes that do not need a new one. */
@@ -754,7 +799,9 @@ async function restartScanning(): Promise<void> {
   stopScanning = undefined
   const { grove } = await loadGrove()
   if (generation !== scanGeneration) return
-  stopScanning = startScanLoop((result) => {
+  stopScanning = startScanLoop((scanned) => {
+    // Limits checks leave sessions behind in their own folder; they are counted as usage, never drawn.
+    const result = { ...scanned, sessions: scanned.sessions.filter((session) => !isProbeFolder(session.cwd)) }
     lastScan = result
     runs.onScan(live.apply(result.sessions))
     publish(result)
@@ -766,16 +813,11 @@ void app.whenReady().then(async () => {
   registerHandlers()
   await startListening()
   await restartScanning()
-  // A new usage report redraws from the last scan rather than waiting up to a scan interval.
   shard = createShard(path.join(dirname, '..', 'assets', 'tray', 'crystalTemplate.png'), {
     open: showWindow,
     quit: () => app.quit(),
   })
-  stopUsage = startUsageLoop((report) => {
-    usage = report
-    shard?.update(report)
-    if (lastScan) publish(lastScan)
-  })
+  stopUsage = startUsageLoop(showUsage, undefined, () => claudeReading)
   setup = await setupStatus()
   timers.push(
     setInterval(() => {

@@ -1223,7 +1223,7 @@ Stones are unchanged: for a stone, a finished turn already means "back with you"
 
 ## Official Claude limits: a probe you press, not the keychain
 
-*1 October 2026, Adrian's call. Decided, not built yet.*
+*1 October 2026, Adrian's call. Built 2 October 2026; see "What building it found" at the end.*
 
 This replaces the choice recorded under "Official Claude five-hour figure: waiting on a decision".
 The keychain route would read a sign-in credential to ask Anthropic for the figures. The probe
@@ -1257,3 +1257,26 @@ of the week. The idea and the field names come from clodfarm (MIT, `clodfarm/gov
 **Still to find out before or while building.** What one check costs in tokens (the result line
 says); whether the hooks fire for a headless session; and whether the same figures already sit
 somewhere under `~/.claude` that could be read for free, which would beat the probe.
+
+**What building it found (2 October 2026, Claude Code 2.1.286).** Code in `core/usage/probe.ts`,
+checked by `npm run verify:probe`; the switch and "Check now" are in Settings → Claude limits.
+
+- *Is it stored for free under `~/.claude`?* No. Nothing outside the transcripts holds these
+  figures, so the probe is needed.
+- *Do hooks fire for a headless session?* Yes: a plain `claude -p` ran the `SessionStart` hooks.
+  The probe therefore loads none of your settings (`--setting-sources ""`), which skips your hooks,
+  plugins and instructions altogether.
+- *What does a check cost?* About 620 tokens (586 in, 37 out) with no settings, no tools and a
+  one-line system prompt. The same request with settings loaded cost about 9,200, almost all of it
+  Claude Code's own system prompt and the hooks' output. Settings shows the real count after each check.
+
+Three places where the build differs from the rules above, each on purpose:
+
+- **A fixed folder, not a chosen session id.** Every check runs in `agentic-grove-limits-check` in
+  the temp folder, and sessions and hook calls from that folder are left out of the grove. A
+  remembered id would be forgotten when the Grove restarts; the folder still works.
+- **A window with no official figure shows the counted tokens, not `unknown`.** The token count is
+  true and already there, so it stays; the note says which window is counted and why. No percentage
+  is ever filled in.
+- **The reading is kept in memory only.** After a restart it shows "Not checked yet" until you
+  press again. Switching the setting off forgets it at once.

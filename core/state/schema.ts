@@ -210,6 +210,11 @@ export interface GroveSettings {
   notifyFinished: boolean
   /** A macOS notification when an agent you sent is waiting on you. Off by default: amber is enough. */
   notifyNeedsYou: boolean
+  /**
+   * Allow "Check now" to read Claude's official limits by running your own Claude Code once. Off by
+   * default, because each check sends one small request on your plan. See `core/usage/probe.ts`.
+   */
+  officialClaudeLimits: boolean
 }
 
 /** The settings a brand-new grove starts with. One place, so the loader and the default agree. */
@@ -226,6 +231,7 @@ export function defaultSettings(): GroveSettings {
     ambientMotion: true,
     notifyFinished: true,
     notifyNeedsYou: false,
+    officialClaudeLimits: false,
   }
 }
 
@@ -239,6 +245,7 @@ export const SETTING_SWITCHES = [
   'ambientMotion',
   'notifyFinished',
   'notifyNeedsYou',
+  'officialClaudeLimits',
 ] as const satisfies readonly (keyof GroveSettings)[]
 
 export interface GroveFile {
