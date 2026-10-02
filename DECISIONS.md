@@ -1304,3 +1304,28 @@ slider, Save image, Done. Esc or Done returns to the home view.
 
 Checked in the browser demo: a 3072 × 2304 image from a 1024 × 768 window, and the drawing size
 back to normal afterwards. The app's save dialog was not exercised.
+
+## The tree answers
+
+*2 October 2026. Roadmap idea 3.*
+
+Type "what did I do yesterday?" into the console. The echo line says "The tree answers →
+yesterday" before anything happens, Enter shows the answer above the console, and each stone
+involved lights and shows its name as its line appears, in the order you came to them. Clicking a
+line opens that stone. Esc, or the cross, puts the answer away.
+
+- **Rules, not a model**, as with the console (`core/history.ts`). It understands today, yesterday,
+  a weekday, "last Friday", this week, last week, and "the last N hours, days or weeks". A history
+  question with no time in it means today.
+- **A wrong reading costs one click.** "Ask an agent instead" on the echo line sends the same text
+  to an agent as before.
+- **Only what the records can support.** A session records when it started and when it was last
+  written to, nothing in between. So a session counts for a period only if it started or was last
+  worked on inside it. One that began before and was last touched after is counted apart, with
+  the sentence "The Grove cannot tell whether it was used then." Per-day activity would need the
+  hook history kept on disk, which it is not; that would be its own decision.
+- **Its reach is said.** Projects on the grove only, and when a question goes back past the oldest
+  session, the answer says when the grove's records start.
+- Nothing is stored, and nothing leaves the Mac.
+
+Checked against real data in the Electron window through its debugging port.

@@ -2756,7 +2756,7 @@
 
 /* Sits just left of Home view, in the same quiet lettering. */
 .view-home.view-photo {
-  right: 124px;
+  right: 146px;
 }
 
 .photo-bar {
@@ -2822,6 +2822,101 @@
   .hud,
   .photo-bar {
     transition: none;
+    animation: none;
+  }
+}
+
+/* ---- The tree answers: a question about your own history, answered above the console. ---- */
+
+.echo-tree {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--glow);
+}
+
+.answer-card {
+  position: relative;
+  padding: 0.85rem 2.4rem 0.8rem 1rem;
+  border: 1px solid rgb(46 111 72 / 0.4);
+  border-radius: 14px;
+  background: rgb(2 9 4 / 0.78);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+  animation: answer-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes answer-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+.answer-card .panel-close {
+  top: 0.5rem;
+  right: 0.5rem;
+}
+
+.answer-headline {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text);
+}
+
+.answer-stones {
+  display: grid;
+  gap: 0.3rem;
+  max-height: 11rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.answer-stones li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.75rem;
+  animation: answer-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.answer-stone {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.answer-stones li.is-lit .answer-stone,
+.answer-stone:hover,
+.answer-stone:focus-visible {
+  color: var(--glow);
+  outline: none;
+}
+
+.answer-detail {
+  min-width: 0;
+  overflow: hidden;
+  color: #8fa197;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.answer-note {
+  margin: 0.55rem 0 0;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .answer-card,
+  .answer-stones li {
     animation: none;
   }
 }

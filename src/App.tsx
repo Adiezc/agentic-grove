@@ -32,6 +32,7 @@ import { DEMO } from './demo'
 import { useTree } from './agents/tree'
 import { saveSettings, useSettings } from './store/settings'
 import { usePhoto } from './store/photo'
+import { useAnswer } from './store/answer'
 import { PhotoBar } from './hud/Photo'
 import { sceneFor, useAdaptiveGraphics, useDrawing } from './scene/graphics'
 import './hud/hud.css'
@@ -296,6 +297,8 @@ export function App() {
         // being closed keeps focus for a moment, and an Enter pressed straight after lands on it.
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
         setPanel(null)
+        // An answer on screen is the first thing Esc puts away.
+        if (useAnswer.getState().answer) return useAnswer.getState().clear()
         useFlow.getState().back()
         return
       }

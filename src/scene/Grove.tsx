@@ -29,6 +29,7 @@ import { EmptyPlace } from './EmptyPlace'
 import type { EmptyPlace as Place } from './layout'
 import { useTree } from '../agents/tree'
 import { usePhoto } from '../store/photo'
+import { useAnswer } from '../store/answer'
 import { PhotoFocus, PhotoShot } from './Photo'
 import { useFlow, type FlowView } from '../store/flow'
 import type { Pairing } from '../../core/state/pairings.ts'
@@ -341,6 +342,8 @@ export function GroveScene({
   const tree = useTree()
   const photo = usePhoto((state) => state.on)
   const photoDepth = usePhoto((state) => state.depth)
+  // While the tree answers a question, the stone it is naming stands lit and named.
+  const answering = useAnswer((state) => state.lit)
 
   /* Which stones are new. `known` is only written after a render has been committed, so a
    * render React throws away (StrictMode does this on purpose) cannot mark a stone as seen
@@ -473,6 +476,7 @@ export function GroveScene({
           showLabel={
             // A photograph has no labels in it.
             !photo && (alwaysShowNames ||
+            answering === stone.id ||
             hovered === stone.id ||
             focused === stone.id ||
             stoneId === stone.id ||
@@ -483,7 +487,7 @@ export function GroveScene({
           onHover={handleHover}
           onSelect={selectStone}
           rising={arriving.has(stone.id)}
-          selected={stoneId === stone.id && view !== 'home'}
+          selected={(stoneId === stone.id && view !== 'home') || answering === stone.id}
         />
       ))}
 

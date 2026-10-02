@@ -16,8 +16,11 @@
  * `scene/runes.ts`; nothing in the interface hand-rolls an SVG path.
  */
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { ArrowRight, BookOpen, Cube, File, Gear, PlusCircle, Pulse, Record, User, X } from '@phosphor-icons/react'
+import { ArrowRight, BookOpen, Cube, File, Gear, PlusCircle, Pulse, Record, Tree, User, X } from '@phosphor-icons/react'
 import { readCommand, type ConsoleStone } from '../../core/console.ts'
+import { answerHistory, readQuestion } from '../../core/history.ts'
+import { useAnswer } from '../store/answer'
+import { AnswerCard } from './Answer'
 import { healthOf } from '../../core/health.ts'
 import { useGrove } from '../store/grove'
 import { HARNESS_MARK, kindOf, useTree } from '../agents/tree'
@@ -214,6 +217,12 @@ export function RuneConsole({
   const stone = stones.find((each) => each.id === reading.stoneId)
   const typed = value.trim().length > 0
 
+  // A question about your own history is answered by the tree itself, from the scan, unless you
+  // click to hand it to an agent instead. See `core/history.ts`.
+  const [toAgent, setToAgent] = useState(false)
+  const period = useMemo(() => readQuestion(value, Date.now()), [value])
+  const treeAnswers = period !== null && !toAgent
+
   // Which tool will run it. Your own agents have their own; the built-in three go where the
   // Manager's rules send them (installed, allowance not used up), unless you click to change it.
   const installed = { claudeCode: Boolean(setup?.['claude-code'].cli), codex: Boolean(setup?.codex.cli) }
@@ -229,6 +238,7 @@ export function RuneConsole({
     if (!typed) {
       setChosen(null)
       setChosenTool(null)
+      setToAgent(false)
     }
   }, [typed])
 
@@ -248,7 +258,14 @@ export function RuneConsole({
   }
 
   const send = () => {
+    if (treeAnswers && period) {
+      const real = useGrove.getState().snapshot?.grove.stones ?? []
+      useAnswer.getState().show(answerHistory(period, real), real.length)
+      setValue('')
+      return
+    }
     if (!typed || !agent || busy) return
+    useAnswer.getState().clear()
     const paths = files.map((file) => window.grove?.pathForFile(file) ?? '').filter(Boolean)
     const task = paths.length ? `${reading.task}\n\nFiles to use:\n${paths.map((each) => `- ${each}`).join('\n')}` : reading.task
     deployTo(
@@ -286,9 +303,22 @@ export function RuneConsole({
           ))}
         </ul>
       ) : null}
+      <AnswerCard />
       {/* The echo: who would take this, and where, before anything is sent. */}
       <div className={`console-echo${typed && agent ? ' is-open' : ''}`} aria-live="polite">
-        {typed && agent && Glyph ? (
+        {treeAnswers && period ? (
+          <>
+            <span className="echo-tree">
+              <Tree size={14} weight="thin" aria-hidden="true" />
+              The tree answers
+            </span>
+            <ArrowRight size={12} weight="thin" aria-hidden="true" />
+            <span className="echo-stone">{period.label}</span>
+            <button type="button" className="echo-tool" onClick={() => setToAgent(true)} title="Send this to an agent instead">
+              Ask an agent instead
+            </button>
+          </>
+        ) : typed && agent && Glyph ? (
           <>
             <button
               type="button"

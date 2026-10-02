@@ -82,7 +82,8 @@ Picked on 27 September 2026, after step 6. Ranked, most important first.
    flickers once. Signals, all from hooks: the same tool call failing several times in a row, an edit
    undone by a later edit, or a session that ends straight after an error. A quiet flag for work worth
    checking, never an alarm. Say what triggered it on hover, so the flag can be judged, not trusted.
-3. **The tree answers (about one session). Needs the rune console (step 10).** Ask the console
+3. **The tree answers. Done 2 October 2026** (`core/history.ts`, `src/hud/Answer.tsx`,
+   `npm run verify:history`). Ask the console
    about your own history, such as "what did I do on Tuesday?", and the stones involved light up in
    order while the answer is written out. The world becomes the answer. Answers come from the scan
    and hook history on this machine; say so when the history does not reach back far enough.
