@@ -16,7 +16,7 @@
  * `scene/runes.ts`; nothing in the interface hand-rolls an SVG path.
  */
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { ArrowRight, BookOpen, Cube, File, Gear, PlusCircle, Pulse, Record, Tree, User, X } from '@phosphor-icons/react'
+import { ArrowRight, BookOpen, Cpu, Cube, File, Gear, PlusCircle, Pulse, Record, Tree, User, X } from '@phosphor-icons/react'
 import { readCommand, type ConsoleStone } from '../../core/console.ts'
 import { answerHistory, readQuestion } from '../../core/history.ts'
 import { useAnswer } from '../store/answer'
@@ -25,6 +25,7 @@ import { healthOf } from '../../core/health.ts'
 import { useGrove } from '../store/grove'
 import { HARNESS_MARK, kindOf, useTree } from '../agents/tree'
 import { headroomFrom, route } from '../../core/routing.ts'
+import { choicesFor, modelForJob, modelLabel, toolOf } from '../../core/models.ts'
 import { useFlow } from '../store/flow'
 
 /** Every icon at one weight. Phosphor's `thin` is what matches the art's hairline rail. */
@@ -199,6 +200,8 @@ export function RuneConsole({
   const [chosen, setChosen] = useState<string | null>(null)
   /** A tool you chose the same way, for a built-in agent. */
   const [chosenTool, setChosenTool] = useState<'claude-code' | 'codex' | null>(null)
+  /** A model for this one job, over the agent's own. Cleared with the text. */
+  const [chosenModel, setChosenModel] = useState<string | null>(null)
   const setup = useGrove((state) => state.snapshot?.setup)
   const usage = useGrove((state) => state.snapshot?.usage ?? null)
   const picker = useRef<HTMLInputElement>(null)
@@ -234,10 +237,22 @@ export function RuneConsole({
   const canSwitchTool = builtIn && installed.claudeCode && installed.codex
   const ToolMark = HARNESS_MARK[tool].Mark
 
+  // The model this job would run on: chosen here, or the agent's own; Default if that name belongs
+  // to the other tool. Clicking steps through the tool's choices for this one job.
+  const agentModel = agent?.model ?? ''
+  const jobModel = modelForJob(tool, agentModel, chosenModel ?? undefined)
+  const nextModel = () => {
+    const options = choicesFor(tool).map((choice) => choice.value)
+    if (agentModel && !options.includes(agentModel) && toolOf(agentModel) === tool) options.push(agentModel)
+    const index = options.indexOf(jobModel)
+    setChosenModel(options[(index + 1) % options.length]!)
+  }
+
   useEffect(() => {
     if (!typed) {
       setChosen(null)
       setChosenTool(null)
+      setChosenModel(null)
       setToAgent(false)
     }
   }, [typed])
@@ -277,8 +292,10 @@ export function RuneConsole({
         setFiles([])
         setChosen(null)
         setChosenTool(null)
+        setChosenModel(null)
       },
-      builtIn ? tool : undefined
+      builtIn ? tool : undefined,
+      chosenModel ?? undefined
     )
   }
 
@@ -340,6 +357,16 @@ export function RuneConsole({
             >
               <ToolMark size={11} weight="bold" aria-hidden="true" />
               {HARNESS_MARK[tool].label}
+            </button>
+            <button
+              type="button"
+              className={`echo-tool echo-model${chosenModel !== null ? ' is-chosen' : ''}`}
+              onClick={nextModel}
+              title={chosenModel !== null ? 'For this job only. Click for another' : `${agent.name}'s model. Click to choose another for this job`}
+              aria-label={`On ${modelLabel(jobModel)}. Choose another model for this job`}
+            >
+              <Cpu size={11} weight="thin" aria-hidden="true" />
+              {modelLabel(jobModel)}
             </button>
             <ArrowRight size={12} weight="thin" aria-hidden="true" />
             <span className={`echo-stone${stone ? '' : ' is-open-choice'}`}>{stone ? stone.name : 'you choose the stone'}</span>

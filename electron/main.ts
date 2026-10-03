@@ -19,7 +19,8 @@ import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
-import { addAgent, addProject, carveNote, carveRune, declineRune, readNote, removeRune, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings, updateAgent, type AgentDraft } from '../core/state/grove.ts'
+import { addAgent, addProject, carveNote, carveRune, declineRune, readNote, removeRune, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings, setAgentModel, updateAgent, type AgentDraft } from '../core/state/grove.ts'
+import { builtInModel, isModelName, modelForJob } from '../core/models.ts'
 import { deriveStones } from '../core/state/stones.ts'
 import { readRepos } from '../core/state/repos.ts'
 import { noteViews } from '../core/state/notes.ts'
@@ -174,6 +175,7 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
     grove: derived,
     settings: grove.settings,
     agents: grove.agents,
+    builtInModels: grove.builtInModels ?? {},
     harnesses: result.harnesses,
     problems: result.problems,
     groveProblems: loaded?.problems ?? [],
@@ -526,6 +528,13 @@ function registerHandlers(): void {
     return result
   })
 
+  handle(CHANNELS.setAgentModel, async (_event, id: unknown, model: unknown): Promise<AgentResult> => {
+    if (typeof id !== 'string' || typeof model !== 'string') return { ok: false, error: 'Not an agent and a model' }
+    const result = await setAgentModel(id, model).catch((error: unknown) => ({ ok: false, error: String(error) }))
+    if (result.ok) await restartScanning()
+    return result
+  })
+
   handle(CHANNELS.openAgentLink, async (_event, id: unknown): Promise<AgentResult> => {
     const { grove } = await loadGrove()
     const agent = grove.agents.find((each) => each.id === id)
@@ -759,8 +768,9 @@ const MAX_TASK_CHARS = 20_000
  */
 async function launchRun(request: unknown): Promise<RunResult> {
   if (typeof request !== 'object' || request === null) return { ok: false, error: 'Not a request' }
-  const { stoneId, agentId, task, harness: asked } = request as Record<string, unknown>
+  const { stoneId, agentId, task, harness: asked, model: askedModel } = request as Record<string, unknown>
   if (typeof stoneId !== 'string' || typeof agentId !== 'string' || typeof task !== 'string') return { ok: false, error: 'Not a request' }
+  if (askedModel !== undefined && (typeof askedModel !== 'string' || !isModelName(askedModel))) return { ok: false, error: 'Not a model name' }
   if (task.length > MAX_TASK_CHARS) return { ok: false, error: 'That task is too long to send' }
 
   const { grove } = await loadGrove()
@@ -798,11 +808,14 @@ async function launchRun(request: unknown): Promise<RunResult> {
   let brief = own ? (own.systemPrompt ?? '') : (BUILT_IN_BRIEFS[agentId] ?? '')
   let agents: string | undefined
   if (agentId === PM_ID) {
-    const team = teamFor(grove.agents.filter((agent) => agent.harness === harness))
+    const team = teamFor(grove.agents.filter((agent) => agent.harness === harness), grove.builtInModels)
     brief = pmBrief(team, harness)
     if (harness === 'claude-code') agents = claudeAgentsJson(team)
   }
-  const result = await launch({ run, folder: stoneId, brief, model: own?.model ?? '', agents }, shell.openPath)
+  // This job's model if the console chose one, otherwise the agent's; never a name the tool would refuse.
+  const agentModel = own ? (own.model ?? '') : builtInModel(agentId, grove.builtInModels)
+  const model = modelForJob(harness, agentModel, typeof askedModel === 'string' ? askedModel : undefined)
+  const result = await launch({ run, folder: stoneId, brief, model, agents }, shell.openPath)
   if (!result.ok) runs.fail(run.id, result.error)
   redraw()
   return result.ok ? { ok: true, runId: run.id } : { ok: false, runId: run.id, error: result.error, missing: result.missing }

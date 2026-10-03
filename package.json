@@ -40,6 +40,7 @@
     "verify:twins": "tsx test/verify-twins.ts",
     "verify:security": "tsx test/verify-security.ts",
     "verify:notes": "tsx test/verify-notes.ts",
+    "verify:models": "tsx test/verify-models.ts",
     "verify:suggest-runes": "tsx test/verify-suggest-runes.ts",
     "dmg": "node scripts/package.mjs --dmg"
   },

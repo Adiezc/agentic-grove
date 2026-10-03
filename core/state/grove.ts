@@ -27,11 +27,12 @@ import fsp from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import os from 'node:os'
-import { type GroveFile, type GroveProblem, type StoneConfig, BUILT_IN_AGENT_IDS, MAX_BRIEF_CHARS, defaultGrove, parseAgent, parseGrove } from './schema.ts'
+import { type GroveFile, type GroveProblem, type StoneConfig, BUILT_IN_AGENT_IDS, MAX_BRIEF_CHARS, defaultGrove, isLinkOnly, parseAgent, parseGrove } from './schema.ts'
 import { assignPlaces, placeFor } from './places.ts'
 import { type RepoInfo, readRepos, twinsOf } from './repos.ts'
 import { MAX_NOTE_CHARS, NOTE_PLACES, type NotePlace } from './notes.ts'
 import { promptKey, runeNameFor } from './suggest-runes.ts'
+import { isModelName } from '../models.ts'
 
 /** `AGENTIC_GROVE_HOME` exists so tests can point somewhere disposable. */
 export const groveHome = (): string =>
@@ -333,6 +334,30 @@ export async function updateAgent(id: string, draft: AgentDraft): Promise<{ ok: 
       }
       grove.agents[index] = agent
       return { result: { ok: true, id }, write: true }
+    },
+    { ok: false, error: 'grove.json has an error; fix it before changing agents' }
+  )
+}
+
+/**
+ * Choose the model an agent runs on: one of yours (written on its definition) or a built-in
+ * (written to `builtInModels`). An empty name is Default, the tool's own choice. See `core/models.ts`.
+ */
+export async function setAgentModel(id: string, model: string): Promise<{ ok: boolean; error?: string }> {
+  const name = typeof model === 'string' ? model.trim() : ''
+  if (!isModelName(name)) return { ok: false, error: 'That is not a model name' }
+  return updateGrove<{ ok: boolean; error?: string }>(
+    (grove) => {
+      if ((BUILT_IN_AGENT_IDS as readonly string[]).includes(id)) {
+        grove.builtInModels = { ...grove.builtInModels, [id]: name }
+        return { result: { ok: true }, write: true }
+      }
+      const agent = grove.agents.find((each) => each.id === id)
+      if (!agent) return { result: { ok: false, error: 'No agent with that id' }, write: false }
+      if (isLinkOnly(agent.harness)) return { result: { ok: false, error: `${agent.name} lives in its own app; its model is chosen there` }, write: false }
+      if (name) agent.model = name
+      else delete agent.model
+      return { result: { ok: true }, write: true }
     },
     { ok: false, error: 'grove.json has an error; fix it before changing agents' }
   )

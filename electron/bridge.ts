@@ -40,8 +40,10 @@ export interface GroveSnapshot {
   at: number
   grove: DerivedGrove
   settings: GroveSettings
-  /** The agents you have connected to the tree, as `grove.json` has them. Researcher is not listed. */
+  /** The agents you have connected to the tree, as `grove.json` has them. The built-in three are not listed. */
   agents: AgentDefinition[]
+  /** Models chosen for the built-in agents, as `grove.json` has them. See `core/models.ts`. */
+  builtInModels: Record<string, string>
   /** Which tools are installed, and anything each wants to say about itself. */
   harnesses: HarnessStatus[]
   /** A harness that failed to scan. Shown, not swallowed. */
@@ -159,8 +161,10 @@ export interface GroveApi {
   addAgent(draft: AgentDraft): Promise<AgentResult>
   /** Change one of your agents. Same checks as `addAgent`; its id and tool do not change. */
   updateAgent(id: string, draft: AgentDraft): Promise<AgentResult>
-  /** Take one of your agents off the tree. Researcher cannot be removed. */
+  /** Take one of your agents off the tree. The built-in three cannot be removed. */
   removeAgent(id: string): Promise<AgentResult>
+  /** Choose the model an agent runs on, built-in or yours. Empty is Default. See `core/models.ts`. */
+  setAgentModel(id: string, model: string): Promise<AgentResult>
   /** Carve a note on a stone (its path), an agent (its id) or the tree (id ignored). Empty text removes it. */
   carveNote(on: NotePlace, id: string, text: string): Promise<{ ok: boolean; error?: string }>
   /** A showing note has been read: it fades and goes. */
@@ -220,9 +224,10 @@ export interface GroveApi {
    * never names a folder to run in or a command to run. Resolves once Terminal has been asked to
    * open, with the run's id; whether a session really started arrives later, on the run.
    * `harness` picks the tool for a built-in agent (the console's override); left out, PM's
-   * rules in `core/routing.ts` pick it. Your own agents always use their own tool.
+   * rules in `core/routing.ts` pick it. Your own agents always use their own tool. `model` is a
+   * model for this one job (the console's model chip); left out, the agent's own model is used.
    */
-  launchRun(request: { stoneId: string; agentId: string; task: string; harness?: 'claude-code' | 'codex' }): Promise<RunResult>
+  launchRun(request: { stoneId: string; agentId: string; task: string; harness?: 'claude-code' | 'codex'; model?: string }): Promise<RunResult>
   /** Reopen a Claude Code run's session in Terminal (`claude --resume`). */
   resumeRun(runId: string): Promise<RunResult>
   /** The last lines of a run's transcript, for the live view. Claude Code runs only. */
@@ -314,6 +319,7 @@ export const CHANNELS = {
   addAgent: 'grove:add-agent',
   updateAgent: 'grove:update-agent',
   removeAgent: 'grove:remove-agent',
+  setAgentModel: 'grove:set-agent-model',
   carveNote: 'grove:carve-note',
   readNote: 'grove:read-note',
   carveRune: 'grove:carve-rune',

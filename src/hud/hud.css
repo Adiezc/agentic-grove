@@ -3056,3 +3056,67 @@
 .rune-offer p svg {
   vertical-align: -1px;
 }
+
+/* ---- Choosing a model: chips like the grow form's tool choice, Default first. ---- */
+.model-picker {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+}
+
+.model-label {
+  font-size: 0.7rem;
+  color: #8fa197;
+}
+
+.model-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.3rem;
+}
+
+.model-chips .grow-kind {
+  height: 1.85rem;
+}
+
+.model-chips .grow-kind:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.model-other {
+  height: 2.1rem;
+  padding: 0 0.8rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 10px;
+  background: rgb(2 9 4 / 0.55);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.model-other::placeholder {
+  color: var(--text-dim);
+}
+
+.model-other:focus-visible {
+  border-color: var(--live);
+  outline: none;
+}
+
+/* Not amber: amber means something needs you. A name that will not be sent is just dimmed. */
+.model-other.is-invalid {
+  border-color: rgb(143 161 151 / 0.6);
+  color: var(--text-dim);
+}
+
+.model-aside {
+  margin: 0.1rem 0 0;
+  font-size: 0.66rem;
+  color: var(--text-dim);
+}
+
+/* The console's model chip: the agent's model, or one chosen for this job, which reads brighter. */
+.echo-model.is-chosen {
+  color: var(--glow);
+}

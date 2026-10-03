@@ -28,8 +28,11 @@ MIT licensed. No telemetry, ever.
   jobs get a plan you agree to before anything changes. It all runs in Terminal, in that project,
   as your own Claude Code or Codex.
 - **Or send one agent yourself.** Pick a stone and an agent from the tree, or start the job with
-  its name ("@builder fix the tests"). The console shows who would take it and where before
-  anything is sent, and one click changes either.
+  its name ("@builder fix the tests"). The console shows who would take it, on which model and
+  where before anything is sent, and one click changes any of them.
+- **Choose each agent's model.** Every agent's card has Default (whatever you picked in Claude Code
+  or Codex), Opus, Sonnet, Haiku or any exact name. The Researcher starts on Haiku, since it reads
+  a lot and changes nothing.
 - **Save the jobs you repeat.** A saved task on a stone runs in one click. When three sessions in a
   project start with the same prompt, the Grove offers to save it, and remembers if you say no.
 - **Leave a note for next time.** On a stone, an agent or the tree. It stays out of the way until
@@ -189,7 +192,7 @@ npm run dmg      # build release/Agentic-Grove-<version>-arm64.dmg for a GitHub 
 ```
 
 Each part with rules of its own has a `verify:` script beside it (`spawn`, `console`, `attention`,
-`health`, `places`, `readiness`, `reliability`, `pairings`, `tells`, `probe`, `history`, `codex-usage`, `twins`, `suggest-runes`, `notes`, `security`); they run in seconds and touch nothing of
+`health`, `places`, `readiness`, `reliability`, `pairings`, `tells`, `probe`, `history`, `codex-usage`, `twins`, `suggest-runes`, `notes`, `models`, `security`); they run in seconds and touch nothing of
 yours.
 
 `verify` is the one worth knowing about. It counts the files on disk with its own separate code

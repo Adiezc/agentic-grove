@@ -50,6 +50,7 @@ const api: GroveApi = {
   removeProject: (stoneId) => ipcRenderer.invoke(CHANNELS.removeProject, stoneId),
   updateAgent: (id, draft) => ipcRenderer.invoke(CHANNELS.updateAgent, id, draft),
   removeAgent: (id) => ipcRenderer.invoke(CHANNELS.removeAgent, id),
+  setAgentModel: (id, model) => ipcRenderer.invoke(CHANNELS.setAgentModel, id, model),
   carveNote: (on, id, text) => ipcRenderer.invoke(CHANNELS.carveNote, on, id, text),
   readNote: (on, id) => ipcRenderer.invoke(CHANNELS.readNote, on, id),
   carveRune: (stoneId, prompt, agent) => ipcRenderer.invoke(CHANNELS.carveRune, stoneId, prompt, agent),

@@ -20,6 +20,8 @@ import { useFlow } from '../store/flow'
 import { CarvedNote } from './Note'
 import { StoneRunes } from './Runes'
 import { DEMO } from '../demo'
+import { ModelPicker } from './ModelPicker'
+import { toolOf } from '../../core/models.ts'
 
 /** One line per fixture stone. Real stones will take theirs from the project's README or name. */
 const STONE_LINES: Record<string, string> = {
@@ -389,6 +391,18 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
   useEffect(() => {
     if (!open) setTask('')
   }, [open])
+  // The model shows your choice straight away; the saved one takes over when the grove reloads.
+  const [pendingModel, setPendingModel] = useState<string | null>(null)
+  useEffect(() => setPendingModel(null), [agent.id, agent.model])
+  const shownModel = pendingModel ?? agent.model
+  const chooseModel = async (model: string) => {
+    setPendingModel(model)
+    const result = await window.grove?.setAgentModel(agent.id, model)
+    if (result && !result.ok) {
+      setPendingModel(null)
+      setError(result.error ?? 'Could not change the model')
+    }
+  }
   const send = () => deploy(agent.id, task)
   // Enter sends, as in the console; Shift+Enter is a new line for a longer task.
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -461,6 +475,12 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
         </div>
       </header>
       <p className="panel-line agent-line">{agent.description}</p>
+      {isBot ? null : (
+        <>
+          <ModelPicker tool={agent.harness === 'codex' ? 'codex' : 'claude-code'} value={shownModel} disabled={!canWrite} onChange={(model) => void chooseModel(model)} />
+          {agent.id === 'researcher' && shownModel === 'haiku' ? <p className="model-aside">Haiku by default: it reads a lot and changes nothing.</p> : null}
+        </>
+      )}
       <CarvedNote on="tree" id="" open={open} />
       {isBot ? null : <CarvedNote on="agent" id={agent.id} open={open} />}
       {agent.at === null ? <p className="panel-aside">Every branch is taken, so this agent has no orb. It works the same.</p> : null}
@@ -616,7 +636,12 @@ export function GrowCard() {
                 role="radio"
                 aria-checked={harness === kind}
                 className={`grow-kind${harness === kind ? ' is-on' : ''}`}
-                onClick={() => setHarness(kind)}
+                onClick={() => {
+                  setHarness(kind)
+                  // A Claude model means nothing to Codex, and the other way round.
+                  const owner = toolOf(model)
+                  if (owner && owner !== (kind === 'codex' ? 'codex' : 'claude-code')) setModel('')
+                }}
               >
                 <Mark size={14} weight="bold" aria-hidden="true" />
                 <span>{label}</span>
@@ -657,16 +682,7 @@ export function GrowCard() {
                 placeholder="How it should work. Sent ahead of every job you give it."
               />
             </label>
-            <label className="grow-field">
-              <span>Model (optional)</span>
-              <input
-                value={model}
-                onChange={(event) => setModel(event.target.value)}
-                maxLength={80}
-                placeholder={`${HARNESS_MARK[harness].label}'s own choice`}
-                spellCheck={false}
-              />
-            </label>
+            <ModelPicker tool={harness === 'codex' ? 'codex' : 'claude-code'} value={model} onChange={setModel} />
           </>
         )}
 

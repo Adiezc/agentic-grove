@@ -34,6 +34,7 @@ import { DEMO } from '../demo'
 import { STAGE_GROVE } from '../demoStages'
 import { useGrove } from '../store/grove'
 import { DEFAULT_GLYPH, GLYPHS } from './glyphs'
+import { builtInModel } from '../../core/models.ts'
 
 export type Harness = AgentHarness
 
@@ -55,6 +56,8 @@ export interface TreeAgent {
   at: [number, number, number] | null
   /** True for agents you connected, which you may also take away. False for the built-in three. */
   own: boolean
+  /** The model it runs on as saved: empty is Default, the tool's own choice. See `core/models.ts`. */
+  model: string
 }
 
 /**
@@ -138,7 +141,8 @@ const STAGE_BUSY = STAGE_GROVE ? new Set(Object.values(STAGE_GROVE.workers).flat
  */
 export function placeAgents(
   definitions: AgentDefinition[],
-  busy: ReadonlySet<string> = new Set()
+  busy: ReadonlySet<string> = new Set(),
+  builtInModels?: Record<string, string>
 ): { agents: TreeAgent[]; bud: [number, number, number] } {
   let hanging = 0
   let drifting = 0
@@ -158,6 +162,7 @@ export function placeAgents(
       running: bot ? null : DEMO ? (STAGE_BUSY ? STAGE_BUSY.has(definition.id) : definition.id === 'manager') : busy.has(definition.id),
       at,
       own: !BUILT_IN.has(definition.id),
+      model: BUILT_IN.has(definition.id) ? builtInModel(definition.id, builtInModels) : (definition.model ?? ''),
     })
   }
   return { agents, bud: HANGING[Math.min(hanging, HANGING.length)] ?? BUD_WHEN_FULL }
@@ -169,6 +174,7 @@ const NO_AGENTS: AgentDefinition[] = []
 export function useTree(): { agents: TreeAgent[]; bud: [number, number, number]; counts: { grove: number; bot: number } } {
   const connected = useGrove((state) => state.snapshot?.agents ?? NO_AGENTS)
   const showFireflies = useGrove((state) => state.snapshot?.settings.showFireflies ?? true)
+  const builtInModels = useGrove((state) => state.snapshot?.builtInModels)
   // Claude Code unless only Codex is on this Mac. Read once per snapshot, so installing Codex later
   // and removing Claude Code moves the built-ins over without anyone editing a file.
   const preferred = useGrove((state): AgentHarness => {
@@ -188,9 +194,9 @@ export function useTree(): { agents: TreeAgent[]; bud: [number, number, number];
   return useMemo(() => {
     const yours = (DEMO ? (STAGE_GROVE?.agents ?? EXAMPLES) : connected).filter((agent) => showFireflies || kindOf(agent) === 'grove')
     const definitions = [...builtIns(preferred), ...yours]
-    const placed = placeAgents(definitions, new Set(busyKey.split(' ').filter(Boolean)))
+    const placed = placeAgents(definitions, new Set(busyKey.split(' ').filter(Boolean)), builtInModels)
     const counts = { grove: 0, bot: 0 }
     for (const definition of definitions) counts[kindOf(definition)] += 1
     return { ...placed, counts }
-  }, [connected, preferred, showFireflies, busyKey])
+  }, [connected, preferred, showFireflies, busyKey, builtInModels])
 }

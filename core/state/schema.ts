@@ -22,6 +22,7 @@
 
 /** Bumped only when a change cannot be read by an older build. Nothing migrates below 1. */
 import { MAX_NOTE_CHARS, NOTE_PLACES, type CarvedNote, type NotePlace } from './notes.ts'
+import { isModelName } from '../models.ts'
 
 export const GROVE_SCHEMA_VERSION = 1
 
@@ -282,6 +283,11 @@ export interface GroveFile {
   agents: AgentDefinition[]
   /** Notes to your future self, waiting on a stone, an agent or the tree. See `notes.ts`. */
   notes: CarvedNote[]
+  /**
+   * Models you chose for the built-in agents, by id (`"manager"` is PM). Left out means the
+   * agent's own default; `""` means the tool's default. See `core/models.ts`.
+   */
+  builtInModels?: Record<string, string>
 }
 
 /**
@@ -475,6 +481,20 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
     }
   }
 
+  if (raw.builtInModels !== undefined) {
+    const entries = typeof raw.builtInModels === 'object' && raw.builtInModels !== null && !Array.isArray(raw.builtInModels) ? Object.entries(raw.builtInModels) : null
+    if (!entries) problems.push({ where: 'builtInModels', message: 'Should be an object, like { "builder": "opus" }.' })
+    else {
+      const models: Record<string, string> = {}
+      for (const [id, model] of entries) {
+        if (!(BUILT_IN_AGENT_IDS as readonly string[]).includes(id)) problems.push({ where: `builtInModels.${id}`, message: `Not a built-in agent. Use one of ${BUILT_IN_AGENT_IDS.join(', ')}.` })
+        else if (typeof model !== 'string' || !isModelName(model)) problems.push({ where: `builtInModels.${id}`, message: 'Should be a model name, like "opus", or "" for the default.' })
+        else models[id] = model
+      }
+      if (Object.keys(models).length) grove.builtInModels = models
+    }
+  }
+
   if (raw.notes !== undefined) {
     if (!Array.isArray(raw.notes)) problems.push({ where: 'notes', message: 'Should be a list, like [ ].' })
     else {
@@ -588,7 +608,10 @@ export function parseAgent(entry: unknown, at: string, problems: GroveProblem[])
   }
 
   const model = asString(entry.model)
-  if (model) agent.model = model
+  if (model) {
+    if (isModelName(model)) agent.model = model
+    else problems.push({ where: `${at}.model`, message: `"${model.slice(0, 40)}" is not a model name. Use one like "opus", or leave it out for the default.` })
+  }
   const systemPrompt = asString(entry.systemPrompt)
   if (systemPrompt) agent.systemPrompt = systemPrompt
   return agent

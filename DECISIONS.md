@@ -1587,3 +1587,26 @@ Sources: anthropic.com/engineering/multi-agent-research-system,
 anthropic.com/engineering/building-effective-agents, code.claude.com/docs/en/sub-agents,
 code.claude.com/docs/en/agent-teams, cognition.com/blog/dont-build-multi-agents,
 openai.github.io/openai-agents-python/multi_agent, learn.chatgpt.com/docs/agent-configuration/subagents.
+
+## Models: Default is the tool's own choice; every agent has a picker
+
+*3 October 2026*
+
+Adrian asked which model agents should use by default and how to change it. **Default means the
+model you chose in the tool itself** (`/model` in Claude Code, Codex's settings). The Grove cannot
+see your plan, so it never picks a model you may not have, and short names keep working when new
+versions ship. One exception: the **Researcher starts on Haiku** on Claude Code, because it reads a
+lot and changes nothing, the work Anthropic's docs suggest giving the light model. It shows as
+Haiku in its card and one click puts it on Default.
+
+Changing it: every agent's card (PM, Researcher and Builder included) has chips for Default, Fable,
+Opus, Sonnet, Haiku and Other (an exact name); Codex agents get Default and Other only, since the
+Grove has no reliable list of Codex models. Built-in choices are stored in `grove.json` as
+`builtInModels` (left out: the agent's own default; `""`: the tool's default); yours stay on the
+agent. The console's preview line has a model chip that changes the model for that one job.
+PM's workers get their own chosen models through `--agents`. A model only goes to the tool it
+belongs to: a Claude name on a job routed to Codex falls back to Default rather than starting the
+tool with a name it would refuse. No Grove-wide default setting: the tool's own setting already is
+one. Rules in `core/models.ts`, `npm run verify:models` (8). Clicked through in the app against a
+test grove: choosing Opus for PM wrote `{"manager":"opus"}`, the console then read "PM · Claude
+Code · Opus", and its chip stepped through the choices for one job.

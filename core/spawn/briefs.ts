@@ -28,6 +28,8 @@
  * read exactly what their agent was told.
  */
 
+import { builtInModel, modelForJob } from '../models.ts'
+
 /** PM's id. Kept from when it was called Manager, so earlier runs and saved tasks still point at it. */
 export const PM_ID = 'manager'
 
@@ -102,11 +104,13 @@ export function workerKey(text: string): string {
 
 /**
  * PM's team: the built-in workers, then your own agents that run on the same tool as this PM run,
- * so a reviewer you connected is someone PM can ask. Your agent keeps its own brief and model.
- * A key already taken (your agent called "Builder") gets a number rather than replacing the other.
+ * so a reviewer you connected is someone PM can ask. Every worker runs on the model chosen for it
+ * (`chosen` is `builtInModels` from grove.json; the Researcher defaults to Haiku, see
+ * `core/models.ts`). A key already taken (your agent called "Builder") gets a number rather than
+ * replacing the other.
  */
-export function teamFor(yours: OwnAgent[]): Worker[] {
-  const team = [...BUILT_IN_WORKERS]
+export function teamFor(yours: OwnAgent[], chosen?: Record<string, string>): Worker[] {
+  const team = BUILT_IN_WORKERS.map((worker) => ({ ...worker, model: builtInModel(worker.key, chosen) || undefined }))
   const taken = new Set(team.map((worker) => worker.key))
   for (const agent of yours) {
     let key = workerKey(agent.name)
@@ -130,11 +134,13 @@ export function teamFor(yours: OwnAgent[]): Worker[] {
 export function claudeAgentsJson(team: Worker[]): string {
   const agents: Record<string, { description: string; prompt: string; tools?: string[]; model?: string }> = {}
   for (const worker of team) {
+    // A Codex model name means nothing to Claude Code, so that worker falls back to the default.
+    const model = modelForJob('claude-code', worker.model ?? '')
     agents[worker.key] = {
       description: worker.description,
       prompt: worker.prompt,
       ...(worker.tools ? { tools: worker.tools } : {}),
-      ...(worker.model ? { model: worker.model } : {}),
+      ...(model ? { model } : {}),
     }
   }
   return JSON.stringify(agents)
