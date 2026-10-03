@@ -1,51 +1,41 @@
 # Agentic Grove
 
-A desktop interface for running and watching AI agents. It is meant to sit open on a third
-screen all day while you work on your main screens: you glance over, see how many agents are
-working and whether anything needs you, and look away again.
+A calm desktop cockpit for your AI agents. Your projects stand as runestones, your agents live in
+a tree, and amber light means something needs you. Leave it open on a spare screen: glance over,
+see what is working and what is waiting, and look away again.
 
-It is not a chat app. It is a cockpit.
+It is not a chat app. Your agents still run in Claude Code and Codex; the Grove shows you all of
+them at once and sends them where they are needed.
 
 ![Three stages of a grove: day one with two projects and PM at work, a few weeks in with six projects and a reviewer added, and a full grove of nineteen stones with a team of agents under load](assets/screenshots/grove-demo.webp)
 
 *The grove growing, in demo mode: day one, a few weeks in, and a full grove under load. A real
 grove starts empty and grows a stone for each project you connect.*
 
-**Status: early, and changing quickly.** The grove shows your real projects and agent sessions,
-live, with usage headroom per provider, and sends agents to work in your projects through your own
-Claude Code or Codex.
+**[Download for Mac](https://github.com/Adiezc/agentic-grove/releases/latest)** · Apple Silicon,
+macOS 13 or newer · Needs Claude Code or Codex, signed in with your Claude or ChatGPT account ·
+Free, MIT licensed, no telemetry
 
-MIT licensed. No telemetry, ever.
+**Status: early, and changing quickly.**
 
 ## What you can do with it
 
 - **See your work at a glance.** Each project is a stone. It lights while an agent works there and
   turns amber, the grove's one warning colour, when an agent is waiting for you. A git worktree
   stands beside its repository as a twin stone.
-- **Tell PM what needs doing.** Type a job into the console at the bottom. PM, the project manager
-  on the tree, plans it, hands each part to the agent whose job it is (Researcher finds things
-  out, Builder makes changes, and any agents you add), checks the work and reports back. Bigger
-  jobs get a plan you agree to before anything changes. It all runs in Terminal, in that project,
-  as your own Claude Code or Codex. With live updates on, the workers PM has called in show above
-  the stone while they work.
-- **Or send one agent yourself.** Pick a stone and an agent from the tree, or start the job with
-  its name ("@builder fix the tests"). The console shows who would take it, on which model and
-  where before anything is sent, and one click changes any of them.
-- **Choose each agent's model.** Every agent's card has Default (whatever you picked in Claude Code
-  or Codex), Opus, Sonnet, Haiku or any exact name. The Researcher starts on Haiku, since it reads
-  a lot and changes nothing.
-- **Save the jobs you repeat.** A saved task on a stone runs in one click. When three sessions in a
-  project start with the same prompt, the Grove offers to save it, and remembers if you say no.
-- **Leave a note for next time.** On a stone, an agent or the tree. It stays out of the way until
-  work next starts there, then shows once.
-- **Ask about your own week.** "What did I do yesterday?" is answered by the Grove itself, from
-  the records on your Mac, and the stones involved light in the order you came to them.
+- **Tell PM what needs doing.** Type a job into the console. PM, the project manager on the tree,
+  plans it, hands each part to the right agent (Researcher, Builder, or any you add), checks the
+  work and reports back. Bigger jobs get a plan you approve first. It all runs in Terminal as your
+  own Claude Code or Codex.
+- **Or send one agent yourself.** Pick a stone and an agent, or start with its name ("@builder fix
+  the tests"). You see who takes the job, on which model and where, before anything is sent.
 - **Know how much you have left.** Five-hour and weekly headroom for Claude and ChatGPT, each
   figure marked official, counted or unknown.
-- **Use it without a mouse.** Arrow keys move between stones, Enter opens one, Esc goes back.
-- **Take its picture.** Press P for photo mode: the interface steps aside and you can save a large image.
 - **Leave it open all day.** When nothing has happened for a few seconds it draws less, and hidden
   it uses almost nothing.
+
+**And more:** choose each agent's model, save the jobs you repeat, leave a note for next time, ask
+"what did I do yesterday?", move around with the arrow keys, and press P for photo mode.
 
 | | |
 | --- | --- |
@@ -74,8 +64,10 @@ never been tested on real data. Contributions are welcome.
 
 ## Getting started
 
-You need a Mac with Apple Silicon (M1 or later) running macOS 13 Ventura or newer. Building it
-yourself also needs [Node.js](https://nodejs.org) 22 or newer.
+You need a Mac with Apple Silicon (M1 or later) running macOS 13 Ventura or newer, and Claude Code
+or Codex signed in with your Claude or ChatGPT account. Without one of them the grove has nothing
+to show; the first launch helps you install and sign in. Building it yourself also needs
+[Node.js](https://nodejs.org) 22 or newer.
 
 ### Download
 
@@ -180,24 +172,8 @@ never touched, and everything removed goes to the Trash.
 ## For contributors
 
 **The most wanted contribution is a Windows version.** [CONTRIBUTING.md](CONTRIBUTING.md) lists
-the Mac-specific pieces and where they live.
-
-```bash
-npm run scan     # print every agent session on this machine
-npm run watch    # the same thing on the live poll loop
-npm run verify   # check the scanner against the raw files, independently
-npm run verify:routing  # PM's rules for which tool takes which job
-npm run typecheck
-npm run app      # build the Mac app into ~/Applications
-npm run dmg      # build release/Agentic-Grove-<version>-arm64.dmg for a GitHub release
-```
-
-Each part with rules of its own has a `verify:` script beside it (`spawn`, `console`, `attention`,
-`health`, `places`, `readiness`, `reliability`, `pairings`, `tells`, `probe`, `history`, `codex-usage`, `twins`, `suggest-runes`, `notes`, `models`, `security`); they run in seconds and touch nothing of
-yours.
-
-`verify` is the one worth knowing about. It counts the files on disk with its own separate code
-and fails if the scanner disagrees, because a wrong number looks exactly like a right one.
+the Mac-specific pieces and where they live, the commands for running and building the Grove, and
+the checks every change should pass.
 
 ## Principles
 

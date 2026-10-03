@@ -44,9 +44,22 @@ A Linux version is welcome too, and is probably smaller, since most of the Mac c
 ```bash
 npm install
 npm run dev        # the interface in a browser; add ?demo to the address for sample data
+npm run scan       # print every agent session on this machine
+npm run watch      # the same thing on the live poll loop
+npm run verify     # check the scanner against the raw files, independently
 npm run typecheck
-npm run verify     # and the other verify: scripts listed in the README
+npm run app        # build the Mac app into ~/Applications
+npm run dmg        # build release/Agentic-Grove-<version>-arm64.dmg for a GitHub release
 ```
+
+Each part with rules of its own has a `verify:` script beside it (`routing`, `spawn`, `console`,
+`attention`, `health`, `places`, `readiness`, `reliability`, `pairings`, `tells`, `probe`,
+`history`, `codex-usage`, `twins`, `suggest-runes`, `notes`, `models`, `security`); they run in
+seconds and touch nothing of yours. GitHub runs all of them on every push, except `verify`, which
+needs the agent sessions on a real Mac.
+
+`verify` is the one worth knowing about. It counts the files on disk with its own separate code
+and fails if the scanner disagrees, because a wrong number looks exactly like a right one.
 
 Comments explain *why*, in full sentences, and plain code beats clever code. Match the files
 around the one you are changing.
