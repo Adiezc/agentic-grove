@@ -6,11 +6,10 @@ working and whether anything needs you, and look away again.
 
 It is not a chat app. It is a cockpit.
 
-![The grove in use: choosing a project's stone, typing a job into the console and sending Builder to the Data stone, which lights up; then the tree's agents and the ChatGPT usage readout](assets/screenshots/grove-demo.webp)
+![Three stages of a grove: day one with two projects and PM at work, a few weeks in with six projects and a reviewer added, and a full grove of nineteen stones with a team of agents under load](assets/screenshots/grove-demo.webp)
 
-*Half a minute in the demo grove: open a project, send an agent from the console, look over the
-tree's agents and your usage. A real grove starts empty and grows a stone for each project you
-connect.*
+*The grove growing, in demo mode: day one, a few weeks in, and a full grove under load. A real
+grove starts empty and grows a stone for each project you connect.*
 
 **Status: early, and changing quickly.** The grove shows your real projects and agent sessions,
 live, with usage headroom per provider, and sends agents to work in your projects through your own
@@ -46,8 +45,8 @@ MIT licensed. No telemetry, ever.
 
 | | |
 | --- | --- |
-| ![A project's stone chosen, with its panel](assets/screenshots/grove-stone.jpg) | ![The tree's agents, with a task box](assets/screenshots/grove-agents.jpg) |
-| Choose a stone to see its state and what you can do there. | Choose an agent from the tree and send it. |
+| ![A project's stone chosen, with its panel](assets/screenshots/grove-stone.jpg) | ![PM's card open beside the tree, with Researcher, Builder and a Reviewer on the branches](assets/screenshots/grove-agents.jpg) |
+| Choose a stone to see its state and what you can do there. | PM and its team on the tree. Send PM, or any one agent. |
 
 ## Where it runs, and what it works with
 

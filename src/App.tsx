@@ -29,6 +29,7 @@ import { Crystal } from './hud/Crystal'
 import { childPlace, emptyPlaces, layoutStones, stonePlaces, twinPlace } from './scene/layout'
 import { step, type Direction, type Target } from './scene/navigation'
 import { DEMO } from './demo'
+import { STAGE_GROVE } from './demoStages'
 import { useTree } from './agents/tree'
 import { saveSettings, useSettings } from './store/settings'
 import { usePhoto } from './store/photo'
@@ -46,7 +47,7 @@ const SPLIT = DEMO && new URLSearchParams(window.location.search).has('split')
 const TWIN = DEMO && new URLSearchParams(window.location.search).has('twin')
 const buildAt = SPIKE_STONES.find((stone) => stone.id === 'build')!.at
 const researchAt = SPIKE_STONES.find((stone) => stone.id === 'research')!.at
-const DEMO_STONES = [
+const DEMO_STONES = STAGE_GROVE ? STAGE_GROVE.stones : [
   ...SPIKE_STONES.map((stone) => (TWIN && stone.id === 'research' ? { ...stone, branch: 'main' } : stone)),
   ...(SPLIT
     ? [
@@ -141,7 +142,7 @@ export function App() {
   const runs = useRuns()
 
   /* Your projects, from the scan. A new grove has none, and that is the intended first sight: the
-   * tree, Researcher, and three empty circles. The concept art's six stones appear only in demo
+   * tree, PM, and three empty circles. The concept art's six stones appear only in demo
    * mode (`?demo`), for judging the scene against the art in a browser tab.
    *
    * A real stone lights only when the scan or the hooks say work is happening there, never
@@ -158,18 +159,19 @@ export function App() {
       const lit = DEMO ? statusOverrides[stone.id] : undefined
       // While an agent is on its way, or (in the demo) once it has landed, its face joins the
       // stone's workers so you can see who went where.
-      const sent = deployment?.stoneId === stone.id ? deployment.agentId : DEMO ? DEMO_WORKERS[stone.id] : undefined
+      const sent = deployment?.stoneId === stone.id ? deployment.agentId : DEMO && !STAGE_GROVE ? DEMO_WORKERS[stone.id] : undefined
       const live = runs.filter((run) => run.stoneId === stone.id && LIVE_RUN.has(run.state)).map((run) => run.agentId)
-      const workers = [...new Set([...(stone.workers ?? []), ...live, ...(sent ? [sent] : [])])]
+      const staged = STAGE_GROVE?.workers[stone.id] ?? []
+      const workers = [...new Set([...(stone.workers ?? []), ...staged, ...live, ...(sent ? [sent] : [])])]
       return { ...stone, status: lit ?? stone.status, workers }
     })
   }, [real, deployment, statusOverrides, runs])
   // Worked out once per snapshot, against the snapshot's own clock, so a quiet grove does not redo it.
   const snapshotAt = snapshot?.at ?? 0
-  const pairs = useMemo(() => (DEMO ? DEMO_PAIRS : pairings(real, snapshotAt)), [real, snapshotAt])
+  const pairs = useMemo(() => (DEMO ? (STAGE_GROVE?.pairs ?? DEMO_PAIRS) : pairings(real, snapshotAt)), [real, snapshotAt])
   // Keyed on the places themselves, so the circles are only worked out again when a stone comes or goes.
   const usedKey = [...stonePlaces(real).values()].sort((a, b) => a - b).join(',')
-  const empty = useMemo(() => (DEMO ? [] : emptyPlaces(usedKey ? usedKey.split(',').map(Number) : [])), [usedKey])
+  const empty = useMemo(() => (DEMO ? (STAGE_GROVE?.used ? emptyPlaces(STAGE_GROVE.used) : []) : emptyPlaces(usedKey ? usedKey.split(',').map(Number) : [])), [usedKey])
   const selectedName = stones.find((stone) => stone.id === stoneId)?.name
   const goHome = () => {
     useFlow.setState({ view: 'home', stoneId: null, pendingAgentId: null })
@@ -451,7 +453,7 @@ export function App() {
         {settings.showCounts ? <Counts
           agents={tree.agents.length}
           running={running}
-          tasks={DEMO ? 12 : real.reduce((sum, stone) => sum + stone.runes.length, 0)}
+          tasks={DEMO ? (STAGE_GROVE?.tasks ?? 12) : real.reduce((sum, stone) => sum + stone.runes.length, 0)}
         /> : null}
         <HealthLine onOpen={() => setDataOpen(true)} />
         <RuneConsole inputRef={consoleInput} stones={stones} placeholder={selectedName ? `Task for ${selectedName}...` : undefined} />

@@ -31,6 +31,7 @@ import type { Icon } from '@phosphor-icons/react'
 import { Asterisk, Compass, Hammer, MagnifyingGlass, OpenAiLogo, X } from '@phosphor-icons/react'
 import { isLinkOnly, type AgentDefinition, type AgentGlyph, type AgentHarness } from '../../core/state/schema.ts'
 import { DEMO } from '../demo'
+import { STAGE_GROVE } from '../demoStages'
 import { useGrove } from '../store/grove'
 import { DEFAULT_GLYPH, GLYPHS } from './glyphs'
 
@@ -125,6 +126,9 @@ const EXAMPLES: AgentDefinition[] = [
 
 const BUILT_IN = new Set(['researcher', 'builder', 'manager'])
 
+/** In a demo stage, the agents shown working on its stones are the ones the tree shows running. */
+const STAGE_BUSY = STAGE_GROVE ? new Set(Object.values(STAGE_GROVE.workers).flat()) : null
+
 /**
  * Lay the definitions out on the tree. Pure, so the same list always hangs the same way.
  *
@@ -151,7 +155,7 @@ export function placeAgents(
       Glyph: GLYPHS[glyph].Icon,
       // Running when a run it was sent on is working or asking right now. The demo shows the art's
       // "Running" on PM, the main orb. A bot's state is unknowable, so it is null rather than false.
-      running: bot ? null : DEMO ? definition.id === 'manager' : busy.has(definition.id),
+      running: bot ? null : DEMO ? (STAGE_BUSY ? STAGE_BUSY.has(definition.id) : definition.id === 'manager') : busy.has(definition.id),
       at,
       own: !BUILT_IN.has(definition.id),
     })
@@ -182,7 +186,7 @@ export function useTree(): { agents: TreeAgent[]; bud: [number, number, number];
       .join(' ')
   )
   return useMemo(() => {
-    const yours = (DEMO ? EXAMPLES : connected).filter((agent) => showFireflies || kindOf(agent) === 'grove')
+    const yours = (DEMO ? (STAGE_GROVE?.agents ?? EXAMPLES) : connected).filter((agent) => showFireflies || kindOf(agent) === 'grove')
     const definitions = [...builtIns(preferred), ...yours]
     const placed = placeAgents(definitions, new Set(busyKey.split(' ').filter(Boolean)))
     const counts = { grove: 0, bot: 0 }
