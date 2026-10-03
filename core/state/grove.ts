@@ -31,6 +31,7 @@ import { type GroveFile, type GroveProblem, type StoneConfig, BUILT_IN_AGENT_IDS
 import { assignPlaces, placeFor } from './places.ts'
 import { type RepoInfo, readRepos, twinsOf } from './repos.ts'
 import { MAX_NOTE_CHARS, NOTE_PLACES, type NotePlace } from './notes.ts'
+import { promptKey, runeNameFor } from './suggest-runes.ts'
 
 /** `AGENTIC_GROVE_HOME` exists so tests can point somewhere disposable. */
 export const groveHome = (): string =>
@@ -348,6 +349,69 @@ export async function removeAgent(id: string): Promise<{ ok: boolean; error?: st
       return { result: { ok: true }, write: true }
     },
     { ok: false, error: 'grove.json has an error; fix it before removing agents' }
+  )
+}
+
+/** Long enough for a real job description; the console has its own, larger limit for one-offs. */
+export const MAX_RUNE_PROMPT_CHARS = 2000
+
+/**
+ * Carve a rune: save a job on one stone so it is one click next time. Named from its first words;
+ * `agent` may be empty, and then the Manager's rules pick who does it each time it runs. Carving
+ * the same prompt twice is not an error: the answer to "save this" is already yes.
+ */
+export async function carveRune(stonePath: unknown, prompt: unknown, agent: unknown = ''): Promise<{ ok: boolean; error?: string }> {
+  const words = typeof prompt === 'string' ? prompt.trim() : ''
+  if (!words) return { ok: false, error: 'A saved task needs something to do' }
+  if (words.length > MAX_RUNE_PROMPT_CHARS) return { ok: false, error: `Keep it under ${MAX_RUNE_PROMPT_CHARS} characters` }
+  const who = typeof agent === 'string' ? agent.trim() : ''
+  return updateGrove<{ ok: boolean; error?: string }>(
+    (grove) => {
+      const stone = grove.stones.find((each) => each.path === stonePath)
+      if (!stone) return { result: { ok: false, error: 'Not one of your stones' }, write: false }
+      if (who && !(BUILT_IN_AGENT_IDS as readonly string[]).includes(who) && !grove.agents.some((each) => each.id === who)) {
+        return { result: { ok: false, error: 'No such agent' }, write: false }
+      }
+      const runes = stone.runes ?? []
+      if (runes.some((rune) => promptKey(rune.prompt) === promptKey(words))) return { result: { ok: true }, write: false }
+      const name = runeNameFor(words)
+      const id = uniqueId(slugify(name) || 'task', new Set(runes.map((rune) => rune.id)))
+      stone.runes = [...runes, { id, name, agent: who, prompt: words }]
+      return { result: { ok: true }, write: true }
+    },
+    { ok: false, error: 'grove.json has an error; fix it before saving tasks' }
+  )
+}
+
+/** Take a rune off its stone. Past runs of it are untouched. */
+export async function removeRune(stonePath: unknown, runeId: unknown): Promise<{ ok: boolean; error?: string }> {
+  return updateGrove<{ ok: boolean; error?: string }>(
+    (grove) => {
+      const stone = grove.stones.find((each) => each.path === stonePath)
+      const kept = (stone?.runes ?? []).filter((rune) => rune.id !== runeId)
+      if (!stone || kept.length === (stone.runes ?? []).length) return { result: { ok: false, error: 'No such saved task' }, write: false }
+      stone.runes = kept
+      if (!kept.length) delete stone.runes
+      return { result: { ok: true }, write: true }
+    },
+    { ok: false, error: 'grove.json has an error; fix it before removing tasks' }
+  )
+}
+
+/** "No" to a suggested rune: remembered on the stone, so it is not offered again. */
+export async function declineRune(stonePath: unknown, key: unknown): Promise<{ ok: boolean; error?: string }> {
+  const matching = typeof key === 'string' ? promptKey(key) : ''
+  if (!matching) return { ok: false, error: 'Nothing to decline' }
+  return updateGrove<{ ok: boolean; error?: string }>(
+    (grove) => {
+      const stone = grove.stones.find((each) => each.path === stonePath)
+      if (!stone) return { result: { ok: false, error: 'Not one of your stones' }, write: false }
+      const declined = stone.declinedRunes ?? []
+      if (declined.includes(matching)) return { result: { ok: true }, write: false }
+      stone.declinedRunes = [...declined, matching]
+      return { result: { ok: true }, write: true }
+    },
+    { ok: false, error: 'grove.json has an error; fix it first' }
   )
 }
 

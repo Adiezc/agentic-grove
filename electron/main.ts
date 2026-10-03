@@ -19,11 +19,11 @@ import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
-import { addAgent, addProject, carveNote, readNote, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings, updateAgent, type AgentDraft } from '../core/state/grove.ts'
+import { addAgent, addProject, carveNote, carveRune, declineRune, readNote, removeRune, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings, updateAgent, type AgentDraft } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
 import { readRepos } from '../core/state/repos.ts'
 import { noteViews } from '../core/state/notes.ts'
-import { LINK_HOME, defaultGrove, isHttpsUrl, isLinkOnly } from '../core/state/schema.ts'
+import { BUILT_IN_AGENT_IDS, LINK_HOME, defaultGrove, isHttpsUrl, isLinkOnly } from '../core/state/schema.ts'
 import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type LimitsCheck, type ProjectResult, type ReadyResult, type RunResult, type UninstallPlan } from './bridge.ts'
 import { LiveState } from '../core/hooks/live.ts'
 import { startUsageLoop, usage as readUsage } from '../core/usage/index.ts'
@@ -44,6 +44,7 @@ import { BUILT_IN_BRIEFS, BUILT_IN_NAMES } from '../core/spawn/briefs.ts'
 import { readTranscript } from '../core/spawn/transcript.ts'
 import { noticeFor } from '../core/attention.ts'
 import { headroomFrom, route } from '../core/routing.ts'
+import { agentForKind } from '../core/console.ts'
 import { notify } from './notify.ts'
 import { execFile } from 'node:child_process'
 
@@ -500,6 +501,23 @@ function registerHandlers(): void {
     const result = await readNote(on, id)
     if (result.ok) await restartScanning()
     return result
+  })
+
+  /* Runes. Each change rescans so the stone and its suggestions update at once. */
+  const andRescan = async (result: { ok: boolean; error?: string }) => {
+    if (result.ok) await restartScanning()
+    return result
+  }
+  handle(CHANNELS.carveRune, async (_event, stoneId: unknown, prompt: unknown, agent: unknown) => andRescan(await carveRune(stoneId, prompt, agent ?? '')))
+  handle(CHANNELS.removeRune, async (_event, stoneId: unknown, runeId: unknown) => andRescan(await removeRune(stoneId, runeId)))
+  handle(CHANNELS.declineRune, async (_event, stoneId: unknown, key: unknown) => andRescan(await declineRune(stoneId, key)))
+  handle(CHANNELS.runRune, async (_event, stoneId: unknown, runeId: unknown): Promise<RunResult> => {
+    const { grove } = await loadGrove()
+    const rune = grove.stones.find((stone) => stone.path === stoneId)?.runes?.find((each) => each.id === runeId)
+    if (!rune) return { ok: false, error: 'No such saved task' }
+    // A rune without an agent, or naming one since removed, goes to whoever the console would pick.
+    const known = BUILT_IN_AGENT_IDS.includes(rune.agent as never) || grove.agents.some((agent) => agent.id === rune.agent)
+    return launchRun({ stoneId, agentId: known ? rune.agent : agentForKind(rune.prompt), task: rune.prompt })
   })
 
   handle(CHANNELS.removeAgent, async (_event, id: unknown): Promise<AgentResult> => {

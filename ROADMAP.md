@@ -98,7 +98,7 @@ Picked on 27 September 2026, after step 6. Ranked, most important first.
    straight away. If the next three prompts go elsewhere, it finishes, walks off and is gone; nothing
    is saved. When passing agents keep being called up for the same kind of task, the Grove offers
    to make one a permanent agent on the tree, never a silent promotion. Extends wisps, the one-off tasks that spark at the trunk and fade.
-6. **Suggested runes (about one session). Needs runes (steps 8 to 10) first.** Spot prompts sent
+6. **Suggested runes. Done 3 October 2026** (`core/state/suggest-runes.ts`, `src/hud/Runes.tsx`, `npm run verify:suggest-runes`), with saving, removing and running runes from the app. From first prompts only; no `UserPromptSubmit` hook. Spot prompts sent
    more than once in the same project, such as "run the tests" or "review the diff", from
    transcripts and `UserPromptSubmit` hooks. Offer to carve each into that stone as a rune. Nothing
    is carved without a yes, and a declined suggestion stays declined. Ranked high because it turns

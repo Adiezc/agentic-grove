@@ -1433,3 +1433,22 @@ name up in the scene. No amber, since a note is yours rather than something need
 removed stone or agent go with it. Passing a note into the Claude Code session itself stays a later
 step with its own consent. Checked by `npm run verify:notes` (8) and in the built app on a copy of
 Adrian's grove.
+
+## Saved tasks work, and the Grove suggests them
+
+*3 October 2026*
+
+Runes could only be written into `grove.json` by hand, and their Run button was still disabled
+from before spawning existed. Now a stone's panel lists its runes with Run (through the same
+Terminal launcher as the console; the node side reads the prompt from `grove.json`, the page only
+names the rune), a bin that asks twice, and "Save a task you repeat here". Roadmap idea 6 sits on
+top: when three or more sessions in one project opened with the same prompt (case, spacing and end
+punctuation ignored, nothing fuzzier), the stone offers to save it; "No" is kept in
+`declinedRunes`. Only the first prompt of each session counts, because later lines are
+conversation. Prompts at the scan's 240-character cut-off are never offered, since they may be half
+a job, and neither are the Claude app's "# Files mentioned by the user" headers (both found by
+running the rule over Adrian's 107 real sessions, which now suggest nothing). A rune with no agent
+goes to whoever the console would pick. Checked by `npm run verify:suggest-runes` (8) and in the
+built app with made-up sessions under a fake home folder. Running a rune for real was not
+exercised, to avoid starting a real Claude session; it is the console's launcher, which
+`verify:spawn` covers.

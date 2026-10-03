@@ -165,6 +165,13 @@ export interface GroveApi {
   carveNote(on: NotePlace, id: string, text: string): Promise<{ ok: boolean; error?: string }>
   /** A showing note has been read: it fades and goes. */
   readNote(on: NotePlace, id: string): Promise<{ ok: boolean; error?: string }>
+  /** Save a job on a stone as a rune. `agent` empty lets the Manager's rules choose each time. */
+  carveRune(stoneId: string, prompt: string, agent?: string): Promise<{ ok: boolean; error?: string }>
+  removeRune(stoneId: string, runeId: string): Promise<{ ok: boolean; error?: string }>
+  /** Say no to a suggested rune, by its key, so it is not offered again. */
+  declineRune(stoneId: string, key: string): Promise<{ ok: boolean; error?: string }>
+  /** Run a saved rune. The node side reads its prompt and agent from grove.json, never from the page. */
+  runRune(stoneId: string, runeId: string): Promise<RunResult>
   /**
    * Open a link-only agent (a ChatGPT Dot, Claude Cowork) in the browser. Takes the agent's id, not a URL: the node side looks the link
    * up in `grove.json` itself, so page code never chooses what the system opener is handed.
@@ -309,6 +316,10 @@ export const CHANNELS = {
   removeAgent: 'grove:remove-agent',
   carveNote: 'grove:carve-note',
   readNote: 'grove:read-note',
+  carveRune: 'grove:carve-rune',
+  removeRune: 'grove:remove-rune',
+  declineRune: 'grove:decline-rune',
+  runRune: 'grove:run-rune',
   openAgentLink: 'grove:open-agent-link',
   planHooks: 'grove:plan-hooks',
   applyHooks: 'grove:apply-hooks',

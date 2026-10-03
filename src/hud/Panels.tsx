@@ -14,11 +14,12 @@
  * the button is there and honest about not working yet.
  */
 import { useState } from 'react'
-import { ArrowBendDownRight, CaretRight, FolderPlus, GitBranch, Play, Plus, X } from '@phosphor-icons/react'
+import { ArrowBendDownRight, CaretRight, FolderPlus, GitBranch, Plus, X } from '@phosphor-icons/react'
 import type { Runestone } from '../../core/state/stones.ts'
 import type { StoneSpec } from '../scene/Runestone'
 import { useFlow } from '../store/flow'
 import { STATE_LABEL } from './Flow'
+import { StoneRunes } from './Runes'
 
 function PanelShell({
   open,
@@ -176,43 +177,26 @@ export function RunesPanel({
   onClose: () => void
   real: Runestone[]
 }) {
-  const carved = real.filter((stone) => stone.runes.length)
+  // Stones with saved tasks, or with tasks the Grove would suggest saving.
+  const carved = real.filter((stone) => stone.runes.length || (window.grove && stone.runeSuggestions.length))
   return (
     <PanelShell open={open} title="Saved tasks" label="Saved tasks" onClose={onClose}>
       <p className="setting-line">
         Jobs you repeat on one project, like “run the tests” or “write the weekly summary”. Each is carved on its stone as a
-        rune.
+        rune, and runs in Terminal with one click.
       </p>
       {carved.length ? (
         carved.map((stone) => (
           <section key={stone.id} className="setting">
             <p className="setting-name">{stone.name}</p>
-            <ul className="rail-list">
-              {stone.runes.map((rune) => (
-                <li key={rune.id} className="rune-row">
-                  <span className="rail-row-text">
-                    {rune.name}
-                    <small>{rune.prompt.length > 80 ? `${rune.prompt.slice(0, 79)}…` : rune.prompt}</small>
-                  </span>
-                  <button type="button" className="setting-button" disabled title="Running saved tasks arrives with agent spawning">
-                    <Play size={12} weight="thin" /> Run
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <StoneRunes stone={stone} compact />
           </section>
         ))
       ) : (
-        <>
-          <p className="setting-line">
-            None yet. Soon you will save one from the console with a click; for now they are written into grove.json by hand.
-          </p>
-          <div className="setting-actions">
-            <button type="button" className="setting-button" disabled={!window.grove} onClick={() => void window.grove?.revealGroveFile()}>
-              Show grove.json
-            </button>
-          </div>
-        </>
+        <p className="setting-line">
+          None yet. Open a project's stone and choose “Save a task you repeat here”. When you start several sessions on one
+          project with the same words, the Grove offers to save them for you.
+        </p>
       )}
     </PanelShell>
   )

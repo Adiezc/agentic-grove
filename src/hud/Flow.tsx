@@ -18,6 +18,7 @@ import type { StoneSpec } from '../scene/Runestone'
 import { ago } from '../../core/usage/format.ts'
 import { useFlow } from '../store/flow'
 import { CarvedNote } from './Note'
+import { StoneRunes } from './Runes'
 import { DEMO } from '../demo'
 
 /** One line per fixture stone. Real stones will take theirs from the project's README or name. */
@@ -65,6 +66,8 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
   const back = useFlow((state) => state.back)
   const stone = stones.find((candidate) => candidate.id === stoneId)
   const open = view === 'stone' && Boolean(stone)
+  // The derived stone, for its saved tasks. Demo stones have none, and show no task controls.
+  const real = useGrove((state) => state.snapshot?.grove.stones.find((each) => each.id === stoneId))
   // Removing asks twice, like removing an agent: the first press turns the bin amber and says
   // what will happen, the second takes the stone off the grove.
   const [confirming, setConfirming] = useState(false)
@@ -149,6 +152,7 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
             </ul>
           ) : null}
           <StoneRuns stoneId={stone.id} />
+          {real ? <StoneRunes stone={real} /> : null}
           {stone.splits?.length && canOpen ? (
             <div className="split-offer">
               <p>Work here has spread over {stone.splits.length} big parts. Give each its own stone?</p>

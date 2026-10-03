@@ -76,6 +76,11 @@ export interface StoneConfig {
   /** Repeatable tasks bound to this project. */
   runes?: Rune[]
   /**
+   * Suggested runes you said no to, as matching keys (see `core/state/suggest-runes.ts`). Kept so
+   * the same suggestion is never offered twice. Delete a line to be asked again.
+   */
+  declinedRunes?: string[]
+  /**
    * Which numbered place in the grove the stone stands on, from 0. Written when the project is
    * connected, so the stone never moves when others come and go. See `core/state/places.ts`.
    */
@@ -404,6 +409,10 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
           }
         }
 
+        if (Array.isArray(entry.declinedRunes)) {
+          const declined = entry.declinedRunes.map(asString).filter(Boolean)
+          if (declined.length) stone.declinedRunes = declined
+        }
         if (entry.runes !== undefined) {
           if (!Array.isArray(entry.runes)) {
             problems.push({ where: `${at}.runes`, message: 'Should be a list, like [ ].' })

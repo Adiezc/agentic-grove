@@ -3019,3 +3019,40 @@
     transition: none;
   }
 }
+
+/* ---- Saved tasks on a stone: run, remove, and the Grove's suggestions. ---- */
+
+.stone-runes {
+  margin-top: 0.8rem;
+}
+
+.stone-runes .rune-row {
+  padding: 0.3rem 0;
+}
+
+.stone-runes .rune-row .rail-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.rune-remove {
+  padding: 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.rune-remove:hover,
+.rune-remove:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.rune-remove.is-confirming {
+  color: var(--wait);
+}
+
+.rune-offer p svg {
+  vertical-align: -1px;
+}

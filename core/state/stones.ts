@@ -24,6 +24,7 @@ import os from 'node:os'
 import type { Provenance, Session, SessionStatus, Tell } from '../harnesses/types.ts'
 import type { GroveFile, Rune, StoneConfig } from './schema.ts'
 import { type RepoInfo, twinsOf } from './repos.ts'
+import { type RuneSuggestion, suggestRunes } from './suggest-runes.ts'
 
 /**
  * A stone's state is the most urgent thing happening on it, in this order.
@@ -91,6 +92,8 @@ export interface Runestone {
   lastActivityAt: number
   /** Repeatable tasks carved here. */
   runes: Rune[]
+  /** Prompts you keep starting sessions with here, offered as runes. See `suggest-runes.ts`. */
+  runeSuggestions: RuneSuggestion[]
   /**
    * Signs from this stone's sessions that the work may need checking, newest first, at most
    * three. Each is a flag with its reason, never a status: a stone with a tell is not "failed".
@@ -268,6 +271,7 @@ function buildStone(
     attentionCount: ordered.filter((session) => wantsYou(session, now)).length,
     lastActivityAt: ordered[0]?.lastActivityAt ?? 0,
     runes: config.runes ?? [],
+    runeSuggestions: suggestRunes(ordered, config.runes ?? [], config.declinedRunes ?? []),
     tells: ordered
       .flatMap((session) => session.tells ?? [])
       .sort((a, b) => b.at - a.at)
