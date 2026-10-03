@@ -44,18 +44,6 @@ bot-crossing, where they are maintained. We also renamed its `Thread` to `Sessio
 word our brief uses. `core/harnesses/README.md` carries a field-by-field mapping so the two can
 still be read side by side.
 
-### hoangsonww/Claude-Code-Agent-Monitor — MIT
-
-<https://github.com/hoangsonww/Claude-Code-Agent-Monitor> · Copyright (c) 2026 - Now, Son Nguyen
-
-**What we plan to take** (session 6 onwards, not yet in this repo): the hook-based event
-plumbing that gives sub-second updates instead of a polled lag, the statusline capture that is
-the only official source of Claude rate-limit figures, the notification layer, and its Electron
-packaging patterns.
-
-Nothing from it is in the repository yet. When it arrives, this entry gets the same treatment as
-bot-crossing above — an in-tree licence file and per-file headers.
-
 ### Material Design Icons — Apache-2.0
 
 <https://github.com/google/material-design-icons>
@@ -73,6 +61,17 @@ mention here.
 ---
 
 ## Ideas we use, without taking code
+
+### hoangsonww/Claude-Code-Agent-Monitor — MIT
+
+<https://github.com/hoangsonww/Claude-Code-Agent-Monitor> · Copyright (c) 2026 - Now, Son Nguyen
+
+**What we took: the idea, not the code.** It showed that Claude Code's hooks are the way to get
+sub-second updates instead of a polled lag. The Grove's live updates (`core/hooks/`) follow that
+approach but were written from scratch, so no code from it is in this repository.
+
+If code from it is ever used, this entry moves under "Code we use" and gets the same treatment
+as bot-crossing above: an in-tree licence file and per-file headers.
 
 ### matank001/clodfarm — MIT
 
