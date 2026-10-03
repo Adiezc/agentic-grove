@@ -13,7 +13,7 @@
  * Windows, the tray and notifications will each get their own file as they arrive. This one
  * stays about lifecycle.
  */
-import { BrowserWindow, app, dialog, net, screen, shell } from 'electron'
+import { BrowserWindow, app, dialog, net, screen, session, shell } from 'electron'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
@@ -815,14 +815,28 @@ async function uninstall(removeGrove: boolean): Promise<{ ok: boolean; error?: s
       // Nothing there yet is not a failure: there was simply nothing to remove.
       const exists = await fsp.access(groveHome()).then(() => true, () => false)
       if (exists) await shell.trashItem(groveHome())
-      await shell.trashItem(app.getPath('userData')).catch(() => {})
     }
     if (plan.appPath) await shell.trashItem(plan.appPath)
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
   }
-  setTimeout(() => app.quit(), 400)
+  setTimeout(() => void finishUninstall(removeGrove), 400)
   return { ok: true }
+}
+
+/**
+ * The window's own storage goes last, after the window itself. Trashed while the window was still
+ * open, Chromium wrote a few session files back on the way out and the folder came straight back
+ * (found testing uninstall, 3 October 2026). So: close the windows, let Chromium write what it
+ * wants, trash the folder, and leave without the usual shutdown that would write it again.
+ */
+async function finishUninstall(removeGrove: boolean): Promise<void> {
+  if (!removeGrove) return app.quit()
+  for (const window of BrowserWindow.getAllWindows()) window.destroy()
+  await session.defaultSession.flushStorageData()
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  await shell.trashItem(app.getPath('userData')).catch(() => {})
+  app.exit(0)
 }
 
 /**
@@ -846,6 +860,13 @@ async function restartScanning(): Promise<void> {
     publish(result)
   }, grove.settings.scanIntervalMs)
 }
+
+/* A grove started from another folder (`AGENTIC_GROVE_HOME`, which the checks use) keeps the
+ * window's own storage beside that folder, in `<folder>-window`. Otherwise a test run shares, and
+ * Settings → Uninstall with "remove my grove" would put in the Trash, the storage of the Grove you
+ * actually use. Beside rather than inside, so the two stay separate folders as they are normally.
+ * Set before the app is ready, as Electron requires. */
+if (process.env.AGENTIC_GROVE_HOME) app.setPath('userData', `${groveHome()}-window`)
 
 void app.whenReady().then(async () => {
   lockDownPages(devServerUrl, pageFile)

@@ -1401,3 +1401,21 @@ still cannot reach the Mac, all in `electron/security.ts` and `electron/page-rul
 Checked by `npm run verify:security` (10 checks) and by probing the built app over the debugging
 port: outside fetch, `window.open`, navigation, inline scripts and notifications all refused, the
 grove still drawn at 59 fps and settings still saved. The Dock app ignored `ELECTRON_RUN_AS_NODE`.
+
+## The untested paths, tested
+
+*3 October 2026*
+
+Three things no one had exercised, now driven in the real app over the debugging port:
+
+- **Photo mode's Save.** Saves a 4320 × 2700 PNG of the scene without the interface. Downloads are
+  now limited to photo-mode PNGs (`will-download` in `electron/security.ts`); anything else is
+  cancelled, and the save dialog opens on Pictures. The dialog itself was bypassed in the test.
+- **Settings → Uninstall**, on a copy of the packaged app with a test grove and a test Claude
+  settings file. Hooks came out (other settings kept, backup made), and the grove folder and the app
+  went to the Trash. **Bug fixed:** the window's own storage came back after being trashed, because
+  Chromium wrote session files on the way out. It is now trashed after the windows are closed, and
+  the app exits without the usual shutdown. A grove started with `AGENTIC_GROVE_HOME` now keeps its
+  window storage in `<folder>-window`, so tests never share the real app's.
+- **The disk image**: the app and an Applications shortcut, valid ad-hoc signature, and Gatekeeper
+  refusing it until Open Anyway, as the README says. Pressing Open Anyway needs a person.

@@ -18,20 +18,27 @@
  *   3. **No permissions.** Camera, microphone, location, notifications from the page: all refused.
  *      The Grove's notifications come from the node side (`notify.ts`).
  *   4. **Only the Grove's page may use the bridge** (`isOwnPage`, checked on every message).
- *   5. **Only app links go to the system opener** (`isAppLink`): the `claude://`, `codex://` and
+ *   5. **Only photographs download.** Photo mode saves its image as an ordinary download of a PNG
+ *      the page drew itself; the save dialog opens on Pictures. Any other download is cancelled.
+ *   6. **Only app links go to the system opener** (`isAppLink`): the `claude://`, `codex://` and
  *      `cursor://` links that hand a session back to its tool, and nothing else.
  *
  * Electron's own checklist for all of this: https://www.electronjs.org/docs/latest/tutorial/security
  */
 import { app, session, type WebContents } from 'electron'
+import path from 'node:path'
 import { isOwnPage } from './page-rules.ts'
 
 export { CONTENT_SECURITY_POLICY, isAppLink, isOwnPage } from './page-rules.ts'
 
-/** Apply rules 2 and 3 to every page the app ever makes. Call once, before the first window. */
+/** Apply rules 2, 3 and 5 to every page the app ever makes. Call once, before the first window. */
 export function lockDownPages(devServerUrl: string | undefined, pageFile: string): void {
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
   session.defaultSession.setPermissionCheckHandler(() => false)
+  session.defaultSession.on('will-download', (event, item) => {
+    if (!item.getURL().startsWith('data:image/png;')) return event.preventDefault()
+    item.setSaveDialogOptions({ defaultPath: path.join(app.getPath('pictures'), item.getFilename()) })
+  })
 
   app.on('web-contents-created', (_event, contents: WebContents) => {
     contents.setWindowOpenHandler(() => ({ action: 'deny' }))
