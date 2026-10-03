@@ -7,7 +7,7 @@
  * glow, never a sentence.
  */
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { ArrowClockwise, ArrowSquareOut, CaretLeft, CaretRight, Check, Eye, FolderOpen, GitFork, PencilSimple, Plus, Trash, User, Warning, X } from '@phosphor-icons/react'
+import { ArrowClockwise, ArrowSquareOut, CaretLeft, CaretRight, Check, Eye, FolderOpen, GitBranch, GitFork, PencilSimple, Plus, Trash, User, Warning, X } from '@phosphor-icons/react'
 import type { Run, RunState } from '../../core/spawn/runs.ts'
 import type { TranscriptLine } from '../../core/spawn/transcript.ts'
 import { useGrove } from '../store/grove'
@@ -125,6 +125,12 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
                 <span className="state-dot" aria-hidden="true" />
                 {STATE_LABEL[stone.status]}
               </p>
+              {/* The branch only where it tells two stones apart: on a twin, and on the stone it stands by. */}
+              {stone.branch && (stone.twin || stones.some((other) => other.twin && other.parent === stone.id)) ? (
+                <p className="panel-branch">
+                  <GitBranch size={12} weight="thin" aria-hidden="true" /> {stone.branch}
+                </p>
+              ) : null}
             </div>
           </header>
           {/* Tells: quiet flags with their reasons, so they can be judged rather than trusted.

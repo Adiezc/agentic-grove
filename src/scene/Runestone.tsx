@@ -208,6 +208,10 @@ export interface StoneSpec {
   line?: string
   /** The stone this one branched from. Sub-stones stand further out, a little smaller, joined to it. */
   parent?: string
+  /** This stone is a worktree of `parent`'s repository: it stands beside it, sharing a base. */
+  twin?: boolean
+  /** The git branch checked out in this stone's folder, when it is a checkout. */
+  branch?: string
   /** Parts of this project worth a sub-stone of their own, offered in its panel. */
   splits?: { path: string; name: string; kind: 'folder' | 'worktree' }[]
   /**

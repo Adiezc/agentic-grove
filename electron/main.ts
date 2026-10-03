@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url'
 import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
 import { addAgent, addProject, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings, updateAgent, type AgentDraft } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
+import { readRepos } from '../core/state/repos.ts'
 import { LINK_HOME, defaultGrove, isHttpsUrl, isLinkOnly } from '../core/state/schema.ts'
 import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type LimitsCheck, type ProjectResult, type ReadyResult, type RunResult, type UninstallPlan } from './bridge.ts'
 import { LiveState } from '../core/hooks/live.ts'
@@ -153,6 +154,9 @@ function broadcast(snapshot: GroveSnapshot): void {
 async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
   const loaded = await loadGrove().catch(() => null)
   const grove = loaded?.grove ?? defaultGrove()
+  // Two or three tiny reads per stone (`.git`, `HEAD`), cheap beside the scan, and read fresh so a
+  // worktree removed or a branch switched shows on the next pass.
+  const repos = await readRepos(grove.stones.map((stone) => stone.path)).catch(() => undefined)
   const installed = await hooksState().catch((error: unknown) => ({ state: 'unreadable' as const, error: String(error) }))
   const hooks: HooksStatus = {
     ...installed,
@@ -162,7 +166,7 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
   }
   return {
     at: Date.now(),
-    grove: deriveStones(live.apply(result.sessions), grove),
+    grove: deriveStones(live.apply(result.sessions), grove, Date.now(), repos),
     settings: grove.settings,
     agents: grove.agents,
     harnesses: result.harnesses,

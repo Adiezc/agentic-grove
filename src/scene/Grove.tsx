@@ -35,6 +35,7 @@ import { useFlow, type FlowView } from '../store/flow'
 import type { Pairing } from '../../core/state/pairings.ts'
 import { Mushrooms } from './Mushrooms'
 import { AttentionMotes } from './AttentionMotes'
+import { TwinBase } from './TwinBase'
 
 /**
  * The six stones, placed to match the concept art.
@@ -513,6 +514,14 @@ export function GroveScene({
           selected={(stoneId === stone.id && view !== 'home') || answering === stone.id}
         />
       ))}
+
+      {/* A twin (another checkout of the same repository) shares a base with the stone it stands by. */}
+      {stones.map((stone) => {
+        const anchor = stone.twin ? stones.find((other) => other.id === stone.parent) : undefined
+        return anchor ? (
+          <TwinBase key={`twin-${stone.id}`} from={anchor.at} to={stone.at} fromScale={anchor.scale ?? 1} toScale={stone.scale ?? 1} />
+        ) : null
+      })}
 
       {empty.map((place) => (
         <EmptyPlace key={place.index} place={place} />

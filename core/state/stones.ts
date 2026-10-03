@@ -23,6 +23,7 @@ import path from 'node:path'
 import os from 'node:os'
 import type { Provenance, Session, SessionStatus, Tell } from '../harnesses/types.ts'
 import type { GroveFile, Rune, StoneConfig } from './schema.ts'
+import { type RepoInfo, twinsOf } from './repos.ts'
 
 /**
  * A stone's state is the most urgent thing happening on it, in this order.
@@ -100,6 +101,14 @@ export interface Runestone {
    * stands further out than its parent and is joined to it, not to the tree.
    */
   parent?: string
+  /**
+   * Set when this stone is another checkout of the same git repository as `parent`: a worktree on
+   * its own branch. A twin stands right beside that stone, sharing its base, rather than further
+   * out like a sub-stone. See `core/state/repos.ts`.
+   */
+  twin?: boolean
+  /** The git branch checked out here, when the folder is the top of a checkout. */
+  branch?: string
   /** Parts of this project busy enough to be worth a stone of their own. See `splitsFor`. */
   splits: SplitSuggestion[]
   /** Its numbered place in the grove, from `grove.json`, when written. Sub-stones have none. */
@@ -228,7 +237,14 @@ export function splitsFor(stonePath: string, group: Session[], taken: Set<string
   return big.length >= 2 ? big.sort((a, b) => b.sessionCount - a.sessionCount).slice(0, 4) : []
 }
 
-function buildStone(config: StoneConfig, group: Session[], now: number, configs: StoneConfig[]): Runestone {
+function buildStone(
+  config: StoneConfig,
+  group: Session[],
+  now: number,
+  configs: StoneConfig[],
+  repo: RepoInfo | undefined,
+  twinOf: string | undefined
+): Runestone {
   const ordered = [...group].sort((a, b) => b.lastActivityAt - a.lastActivityAt)
   const statuses = ordered.map((session) => contributedStatus(session, now))
   const status = statuses.reduce<StoneStatus>(
@@ -238,9 +254,12 @@ function buildStone(config: StoneConfig, group: Session[], now: number, configs:
   // Only the sessions actually setting the stone's status get a say in how much it is trusted.
   // Averaging in a dozen idle sessions would make a live, pid-verified stone look vague.
   const deciding = ordered.filter((_, index) => statuses[index] === status)
+  // A Codex worktree's folder is named after the repo, the same as the stone beside it, so a twin
+  // goes by its branch: that is the one thing that tells the two apart.
+  const fallbackName = (twinOf && repo?.branch) || path.basename(config.path) || config.path
   return {
     id: config.path,
-    name: config.name || path.basename(config.path) || config.path,
+    name: config.name || fallbackName,
     path: config.path,
     status,
     statusProvenance: weakest(deciding.map((session) => session.statusProvenance)),
@@ -253,8 +272,10 @@ function buildStone(config: StoneConfig, group: Session[], now: number, configs:
       .flatMap((session) => session.tells ?? [])
       .sort((a, b) => b.at - a.at)
       .slice(0, 3),
-    parent: owningConfig([path.dirname(config.path)], configs.filter((other) => !other.hidden))?.path,
-    place: config.place,
+    parent: twinOf ?? owningConfig([path.dirname(config.path)], configs.filter((other) => !other.hidden))?.path,
+    twin: twinOf ? true : undefined,
+    branch: repo?.branch,
+    place: twinOf ? undefined : config.place,
     splits: splitsFor(config.path, ordered, new Set(configs.map((other) => other.path))),
   }
 }
@@ -263,13 +284,16 @@ function buildStone(config: StoneConfig, group: Session[], now: number, configs:
  * Derive the grove from the sessions on disk and the projects you have connected.
  *
  * `now` is passed in rather than read, so that the error-decay rule can be tested without
- * waiting a day.
+ * waiting a day. `repos` is what git says about each connected folder (`readRepos`), read by the
+ * caller so this stays free of the disk; left out, no stone is a twin.
  */
 export function deriveStones(
   sessions: Session[],
   grove: GroveFile,
-  now: number = Date.now()
+  now: number = Date.now(),
+  repos: Map<string, RepoInfo> = new Map()
 ): DerivedGrove {
+  const twins = twinsOf(grove.stones, repos)
   const bySession = new Map<StoneConfig, Session[]>()
   const unconnected = new Map<string, Session[]>()
 
@@ -295,7 +319,7 @@ export function deriveStones(
       hidden.push({ path: config.path, name: config.name || path.basename(config.path), sessionCount: group.length })
     } else {
       // A connected project with no sessions yet is still a stone. It is yours; it stands.
-      stones.push(buildStone(config, group, now, grove.stones))
+      stones.push(buildStone(config, group, now, grove.stones, repos.get(config.path), twins.get(config.path)))
     }
   }
 

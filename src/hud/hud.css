@@ -770,7 +770,8 @@
 }
 
 .panel-state,
-.panel-harness {
+.panel-harness,
+.panel-branch {
   display: flex;
   align-items: center;
   gap: 0.45rem;
@@ -781,6 +782,11 @@
 
 .panel-harness {
   margin-top: 0;
+  color: var(--text-dim);
+}
+
+.panel-branch {
+  margin-top: 0.2rem;
   color: var(--text-dim);
 }
 

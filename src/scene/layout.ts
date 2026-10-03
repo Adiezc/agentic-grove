@@ -104,6 +104,23 @@ export function childPlace(parent: Place, sibling: number): Place {
   return [Math.sin(angle + fan / (reach / 4)) * reach, Math.cos(angle + fan / (reach / 4)) * reach * 0.82]
 }
 
+/**
+ * Where a twin stands: right beside its anchor, close enough that the two share one base.
+ *
+ * Sideways as the camera sees it, not across the line from the trunk. The first version went across
+ * that line, and at a back corner of the grove "across" points half towards the viewer, so the twin
+ * stood in front of its anchor and hid its rune. Straight sideways, the pair always reads as two
+ * stones side by side. The first twin goes the way that takes it further from the centre line,
+ * keeping the layout's own rules (nothing front-centre, nothing straight behind the trunk); further
+ * twins alternate sides and step outwards.
+ */
+export const TWIN_GAP = 1.05
+export function twinPlace(anchor: Place, sibling: number): Place {
+  const outward = Math.sign(anchor[0]) || 1
+  const side = (sibling % 2 === 0 ? 1 : -1) * outward
+  return [anchor[0] + side * TWIN_GAP * (1 + Math.floor(sibling / 2)), anchor[1]]
+}
+
 export function layoutStones(stones: DerivedStone[]): StoneSpec[] {
   const ids = new Set(stones.map((stone) => stone.id))
   const hasParent = (stone: DerivedStone) => Boolean(stone.parent && ids.has(stone.parent))
@@ -115,11 +132,16 @@ export function layoutStones(stones: DerivedStone[]): StoneSpec[] {
   let place = Math.max(-1, ...places.values()) + 1
   // Then sub-stones, shortest path first: a parent's folder is always a prefix of its child's, so
   // every parent is placed before anything that hangs from it.
+  // Twins last, since an anchor may itself be a sub-stone. Sub-stones and twins count separately,
+  // so a project's first twin is always beside it, however many parts have split off.
   const siblings = new Map<string, number>()
-  for (const stone of [...stones].filter(hasParent).sort((a, b) => a.id.length - b.id.length)) {
-    const n = siblings.get(stone.parent!) ?? 0
-    siblings.set(stone.parent!, n + 1)
-    at.set(stone.id, childPlace(at.get(stone.parent!) ?? placeAt(place++), n))
+  const byDepth = [...stones].filter(hasParent).sort((a, b) => a.id.length - b.id.length)
+  for (const stone of [...byDepth.filter((each) => !each.twin), ...byDepth.filter((each) => each.twin)]) {
+    const key = `${stone.twin ? 'twin' : 'part'}:${stone.parent}`
+    const n = siblings.get(key) ?? 0
+    siblings.set(key, n + 1)
+    const from = at.get(stone.parent!) ?? placeAt(place++)
+    at.set(stone.id, stone.twin ? twinPlace(from, n) : childPlace(from, n))
   }
   return stones.map((stone) => {
     const h = hash(stone.id)
@@ -131,8 +153,10 @@ export function layoutStones(stones: DerivedStone[]): StoneSpec[] {
       status: stone.status,
       at: at.get(stone.id)!,
       parent: child ? stone.parent : undefined,
+      twin: child && stone.twin ? true : undefined,
+      branch: stone.branch,
       splits: stone.splits,
-      scale: (0.92 + h * 0.14) * (child ? 0.78 : 1),
+      scale: (0.92 + h * 0.14) * (child ? (stone.twin ? 0.86 : 0.78) : 1),
       turn: (h - 0.5) * 0.44,
       line: lastWork(stone) ?? 'Nothing yet.',
       tells: stone.tells,

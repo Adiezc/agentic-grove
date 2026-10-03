@@ -105,7 +105,7 @@ Picked on 27 September 2026, after step 6. Ranked, most important first.
 7. **Echo test (about half a session). Needs the console's routing (step 10).** Type a prompt
    without running it, and a ghost wisp shows which stone and agent the console would pick. A preview
    before committing to anything, and the cheapest way to learn how routing thinks.
-8. **Twin stones (about half a session). Can be built now.** Two stones for the same repo on
+8. **Twin stones. Done 3 October 2026** (`core/state/repos.ts`, `src/scene/TwinBase.tsx`, `npm run verify:twins`; `?demo&twin`). Two stones for the same repo on
    different branches or worktrees stand side by side, joined at the base. The scan already records
    each session's worktree (`worktree` in `core/harnesses/types.ts`), so the data is there.
 9. **Carved messages (about half a session).** Leave a note for your future self on a stone, an agent

@@ -69,7 +69,9 @@ export function ProjectsPanel({
   // Parents first, each followed by its sub-stones, so the list reads the way the grove branches.
   const tops = stones.filter((stone) => !stone.parent)
   const childrenOf = (id: string) => stones.filter((stone) => stone.parent === id)
-  const all = tops.flatMap((stone) => [stone, ...childrenOf(stone.id)])
+  // Every level down, since a twin can stand beside a sub-stone.
+  const branchOf = (stone: (typeof stones)[number]): typeof stones => [stone, ...childrenOf(stone.id).flatMap(branchOf)]
+  const all = tops.flatMap(branchOf)
   // A search box only once the list is long enough to need one (review item 8). Matching any
   // part of the name, ignoring case; a sub-stone that matches brings no parent along with it.
   const searchable = all.length > 6
@@ -105,7 +107,11 @@ export function ProjectsPanel({
                     selectStone(stone.id)
                   }}
                 >
-                  {stone.parent ? <ArrowBendDownRight size={13} weight="thin" className="row-branch" aria-hidden="true" /> : null}
+                  {stone.twin ? (
+                    <GitBranch size={13} weight="thin" className="row-branch" aria-hidden="true" />
+                  ) : stone.parent ? (
+                    <ArrowBendDownRight size={13} weight="thin" className="row-branch" aria-hidden="true" />
+                  ) : null}
                   <span className={`state-dot tone-${stone.status}`} aria-hidden="true" />
                   <span className="rail-row-text">
                     {stone.name}
@@ -153,7 +159,8 @@ export function ProjectsPanel({
       </div>
       <p className="setting-fine">
         A sub-stone is a big part of a project, a subfolder or a git worktree, standing as its own stone and joined to its
-        parent. Open a stone and choose “Split off a part” to make one by hand.
+        parent. Open a stone and choose “Split off a part” to make one by hand. A git worktree of a project stands right
+        beside it as a twin, named by its branch.
       </p>
       {error ? <p className="panel-error">{error}</p> : null}
     </PanelShell>

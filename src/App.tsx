@@ -26,7 +26,7 @@ import { SettingsPanel } from './hud/Settings'
 import { useFlow } from './store/flow'
 import { useGrove } from './store/grove'
 import { Crystal } from './hud/Crystal'
-import { childPlace, emptyPlaces, layoutStones, stonePlaces } from './scene/layout'
+import { childPlace, emptyPlaces, layoutStones, stonePlaces, twinPlace } from './scene/layout'
 import { step, type Direction, type Target } from './scene/navigation'
 import { DEMO } from './demo'
 import { useTree } from './agents/tree'
@@ -42,14 +42,24 @@ import './hud/hud.css'
  * Kept out of plain `?demo`, which exists to compare against the concept art.
  */
 const SPLIT = DEMO && new URLSearchParams(window.location.search).has('split')
+/** `?demo&twin` stands a worktree of Research beside it, on its own branch, to judge twin stones. */
+const TWIN = DEMO && new URLSearchParams(window.location.search).has('twin')
 const buildAt = SPIKE_STONES.find((stone) => stone.id === 'build')!.at
-const DEMO_STONES = SPLIT
-  ? [
-      ...SPIKE_STONES,
-      { id: 'build/web', name: 'Web', rune: 'celi' as const, status: 'running' as const, at: childPlace(buildAt, 0), scale: 0.74, turn: 0.1, parent: 'build' },
-      { id: 'build/api', name: 'API', rune: 'avi' as const, status: 'idle' as const, at: childPlace(buildAt, 1), scale: 0.72, turn: -0.12, parent: 'build' },
-    ]
-  : SPIKE_STONES
+const researchAt = SPIKE_STONES.find((stone) => stone.id === 'research')!.at
+const DEMO_STONES = [
+  ...SPIKE_STONES.map((stone) => (TWIN && stone.id === 'research' ? { ...stone, branch: 'main' } : stone)),
+  ...(SPLIT
+    ? [
+        { id: 'build/web', name: 'Web', rune: 'celi' as const, status: 'running' as const, at: childPlace(buildAt, 0), scale: 0.74, turn: 0.1, parent: 'build' },
+        { id: 'build/api', name: 'API', rune: 'avi' as const, status: 'idle' as const, at: childPlace(buildAt, 1), scale: 0.72, turn: -0.12, parent: 'build' },
+      ]
+    : []),
+  ...(TWIN
+    ? [
+        { id: 'research-wt', name: 'new-survey', branch: 'new-survey', rune: 'neta' as const, status: 'running' as const, at: twinPlace(researchAt, 0), scale: 0.84, turn: -0.08, parent: 'research', twin: true },
+      ]
+    : []),
+]
 
 /** Who the demo shows working on its running stones, as in the concept art's frame 1. */
 const DEMO_WORKERS: Record<string, string> = { research: 'researcher', build: 'builder', connect: 'researcher' }

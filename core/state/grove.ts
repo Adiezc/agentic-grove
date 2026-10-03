@@ -29,6 +29,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { type GroveFile, type GroveProblem, type StoneConfig, BUILT_IN_AGENT_IDS, MAX_BRIEF_CHARS, defaultGrove, parseAgent, parseGrove } from './schema.ts'
 import { assignPlaces, placeFor } from './places.ts'
+import { type RepoInfo, readRepos, twinsOf } from './repos.ts'
 
 /** `AGENTIC_GROVE_HOME` exists so tests can point somewhere disposable. */
 export const groveHome = (): string =>
@@ -155,20 +156,39 @@ export function updateGrove<T>(
   return next
 }
 
-/** The stones that stand on numbered places: shown, and not inside another shown stone's folder. */
-function topLevel(stones: StoneConfig[]): StoneConfig[] {
+/**
+ * The stones that stand on numbered places: shown, not inside another shown stone's folder, and not
+ * the twin of another stone (a twin stands beside its anchor, see `core/state/repos.ts`).
+ */
+function topLevel(stones: StoneConfig[], repos: Map<string, RepoInfo>): StoneConfig[] {
   const shown = stones.filter((stone) => !stone.hidden)
-  return shown.filter((stone) => !shown.some((other) => other !== stone && stone.path.startsWith(other.path + path.sep)))
+  const twins = twinsOf(shown, repos)
+  return shown.filter(
+    (stone) => !twins.has(stone.path) && !shown.some((other) => other !== stone && stone.path.startsWith(other.path + path.sep))
+  )
+}
+
+/**
+ * What git says about every folder that might be in the grove by the time a change is made. Read
+ * before `updateGrove`, which cannot wait on the disk part-way through; a folder added by hand in
+ * that moment is only missing its twin until the next change.
+ */
+async function reposFor(...extra: string[]): Promise<Map<string, RepoInfo>> {
+  const { grove } = await loadGrove()
+  return readRepos([...new Set([...grove.stones.map((stone) => stone.path), ...extra])])
 }
 
 /**
  * Write down the place every top-level stone stands on right now. Done before any stone is added
  * or removed, so an older grove without numbers keeps exactly the layout it had, and nothing moves.
  */
-function fixPlaces(stones: StoneConfig[]): void {
-  const top = topLevel(stones)
+function fixPlaces(stones: StoneConfig[], repos: Map<string, RepoInfo>): void {
+  const top = topLevel(stones, repos)
   const at = assignPlaces(top.map((stone) => ({ id: stone.path, place: stone.place })))
   for (const stone of top) stone.place = at.get(stone.path)
+  // A shown stone that stands off another holds no place. One connected before twins existed may
+  // still have a number written; left there, it would keep an empty circle from being offered.
+  for (const stone of stones) if (!stone.hidden && !top.includes(stone)) delete stone.place
 }
 
 /**
@@ -184,15 +204,16 @@ export async function addProject(folder: string, place?: number): Promise<{ ok: 
   if (!stat?.isDirectory()) return { ok: false, error: 'Not a folder' }
 
   const resolved = path.resolve(folder)
+  const repos = await reposFor(resolved)
   return updateGrove<{ ok: boolean; error?: string }>(
     (grove) => {
       if (grove.stones.some((stone) => stone.path === resolved)) return { result: { ok: true }, write: false }
-      fixPlaces(grove.stones)
+      fixPlaces(grove.stones, repos)
       const entry: StoneConfig = { path: resolved }
       grove.stones.push(entry)
       // A top-level stone takes the circle you chose, or the lowest free one; a sub-stone stands
-      // off its parent and takes none.
-      if (topLevel(grove.stones).includes(entry)) {
+      // off its parent and a twin beside its anchor, and neither takes one.
+      if (topLevel(grove.stones, repos).includes(entry)) {
         const used = grove.stones.filter((stone) => stone !== entry && stone.place !== undefined).map((stone) => stone.place!)
         entry.place = placeFor(used, place)
       }
@@ -209,12 +230,18 @@ export async function addProject(folder: string, place?: number): Promise<{ ok: 
  * says before the second press.
  */
 export async function removeProject(stonePath: string): Promise<{ ok: boolean; error?: string }> {
+  const repos = await reposFor()
   return updateGrove<{ ok: boolean; error?: string }>(
     (grove) => {
-      if (!grove.stones.some((stone) => stone.path === stonePath)) return { result: { ok: false, error: 'No stone for that folder' }, write: false }
+      const leaving = grove.stones.find((stone) => stone.path === stonePath)
+      if (!leaving) return { result: { ok: false, error: 'No stone for that folder' }, write: false }
       // Numbers first, so the stones that stay keep their places and this one leaves a gap.
-      fixPlaces(grove.stones)
-      grove.stones = grove.stones.filter((stone) => stone.path !== stonePath)
+      fixPlaces(grove.stones, repos)
+      grove.stones = grove.stones.filter((stone) => stone !== leaving)
+      // Unless it had a twin: then the twin steps into the place it leaves, rather than jumping to
+      // whichever circle happens to be lowest.
+      const heir = topLevel(grove.stones, repos).find((stone) => stone.place === undefined)
+      if (heir && leaving.place !== undefined && twinsOf([leaving, heir], repos).size) heir.place = leaving.place
       return { result: { ok: true }, write: true }
     },
     { ok: false, error: 'grove.json has an error; fix it before removing projects' }
