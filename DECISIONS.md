@@ -1486,3 +1486,17 @@ about 53% of a core awake, 20% quiet at 12 fps, **16% at 8 fps**, 11% at 4 fps. 
 (the scan, and the interface's frosted panels re-blurring over a changing scene) and each frame per
 second adds about 1%. 8 keeps the heartbeat readable; 4 looked like a slideshow. The page's own
 JavaScript was 94% idle while quiet, so what remains is drawing, not code.
+
+## The far floor: mist circling the clearing
+
+*3 October 2026*
+
+Adrian asked for the background to be "a tiny bit more interesting". The top third of the home
+view was flat dark: the camera looks down at about thirty degrees, so what fills it is the far
+floor fading into fog, not a sky. A first try stood a misty veil up on the horizon and it was
+simply out of shot. `src/scene/Veil.tsx` instead lays faint green mist on the floor in a wide ring
+from just past the stone places out into the fog, in long arcs that drift round the grove over
+minutes. It brightens a little with the same activity measure as the heartbeat, never turns amber,
+and holds still under reduced motion or with drifting motes switched off. One flat mesh and one
+small shader. Judged in `?demo`: twice the final brightness already competed with the tree, so it
+sits at the level where you notice depth before you notice mist.

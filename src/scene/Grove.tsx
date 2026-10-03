@@ -36,6 +36,7 @@ import type { Pairing } from '../../core/state/pairings.ts'
 import { Mushrooms } from './Mushrooms'
 import { AttentionMotes } from './AttentionMotes'
 import { TwinBase } from './TwinBase'
+import { Veil } from './Veil'
 import { useGrove } from '../store/grove'
 
 /**
@@ -487,6 +488,7 @@ export function GroveScene({
       <directionalLight position={[5, 3, 6]} intensity={0.08} color={palette.bone} />
 
       <Ground reflect={settings.reflect} reflectionResolution={settings.reflectionRes} />
+      <Veil activity={activity} animate={animate && ambientMotion} />
       <Mycelium network={network} arriving={arriving} active={active} attention={attention} failed={failed} activity={activity} animate={animate} />
       {/* Scaled up a touch. Measured against the art the tree should fill rather more of the
           frame than a one-to-one build of the coordinates gives, because the art's camera is
