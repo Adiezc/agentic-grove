@@ -222,7 +222,7 @@ export interface GroveSettings {
    */
   idleDrift: boolean
   /**
-   * When nothing is running and you have not touched the window for a few seconds, draw 12 frames
+   * When nothing is running and you have not touched the window for a few seconds, draw 8 frames
    * a second instead of 60. Measured on 3 October 2026: a visible, idle grove cost two-thirds of a
    * CPU core at full rate. Any movement, or any work starting, brings full speed straight back.
    */
