@@ -367,7 +367,7 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
   const back = useFlow((state) => state.back)
   const { agents } = useTree()
   const open = view === 'agents' && !growing
-  // Falls back to Researcher when the shown agent has just been removed.
+  // Falls back to PM, the first, when the shown agent has just been removed.
   const index = Math.max(0, agents.findIndex((each) => each.id === agentId))
   const agent = agents[index]!
   const target = stones.find((stone) => stone.id === stoneId)
@@ -379,7 +379,7 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
   const [error, setError] = useState<string | null>(null)
   // Removing asks twice: the first press turns the bin amber, the second takes the agent away.
   const [confirming, setConfirming] = useState(false)
-  // The task travels with the agent. Kept while you page between agents, so trying Researcher
+  // The task travels with the agent. Kept while you page between agents, so trying PM
   // and then Builder for the same job does not mean typing it twice; cleared when the card closes.
   const [task, setTask] = useState('')
   useEffect(() => {
@@ -408,7 +408,7 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
       return
     }
     const result = await window.grove?.removeAgent(agent.id)
-    if (result?.ok) showAgent('researcher')
+    if (result?.ok) showAgent('manager')
     else setError(result?.error ?? 'Could not remove it')
   }
   const canWrite = Boolean(window.grove)

@@ -14,6 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type { Session } from '../core/harnesses/types.ts'
 import type { HookCall } from '../core/hooks/protocol.ts'
+import { claudeAgentsJson, pmBrief, teamFor } from '../core/spawn/briefs.ts'
 import { launch } from '../core/spawn/launch.ts'
 import { RunBook, type Run } from '../core/spawn/runs.ts'
 
@@ -24,7 +25,8 @@ await fsp.mkdir(folder)
 /** A stand-in tool: records its working folder and each argument, NUL-separated, then exits. */
 const record = path.join(scratch, 'args.bin')
 const fakeCli = path.join(scratch, 'fake-cli')
-await fsp.writeFile(fakeCli, `#!/bin/zsh\n{ print -rn -- "$PWD"; printf '\\0'; for a in "$@"; do print -rn -- "$a"; printf '\\0'; done } > '${record}'\n`, { mode: 0o700 })
+const depth = path.join(scratch, 'depth.txt')
+await fsp.writeFile(fakeCli, `#!/bin/zsh\n{ print -rn -- "$PWD"; printf '\\0'; for a in "$@"; do print -rn -- "$a"; printf '\\0'; done } > '${record}'\nprint -rn -- "\${CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH:-none}" > '${depth}'\n`, { mode: 0o700 })
 
 /** Instead of Terminal: run the script in zsh straight away and wait for it. */
 const runInZsh = async (file: string) => {
@@ -88,6 +90,33 @@ const cases: [string, () => Promise<void>][] = [
     await launch({ run: fakeRun({ harness: 'codex', task: 'Fix it' }), folder, brief: 'You build.', model: '' }, runInZsh, async () => fakeCli)
     const [, ...args] = await recorded()
     assert.deepEqual(args, ['You build.\n\nFix it'])
+  }],
+  ['PM on Claude Code gets its team as subagents, and its workers cannot start their own', async () => {
+    const team = claudeAgentsJson(teamFor([]))
+    await launch({ run: fakeRun({ agentId: 'manager', agentName: 'PM', task: 'hi' }), folder, brief: 'Lead.', model: '', agents: team }, runInZsh, async () => fakeCli)
+    const [, ...args] = await recorded()
+    assert.deepEqual(args.slice(-3), ['--agents', team, 'hi'])
+    assert.equal(await fsp.readFile(depth, 'utf8'), '1')
+    await launch({ run: fakeRun({ task: 'hi' }), folder, brief: '', model: '' }, runInZsh, async () => fakeCli)
+    assert.ok(!(await recorded()).includes('--agents'), 'a run without a team got one')
+    assert.equal(await fsp.readFile(depth, 'utf8'), 'none')
+    await launch({ run: fakeRun({ harness: 'codex', agentId: 'manager', task: 'hi' }), folder, brief: 'Lead.', model: '', agents: team }, runInZsh, async () => fakeCli)
+    assert.deepEqual((await recorded()).slice(1), ['Lead.\n\nhi'], 'Codex has no --agents; its team is in the brief')
+  }],
+  ['PM\'s team: the built-in workers, then your agents, each under a name of its own', async () => {
+    const team = teamFor([
+      { id: 'a1', name: 'Code Reviewer', description: 'Reads diffs.', systemPrompt: 'Be blunt.', model: 'opus' },
+      { id: 'a2', name: 'Builder', description: '' },
+    ])
+    assert.deepEqual(team.map((worker) => worker.key), ['researcher', 'builder', 'code-reviewer', 'builder-2'])
+    const json = JSON.parse(claudeAgentsJson(team)) as Record<string, { prompt: string; tools?: string[]; model?: string }>
+    assert.ok(!json.researcher!.tools!.some((tool) => /Edit|Write/.test(tool)), 'the Researcher can change files')
+    assert.equal(json['code-reviewer']!.model, 'opus')
+    assert.match(json['code-reviewer']!.prompt, /Be blunt\./)
+    assert.equal(json.builder!.tools, undefined)
+    const forCodex = pmBrief(team, 'codex')
+    for (const worker of team) assert.ok(forCodex.includes(worker.prompt), `Codex is not told what ${worker.key} does`)
+    assert.ok(!pmBrief(team, 'claude-code').includes(team[0]!.prompt), 'Claude Code already has the prompts; the brief repeats them')
   }],
   ['the temporary folder with the task in it is gone once the tool starts', async () => {
     const before = new Set((await fsp.readdir(os.tmpdir())).filter((name) => name.startsWith('agentic-grove-run-')))

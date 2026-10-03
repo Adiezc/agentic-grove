@@ -224,7 +224,7 @@ export function RuneConsole({
   const treeAnswers = period !== null && !toAgent
 
   // Which tool will run it. Your own agents have their own; the built-in three go where the
-  // Manager's rules send them (installed, allowance not used up), unless you click to change it.
+  // PM's rules send them (installed, allowance not used up), unless you click to change it.
   const installed = { claudeCode: Boolean(setup?.['claude-code'].cli), codex: Boolean(setup?.codex.cli) }
   const builtIn = agent ? !agent.own : false
   const proposal = route('project', { ...installed, claudeApp: false, chatgptApp: false, dots: false }, headroomFrom(usage, Date.now()))

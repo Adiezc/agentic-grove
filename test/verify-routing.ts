@@ -1,8 +1,8 @@
 /**
- * The Manager's routing rules, checked case by case. Run with `npm run verify:routing`.
+ * PM's routing rules, checked case by case. Run with `npm run verify:routing`.
  *
  * Each case is one sentence of the rule book in `core/routing.ts`. If a rule changes on purpose,
- * change its case here in the same commit, so the two never disagree about what the Manager does.
+ * change its case here in the same commit, so the two never disagree about what PM does.
  */
 import assert from 'node:assert/strict'
 import { headroomFrom, route, type Connected } from '../core/routing.ts'

@@ -165,7 +165,7 @@ export interface GroveApi {
   carveNote(on: NotePlace, id: string, text: string): Promise<{ ok: boolean; error?: string }>
   /** A showing note has been read: it fades and goes. */
   readNote(on: NotePlace, id: string): Promise<{ ok: boolean; error?: string }>
-  /** Save a job on a stone as a rune. `agent` empty lets the Manager's rules choose each time. */
+  /** Save a job on a stone as a rune. `agent` empty sends it to PM each time. */
   carveRune(stoneId: string, prompt: string, agent?: string): Promise<{ ok: boolean; error?: string }>
   removeRune(stoneId: string, runeId: string): Promise<{ ok: boolean; error?: string }>
   /** Say no to a suggested rune, by its key, so it is not offered again. */
@@ -219,7 +219,7 @@ export interface GroveApi {
    * or Codex. Takes ids only. The node side looks up the folder and the agent itself, so page code
    * never names a folder to run in or a command to run. Resolves once Terminal has been asked to
    * open, with the run's id; whether a session really started arrives later, on the run.
-   * `harness` picks the tool for a built-in agent (the console's override); left out, the Manager's
+   * `harness` picks the tool for a built-in agent (the console's override); left out, PM's
    * rules in `core/routing.ts` pick it. Your own agents always use their own tool.
    */
   launchRun(request: { stoneId: string; agentId: string; task: string; harness?: 'claude-code' | 'codex' }): Promise<RunResult>

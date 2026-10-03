@@ -1,9 +1,9 @@
 /**
- * The Manager's rule book: which tool should take a job.
+ * PM's rule book: which tool should take a job.
  *
- * The Manager agent on the tree decides how work is shared out, and this is the deterministic part
+ * PM, the project manager on the tree, decides how work is shared out, and this is the deterministic part
  * of that decision, kept here so it can be read, tested and argued with rather than hidden inside
- * a prompt. When the console can send work (roadmap step 10), the Manager reads the job, sorts it
+ * a prompt. When the console can send work (roadmap step 10), PM reads the job, sorts it
  * into one of the kinds below, and asks `route` who should take it.
  *
  * The rules, in plain words:
@@ -49,7 +49,7 @@ export interface Headroom {
 
 export interface Route {
   harness: AgentHarness | null
-  /** One sentence the Manager can say back, so a routing choice is never a mystery. */
+  /** One sentence PM can say back, so a routing choice is never a mystery. */
   reason: string
 }
 

@@ -127,7 +127,7 @@ export const LINK_HOME: Record<string, string> = {
 }
 
 /**
- * Researcher, Builder and Manager are built into every grove and are not written here, so no
+ * PM, Researcher and Builder are built into every grove and are not written here, so no
  * definition may take their ids. If one did, `Rune.agent: "builder"` would mean two different
  * agents depending on who asked.
  */

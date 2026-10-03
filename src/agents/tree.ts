@@ -15,10 +15,12 @@
  * Every grove starts with three agents, built in rather than written to `grove.json` so they
  * cannot be deleted by accident:
  *
- *   Researcher  everybody researches. Also the one who walks you through the grove the first time.
- *   Builder     writes and changes code and files.
- *   Manager     the project manager. Decides which tool takes which job, from what you have
- *               connected and how much of each allowance is left. See `core/routing.ts`.
+ *   PM          the project manager, and the one you talk to. Plans each job and hands the parts
+ *               to the agents whose job they are (`core/spawn/briefs.ts`), and picks the tool from
+ *               what you have connected and how much of each allowance is left (`core/routing.ts`).
+ *               Also the one who walks you through the grove the first time.
+ *   Researcher  finds things out without changing anything. One of PM's workers.
+ *   Builder     writes and changes code and files. One of PM's workers.
  *
  * **Where an orb hangs is worked out, not stored.** Each kind has a short list of places on the
  * canopy, read off the scene by eye, and agents take them in the order they grew. `grove.json`
@@ -70,8 +72,8 @@ export const HARNESS_MARK: Record<Harness, { Mark: Icon; label: string; opens?: 
 export const kindOf = (agent: { harness: Harness }): 'grove' | 'bot' => (isLinkOnly(agent.harness) ? 'bot' : 'grove')
 
 /**
- * Places on the branches, nearest the viewer first. The first is Researcher's, where the concept
- * art puts it. Seven in all: a bonsai with more lanterns than that stops reading as a tree.
+ * Places on the branches, nearest the viewer first. The first, where the concept art hangs its
+ * main orb, is PM's: the agent you talk to is the one nearest you. Seven in all: a bonsai with more lanterns than that stops reading as a tree.
  */
 const HANGING: [number, number, number][] = [
   [-0.4, 4.35, 0.75],
@@ -101,25 +103,19 @@ const BUD_WHEN_FULL: [number, number, number] = [-0.8, 3.0, 1.0]
 
 /**
  * The three every grove starts with. Their tool is the one you have: Claude Code if it is here,
- * otherwise Codex. The Manager's routing can still hand any job to the other when that is better.
+ * otherwise Codex. PM's routing can still hand any job to the other when that is better.
  */
 function builtIns(preferred: AgentHarness): AgentDefinition[] {
   return [
-    { id: 'researcher', name: 'Researcher', description: 'Search, read and summarise.', harness: preferred, glyph: 'search' },
-    { id: 'builder', name: 'Builder', description: 'Write and change code and files.', harness: preferred, glyph: 'build' },
-    {
-      id: 'manager',
-      name: 'Manager',
-      description: 'Plans the work and picks the right tool for each job.',
-      harness: preferred,
-      glyph: 'plan',
-    },
+    { id: 'manager', name: 'PM', description: 'Plans the work and hands each part to the right agent.', harness: preferred, glyph: 'plan' },
+    { id: 'researcher', name: 'Researcher', description: 'Finds things out. Changes nothing.', harness: preferred, glyph: 'search' },
+    { id: 'builder', name: 'Builder', description: 'Writes and changes code and files.', harness: preferred, glyph: 'build' },
   ]
 }
 
+export const PM = { name: 'PM', Glyph: Compass }
 export const RESEARCHER = { name: 'Researcher', Glyph: MagnifyingGlass }
 export const BUILDER = { name: 'Builder', Glyph: Hammer }
-export const MANAGER = { name: 'Manager', Glyph: Compass }
 
 /** Shown only in demo mode, so the two kinds can be judged side by side against the art. */
 const EXAMPLES: AgentDefinition[] = [
@@ -154,8 +150,8 @@ export function placeAgents(
       harness: definition.harness,
       Glyph: GLYPHS[glyph].Icon,
       // Running when a run it was sent on is working or asking right now. The demo shows the art's
-      // "Running" on Researcher. A bot's state is unknowable, so it is null rather than false.
-      running: bot ? null : DEMO ? definition.id === 'researcher' : busy.has(definition.id),
+      // "Running" on PM, the main orb. A bot's state is unknowable, so it is null rather than false.
+      running: bot ? null : DEMO ? definition.id === 'manager' : busy.has(definition.id),
       at,
       own: !BUILT_IN.has(definition.id),
     })

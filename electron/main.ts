@@ -40,11 +40,10 @@ import { APP_DOWNLOADS, TOOL_PAGES, cliPath, setupScript, setupStatus, signInScr
 import { nextSetupStep } from '../core/readiness.ts'
 import { RunBook, type RunHarness } from '../core/spawn/runs.ts'
 import { launch } from '../core/spawn/launch.ts'
-import { BUILT_IN_BRIEFS, BUILT_IN_NAMES } from '../core/spawn/briefs.ts'
+import { BUILT_IN_BRIEFS, BUILT_IN_NAMES, PM_ID, SPAWNABLE_BUILT_INS, claudeAgentsJson, pmBrief, teamFor } from '../core/spawn/briefs.ts'
 import { readTranscript } from '../core/spawn/transcript.ts'
 import { noticeFor } from '../core/attention.ts'
 import { headroomFrom, route } from '../core/routing.ts'
-import { agentForKind } from '../core/console.ts'
 import { notify } from './notify.ts'
 import { execFile } from 'node:child_process'
 
@@ -517,7 +516,7 @@ function registerHandlers(): void {
     if (!rune) return { ok: false, error: 'No such saved task' }
     // A rune without an agent, or naming one since removed, goes to whoever the console would pick.
     const known = BUILT_IN_AGENT_IDS.includes(rune.agent as never) || grove.agents.some((agent) => agent.id === rune.agent)
-    return launchRun({ stoneId, agentId: known ? rune.agent : agentForKind(rune.prompt), task: rune.prompt })
+    return launchRun({ stoneId, agentId: known ? rune.agent : PM_ID, task: rune.prompt })
   })
 
   handle(CHANNELS.removeAgent, async (_event, id: unknown): Promise<AgentResult> => {
@@ -768,12 +767,12 @@ async function launchRun(request: unknown): Promise<RunResult> {
   if (!grove.stones.some((stone) => stone.path === stoneId)) return { ok: false, error: 'Not one of your stones' }
 
   const own = grove.agents.find((agent) => agent.id === agentId)
-  const builtIn = agentId in BUILT_IN_BRIEFS
+  const builtIn = SPAWNABLE_BUILT_INS.has(agentId)
   if (!own && !builtIn) return { ok: false, error: 'No such agent' }
   if (own && isLinkOnly(own.harness)) return { ok: false, error: `${own.name} lives in its own app and cannot be sent to a stone` }
 
   // Your own agents use their own tool. Built-ins use the one you picked in the console if its
-  // command is here, otherwise the Manager's rules: installed tools, and allowances not used up.
+  // command is here, otherwise PM's rules: installed tools, and allowances not used up.
   // With neither installed, Claude Code is tried so the failure names the tool most people want.
   let harness: RunHarness
   if (own) harness = own.harness === 'codex' ? 'codex' : 'claude-code'
@@ -795,8 +794,15 @@ async function launchRun(request: unknown): Promise<RunResult> {
     stoneId,
     task: task.trim(),
   })
-  const brief = own ? (own.systemPrompt ?? '') : (BUILT_IN_BRIEFS[agentId] ?? '')
-  const result = await launch({ run, folder: stoneId, brief, model: own?.model ?? '' }, shell.openPath)
+  // PM gets its team: the built-in workers and your own agents on the same tool (see briefs.ts).
+  let brief = own ? (own.systemPrompt ?? '') : (BUILT_IN_BRIEFS[agentId] ?? '')
+  let agents: string | undefined
+  if (agentId === PM_ID) {
+    const team = teamFor(grove.agents.filter((agent) => agent.harness === harness))
+    brief = pmBrief(team, harness)
+    if (harness === 'claude-code') agents = claudeAgentsJson(team)
+  }
+  const result = await launch({ run, folder: stoneId, brief, model: own?.model ?? '', agents }, shell.openPath)
   if (!result.ok) runs.fail(run.id, result.error)
   redraw()
   return result.ok ? { ok: true, runId: run.id } : { ok: false, runId: run.id, error: result.error, missing: result.missing }

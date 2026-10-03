@@ -1539,3 +1539,51 @@ past that, rows further back that are in view when zoomed out. The closest two p
 units apart and the nearest is 3.7 from the trunk, clear of the dais. Stones keep their place
 numbers, so an existing grove keeps its order; each number now just stands somewhere new. The demo's
 six stones stand on the first six places. Checked in `?demo` at the home view and fully zoomed out.
+
+## PM is the front door, and delegates to the tool's own subagents
+
+*3 October 2026*
+
+Adrian asked for the agent you talk to to be a project manager that plans the work and hands it to
+the right agents, rather than Researcher. Researched first; what the sources agree on:
+
+- **One manager keeps the conversation and calls specialists for bounded pieces** (Anthropic's
+  orchestrator-workers pattern; OpenAI's "agents as tools", as opposed to handing the conversation
+  over). Routing to a fixed category suits predictable jobs; a manager suits jobs whose parts cannot
+  be known in advance, which is most project work.
+- **Every hand-off says the goal, what to send back, where to look and what not to touch.** Vague
+  hand-offs made Anthropic's research subagents duplicate each other.
+- **Effort matched to the job.** Anthropic measured multi-agent runs at about fifteen times the
+  tokens of a chat. On a Pro plan that decides whether the week's allowance lasts, so a small job
+  goes to one agent with no ceremony.
+- **Read in parallel, write one at a time.** Parallel agents that change files make decisions the
+  others never see (Cognition, "Don't build multi-agents"); Claude Code's own team docs warn about
+  two teammates editing the same file.
+- **Shallow.** One manager, one level of workers.
+
+What was built. The built-in Manager is now **PM** (id still `manager`, so earlier runs and saved
+tasks keep working), on the nearest branch, the console's default for any job that does not name an
+agent, the default for a saved task with no agent, and the one who gives the first-launch intro.
+The console no longer guesses Researcher, Builder or Manager from the first word of a job: that
+guess is PM's, with the whole job in front of it. Researcher and Builder stay on the tree and can
+still be sent directly.
+
+When PM is sent on Claude Code, the launcher passes its team with `--agents` (Researcher, read-only
+tools; Builder; and your own Claude Code agents, each with its own brief and model). That flag lasts
+one session, so nothing is written into the project or your settings, which keeps the read-only
+principle intact. `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` stops workers starting workers. Codex
+only delegates when its instructions say to, so on Codex the same team is written into PM's brief
+with each worker's instructions. PM's brief carries the rules above, plus: show a plan and wait for
+a yes before a bigger job changes files, check the work, finish with who did what and what needs a
+decision. Checked: `npm run verify:spawn` (15), and one real `claude -p --agents` call on Haiku,
+which listed researcher, builder and a connected code-reviewer as its subagents.
+
+Not chosen: Claude Code's agent teams (experimental, every teammate a full session, more tokens),
+and the Grove itself orchestrating several Terminal sessions (it cannot read a job without a model,
+and would need to pass results between sessions it does not control). Worth doing next: showing a
+PM run's workers as orbs above the stone while they work, from the subagent hooks.
+
+Sources: anthropic.com/engineering/multi-agent-research-system,
+anthropic.com/engineering/building-effective-agents, code.claude.com/docs/en/sub-agents,
+code.claude.com/docs/en/agent-teams, cognition.com/blog/dont-build-multi-agents,
+openai.github.io/openai-agents-python/multi_agent, learn.chatgpt.com/docs/agent-configuration/subagents.

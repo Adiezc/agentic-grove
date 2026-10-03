@@ -32,6 +32,11 @@ export interface LaunchSpec {
   brief: string
   /** Empty means the tool's own default. */
   model: string
+  /**
+   * PM's team, as the JSON Claude Code's `--agents` takes (see `briefs.ts`). Only PM runs on
+   * Claude Code have one; with it, the workers are also stopped from starting workers of their own.
+   */
+  agents?: string
   /** Resume the run's existing session rather than start one. Claude Code only. */
   resume?: boolean
 }
@@ -74,6 +79,7 @@ function script(dir: string, cli: string, spec: LaunchSpec): string {
     // The brief has to outlive the folder for Claude Code, which reads it after starting, so it is
     // copied into a variable too and handed over as text rather than as a file.
     `BRIEF="$(cat ${at('brief.txt')})"`,
+    `AGENTS="$(cat ${at('agents.txt')})"`,
     `rm -rf -- ${quote(dir)}`,
   ]
   // Arguments are gathered in an array, one element each, because zsh keeps "$TASK" as one
@@ -85,6 +91,8 @@ function script(dir: string, cli: string, spec: LaunchSpec): string {
       `ARGS=(--session-id ${run.id} --name "$NAME")`,
       '[[ -n "$BRIEF" ]] && ARGS+=(--append-system-prompt "$BRIEF")',
       '[[ -n "$MODEL" ]] && ARGS+=(--model "$MODEL")',
+      // One level of delegation: PM may start workers, workers may not start their own.
+      '[[ -n "$AGENTS" ]] && ARGS+=(--agents "$AGENTS") && export CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1',
       '[[ -n "$TASK" ]] && ARGS+=("$TASK")'
     )
   } else {
@@ -126,6 +134,8 @@ export async function launch(spec: LaunchSpec, open: Opener, findCli = cliPath):
       'name.txt': notAnOption(sessionName(run)),
       'model.txt': notAnOption(spec.model),
       'brief.txt': notAnOption(spec.brief),
+      // JSON always starts with a brace, never a dash, so it cannot be read as an option.
+      'agents.txt': spec.run.harness === 'claude-code' ? (spec.agents ?? '') : '',
     }
     for (const [name, text] of Object.entries(files)) await fsp.writeFile(path.join(dir, name), text, { mode: 0o600 })
     const file = path.join(dir, `${run.agentId}.command`)

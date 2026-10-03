@@ -357,7 +357,7 @@ export const MAX_RUNE_PROMPT_CHARS = 2000
 
 /**
  * Carve a rune: save a job on one stone so it is one click next time. Named from its first words;
- * `agent` may be empty, and then the Manager's rules pick who does it each time it runs. Carving
+ * `agent` may be empty, and then PM takes it and picks who does it each time it runs. Carving
  * the same prompt twice is not an error: the answer to "save this" is already yes.
  */
 export async function carveRune(stonePath: unknown, prompt: unknown, agent: unknown = ''): Promise<{ ok: boolean; error?: string }> {

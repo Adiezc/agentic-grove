@@ -10,7 +10,7 @@ import { readCommand } from '../core/console.ts'
 const agents = [
   { id: 'researcher', name: 'Researcher' },
   { id: 'builder', name: 'Builder' },
-  { id: 'manager', name: 'Manager' },
+  { id: 'manager', name: 'PM' },
   { id: 'builder-two', name: 'Builder Two' },
 ]
 const stones = [
@@ -24,25 +24,17 @@ const cases: [string, () => void][] = [
   ['a named agent wins, in every form, and its name comes off the task', () => {
     assert.deepEqual([read('@builder why is it slow').agentId, read('@builder why is it slow').task], ['builder', 'why is it slow'])
     assert.equal(read('Researcher: fix the login').agentId, 'researcher')
-    assert.equal(read('ask the manager to fix it').agentId, 'manager')
-    assert.equal(read('ask the manager to fix it').task, 'fix it')
+    assert.equal(read('ask the PM to fix it').agentId, 'manager')
+    assert.equal(read('ask the pm to fix it').task, 'fix it')
   }],
   ['the longest agent name is matched first', () => {
     assert.equal(read('@builder two add tests').agentId, 'builder-two')
   }],
-  ['planning goes to the Manager', () => {
-    assert.equal(read('plan the release').agentId, 'manager')
-    assert.equal(read('Break this down into steps').agentId, 'manager')
-  }],
-  ['questions and looking into things go to the Researcher', () => {
-    assert.equal(read('why does the scan take 600ms').agentId, 'researcher')
-    assert.equal(read('review the diff').agentId, 'researcher')
-    assert.equal(read('the tests pass on CI but not here?').agentId, 'researcher')
-  }],
-  ['making and changing things go to the Builder, including "do" and "can you"', () => {
-    assert.equal(read('fix the failing test').agentId, 'builder')
-    assert.equal(read('do the refactor').agentId, 'builder')
-    assert.equal(read('can you add dark mode').agentId, 'builder')
+  ['anything not naming an agent goes to PM, whatever kind of job it is', () => {
+    for (const job of ['plan the release', 'why does the scan take 600ms', 'review the diff', 'fix the failing test', 'can you add dark mode', 'the tests pass on CI but not here?']) {
+      assert.equal(read(job).agentId, 'manager', job)
+      assert.equal(read(job).agentBy, 'kind', job)
+    }
   }],
   ['the selected stone wins over one named in the text', () => {
     const reading = read('fix Shellter', '/p/grove')

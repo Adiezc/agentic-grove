@@ -102,7 +102,7 @@ interface FlowStore {
 export const useFlow = create<FlowStore>((set, get) => ({
   view: 'home',
   stoneId: null,
-  agentId: 'researcher',
+  agentId: 'manager',
   growing: false,
   editingId: null,
   pendingAgentId: null,

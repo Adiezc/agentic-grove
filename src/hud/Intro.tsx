@@ -1,5 +1,5 @@
 /**
- * The first-launch walkthrough, given by Researcher.
+ * The first-launch walkthrough, given by PM: the agent you talk to is the one who says hello.
  *
  * Five cards, one idea each, a sentence or two apiece: what the grove is, getting your AI tools
  * ready (one button, see `GetReady` and `core/readiness.ts`), what a runestone is, where agents come from, and
@@ -13,21 +13,21 @@
 import { useEffect, useState } from 'react'
 import type { Icon } from '@phosphor-icons/react'
 import { ArrowRight, CircleDashed, Heartbeat, Plugs, TreeEvergreen, UsersThree } from '@phosphor-icons/react'
-import { RESEARCHER } from '../agents/tree'
+import { PM } from '../agents/tree'
 import { DEMO } from '../demo'
 import { GetReady } from './Setup'
 
 const SEEN_KEY = 'grove:intro-seen'
 
 const STEPS: { Glyph: Icon; text: string; setup?: boolean }[] = [
-  { Glyph: TreeEvergreen, text: "This is your grove. I'm Researcher. I live in the tree, with the agents you'll add." },
+  { Glyph: TreeEvergreen, text: "This is your grove. I'm PM. Tell me what needs doing and I'll plan it and hand it to the right agent." },
   {
     Glyph: Plugs,
     text: 'First, your AI tools. I work through Claude Code or Codex. If anything is missing, one button sorts it out.',
     setup: true,
   },
   { Glyph: CircleDashed, text: 'Each runestone is a project. Choose an empty circle to create one or connect a folder.' },
-  { Glyph: UsersThree, text: 'Builder and Manager live here too. Everyday coworkers from ChatGPT and Claude drift round the tree as fireflies.' },
+  { Glyph: UsersThree, text: 'Researcher and Builder work with me on the tree, with any agents you add. Everyday coworkers from ChatGPT and Claude drift round it as fireflies.' },
   { Glyph: Heartbeat, text: 'The grove breathes slowly at rest and faster while we work. Amber means one of us needs you.' },
 ]
 
@@ -73,7 +73,7 @@ export function Intro({ hidden = false }: { hidden?: boolean }) {
 
   if (step === null) return null
   const { Glyph, text, setup } = STEPS[step]!
-  const Face = RESEARCHER.Glyph
+  const Face = PM.Glyph
   const last = step === STEPS.length - 1
 
   return (
@@ -88,7 +88,7 @@ export function Intro({ hidden = false }: { hidden?: boolean }) {
         <span className="agent-face" aria-hidden="true">
           <Face size={22} weight="light" />
         </span>
-        <span className="intro-name">{RESEARCHER.name}</span>
+        <span className="intro-name">{PM.name}</span>
         <button type="button" className="intro-skip" onClick={done}>
           Skip
         </button>

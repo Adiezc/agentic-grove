@@ -8,13 +8,11 @@
  * ("Builder → Shellter"), and one click changes the agent, so a rule that guesses wrong costs a
  * click rather than a wrong job.
  *
- * **Who.** In order:
- *   1. An agent you name at the start: "@builder fix the tests", "Researcher: why is the scan
- *      slow", "ask the manager to plan the release". The name is taken off the task.
- *   2. Otherwise the kind of job, from how it starts. Planning words ("plan", "break down",
- *      "prioritise") go to the Manager; questions and looking-into words ("why", "explain",
- *      "find", "review", or anything ending in a question mark) go to the Researcher; everything
- *      else, which is mostly "make or change something", goes to the Builder.
+ * **Who.** An agent you name at the start: "@builder fix the tests", "Researcher: why is the scan
+ * slow", "ask the builder to add dark mode". The name is taken off the task. Otherwise PM, the
+ * front door (3 October 2026): PM reads the job properly, which plain rules never could, and
+ * hands each part to the agent whose job it is. The console used to guess the agent from the
+ * first word of the job; that guess is now PM's to make, with the whole job in front of it.
  *
  * **Where.** In order: the stone you have selected; a stone whose name appears in the text as a
  * whole word (the longest name wins, so "Grove Studio" beats "Grove"); the only stone, if there is
@@ -61,19 +59,8 @@ function namedAgent(text: string, agents: ConsoleAgent[]): { agent: ConsoleAgent
   return null
 }
 
-const PLANNING = /^(?:plan|break (?:it |this )?down|prioriti[sz]e|organi[sz]e|scope|estimate|roadmap|outline|what should (?:we|i) do|how should (?:we|i))\b/i
-const LOOKING =
-  // Not "do", "can" or "should": "do the refactor" and "can you add dark mode" are building jobs.
-  // A genuine question in those words still reaches the Researcher through its question mark.
-  /^(?:why|what|how|where|which|who|when|is|are|does|explain|find|search|look (?:into|at|for)|research|investigate|summari[sz]e|compare|review|check|read|analy[sz]e|audit|tell me|show me|describe|list)\b/i
-
-/** The built-in agent for a kind of job. Always one of the three, which every grove has. */
-export function agentForKind(task: string): 'researcher' | 'builder' | 'manager' {
-  const start = task.trim()
-  if (PLANNING.test(start)) return 'manager'
-  if (LOOKING.test(start) || start.endsWith('?')) return 'researcher'
-  return 'builder'
-}
+/** Who takes a job nobody was named for: PM, which plans it and hands out the parts. */
+export const DEFAULT_AGENT = 'manager'
 
 function namedStone(text: string, stones: ConsoleStone[]): ConsoleStone | null {
   const byLength = [...stones].sort((a, b) => b.name.length - a.name.length)
@@ -92,7 +79,7 @@ export function readCommand(
   const typed = text.trim()
   const named = namedAgent(typed, context.agents)
   const task = named ? named.rest : typed
-  const agentId = named ? named.agent.id : agentForKind(task)
+  const agentId = named ? named.agent.id : DEFAULT_AGENT
 
   const selected = context.stones.find((stone) => stone.id === context.selectedStoneId)
   const mentioned = selected ? null : namedStone(task, context.stones)

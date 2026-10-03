@@ -23,10 +23,14 @@ MIT licensed. No telemetry, ever.
 - **See your work at a glance.** Each project is a stone. It lights while an agent works there and
   turns amber, the grove's one warning colour, when an agent is waiting for you. A git worktree
   stands beside its repository as a twin stone.
-- **Send an agent to a project.** Pick a stone, pick an agent from the tree, type the job. Terminal
-  opens in that project running your own Claude Code or Codex.
-- **Type instead of click.** The console at the bottom reads a job, shows who would take it and
-  where ("Builder → Shellter") before anything is sent, and lets you change either with a click.
+- **Tell PM what needs doing.** Type a job into the console at the bottom. PM, the project manager
+  on the tree, plans it, hands each part to the agent whose job it is (Researcher finds things
+  out, Builder makes changes, and any agents you add), checks the work and reports back. Bigger
+  jobs get a plan you agree to before anything changes. It all runs in Terminal, in that project,
+  as your own Claude Code or Codex.
+- **Or send one agent yourself.** Pick a stone and an agent from the tree, or start the job with
+  its name ("@builder fix the tests"). The console shows who would take it and where before
+  anything is sent, and one click changes either.
 - **Save the jobs you repeat.** A saved task on a stone runs in one click. When three sessions in a
   project start with the same prompt, the Grove offers to save it, and remembers if you say no.
 - **Leave a note for next time.** On a stone, an agent or the tree. It stays out of the way until
@@ -104,7 +108,7 @@ open ~/Applications/"Agentic Grove.app"
 
 ### First launch
 
-Researcher walks you through the grove. The second card has one button, **Get ready**. It looks
+PM walks you through the grove. The second card has one button, **Get ready**. It looks
 for Claude Code and Codex first (including the copies inside the Claude and ChatGPT apps), and
 only installs what is missing. Then it does whichever of these is still needed: install Claude
 Code, sign you in (in Terminal and your browser, the one step that needs you), and turn on live
@@ -179,7 +183,7 @@ the Mac-specific pieces and where they live.
 npm run scan     # print every agent session on this machine
 npm run watch    # the same thing on the live poll loop
 npm run verify   # check the scanner against the raw files, independently
-npm run verify:routing  # the Manager's rules for which tool takes which job
+npm run verify:routing  # PM's rules for which tool takes which job
 npm run typecheck
 npm run app      # build the Mac app into ~/Applications
 npm run dmg      # build release/Agentic-Grove-<version>-arm64.dmg for a GitHub release
