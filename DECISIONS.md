@@ -1452,3 +1452,20 @@ goes to whoever the console would pick. Checked by `npm run verify:suggest-runes
 built app with made-up sessions under a fake home folder. Running a rune for real was not
 exercised, to avoid starting a real Claude session; it is the console's launcher, which
 `verify:spawn` covers.
+
+## An hour left running: what the Grove costs
+
+*3 October 2026*
+
+The packaged app ran for an hour on a copy of Adrian's grove (Apple Silicon Mac, Grove graphics,
+adaptive on), sampled every 30 seconds by total CPU time across its processes. The window happened
+to spend part of the hour covered and part of it visible, which measured both cases:
+
+- **Covered or minimised:** about **2% of one core**. Chromium stops drawing; what remains is the
+  scan and the hook listener.
+- **Visible:** about **67% of one core**, steady, drawing at 60 fps even with nothing happening.
+- **Memory:** 300 to 530 MB across all processes, ending lower than it started. No sign of a leak.
+
+The visible figure is too high for something meant to sit on a screen all day, against "calm by
+default". The obvious next step is review item 8's quiet idle mode: draw fewer frames when nothing
+is running or moving, and full speed again the moment something happens.
