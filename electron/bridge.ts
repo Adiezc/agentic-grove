@@ -23,6 +23,7 @@ import type { UpdateStatus } from '../core/updates.ts'
 import type { SystemLoad } from '../core/system.ts'
 import type { DesktopApp, SetupStatus, SetupTool } from '../core/setup.ts'
 import type { Run } from '../core/spawn/runs.ts'
+import type { NotePlace, NoteView } from '../core/state/notes.ts'
 import type { TranscriptLine } from '../core/spawn/transcript.ts'
 
 /**
@@ -65,6 +66,8 @@ export interface GroveSnapshot {
   version: string
   /** Work the Grove started, newest first. Separate from the sessions it only watches. See `core/spawn/runs.ts`. */
   runs: Run[]
+  /** Notes to your future self, each waiting or showing. See `core/state/notes.ts`. */
+  notes: NoteView[]
   /**
    * How many screens are connected. With one, a grove you have not looked at for a while steps its
    * graphics down; with several, it is probably on a screen of its own and stays at full detail.
@@ -158,6 +161,10 @@ export interface GroveApi {
   updateAgent(id: string, draft: AgentDraft): Promise<AgentResult>
   /** Take one of your agents off the tree. Researcher cannot be removed. */
   removeAgent(id: string): Promise<AgentResult>
+  /** Carve a note on a stone (its path), an agent (its id) or the tree (id ignored). Empty text removes it. */
+  carveNote(on: NotePlace, id: string, text: string): Promise<{ ok: boolean; error?: string }>
+  /** A showing note has been read: it fades and goes. */
+  readNote(on: NotePlace, id: string): Promise<{ ok: boolean; error?: string }>
   /**
    * Open a link-only agent (a ChatGPT Dot, Claude Cowork) in the browser. Takes the agent's id, not a URL: the node side looks the link
    * up in `grove.json` itself, so page code never chooses what the system opener is handed.
@@ -300,6 +307,8 @@ export const CHANNELS = {
   addAgent: 'grove:add-agent',
   updateAgent: 'grove:update-agent',
   removeAgent: 'grove:remove-agent',
+  carveNote: 'grove:carve-note',
+  readNote: 'grove:read-note',
   openAgentLink: 'grove:open-agent-link',
   planHooks: 'grove:plan-hooks',
   applyHooks: 'grove:apply-hooks',

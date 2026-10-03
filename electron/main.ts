@@ -19,9 +19,10 @@ import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
-import { addAgent, addProject, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings, updateAgent, type AgentDraft } from '../core/state/grove.ts'
+import { addAgent, addProject, carveNote, readNote, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings, updateAgent, type AgentDraft } from '../core/state/grove.ts'
 import { deriveStones } from '../core/state/stones.ts'
 import { readRepos } from '../core/state/repos.ts'
+import { noteViews } from '../core/state/notes.ts'
 import { LINK_HOME, defaultGrove, isHttpsUrl, isLinkOnly } from '../core/state/schema.ts'
 import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type LimitsCheck, type ProjectResult, type ReadyResult, type RunResult, type UninstallPlan } from './bridge.ts'
 import { LiveState } from '../core/hooks/live.ts'
@@ -167,9 +168,10 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
     listenError: hookServer?.error,
     lastCallAt: live.lastCallAt,
   }
+  const derived = deriveStones(live.apply(result.sessions), grove, Date.now(), repos)
   return {
     at: Date.now(),
-    grove: deriveStones(live.apply(result.sessions), grove, Date.now(), repos),
+    grove: derived,
     settings: grove.settings,
     agents: grove.agents,
     harnesses: result.harnesses,
@@ -185,6 +187,7 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
     version: app.getVersion(),
     displays: screen.getAllDisplays().length,
     runs: runs.list().slice(0, RUNS_IN_SNAPSHOT),
+    notes: noteViews(grove.notes, derived.stones, runs.list()),
   }
 }
 
@@ -483,6 +486,18 @@ function registerHandlers(): void {
   handle(CHANNELS.removeProject, async (_event, stoneId: unknown): Promise<ProjectResult> => {
     if (typeof stoneId !== 'string') return { ok: false, error: 'Not a stone' }
     const result = await removeProject(stoneId).catch((error: unknown) => ({ ok: false, error: String(error) }))
+    if (result.ok) await restartScanning()
+    return result
+  })
+
+  // Both check the place against grove.json themselves; a changed note shows on the next snapshot.
+  handle(CHANNELS.carveNote, async (_event, on: unknown, id: unknown, text: unknown) => {
+    const result = await carveNote(on, id, text)
+    if (result.ok) await restartScanning()
+    return result
+  })
+  handle(CHANNELS.readNote, async (_event, on: unknown, id: unknown) => {
+    const result = await readNote(on, id)
     if (result.ok) await restartScanning()
     return result
   })

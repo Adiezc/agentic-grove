@@ -1419,3 +1419,17 @@ Three things no one had exercised, now driven in the real app over the debugging
   window storage in `<folder>-window`, so tests never share the real app's.
 - **The disk image**: the app and an Applications shortcut, valid ad-hoc signature, and Gatekeeper
   refusing it until Open Anyway, as the README says. Pressing Open Anyway needs a person.
+
+## Carved messages: notes for next time
+
+*3 October 2026*
+
+Roadmap idea 9. One note per stone, per agent, and one on the tree, in `grove.json` under `notes`
+(`on`, `id`, `text`, and `at` as a readable date). A note waits until work next starts there: a
+session on that stone, a run of that agent, or either anywhere for the tree (`core/state/notes.ts`).
+Then it is the first thing in that panel; after two and a half seconds open it counts as read,
+leaves the file, and fades on screen until the panel closes. A stone with a note to read keeps its
+name up in the scene. No amber, since a note is yours rather than something needing you. Notes on a
+removed stone or agent go with it. Passing a note into the Claude Code session itself stays a later
+step with its own consent. Checked by `npm run verify:notes` (8) and in the built app on a copy of
+Adrian's grove.

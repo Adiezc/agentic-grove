@@ -17,6 +17,7 @@ import { HARNESS_MARK, kindOf, ROOM, useTree } from '../agents/tree'
 import type { StoneSpec } from '../scene/Runestone'
 import { ago } from '../../core/usage/format.ts'
 import { useFlow } from '../store/flow'
+import { CarvedNote } from './Note'
 import { DEMO } from '../demo'
 
 /** One line per fixture stone. Real stones will take theirs from the project's README or name. */
@@ -133,6 +134,7 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
               ) : null}
             </div>
           </header>
+          <CarvedNote on="stone" id={stone.id} open={open} />
           {/* Tells: quiet flags with their reasons, so they can be judged rather than trusted.
               Grey, not amber: amber means something needs you, and a tell only might. */}
           {stone.tells?.length ? (
@@ -455,6 +457,8 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
         </div>
       </header>
       <p className="panel-line agent-line">{agent.description}</p>
+      <CarvedNote on="tree" id="" open={open} />
+      {isBot ? null : <CarvedNote on="agent" id={agent.id} open={open} />}
       {agent.at === null ? <p className="panel-aside">Every branch is taken, so this agent has no orb. It works the same.</p> : null}
 
       {isBot ? (

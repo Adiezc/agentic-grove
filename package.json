@@ -39,6 +39,7 @@
     "verify:history": "tsx test/verify-history.ts",
     "verify:twins": "tsx test/verify-twins.ts",
     "verify:security": "tsx test/verify-security.ts",
+    "verify:notes": "tsx test/verify-notes.ts",
     "dmg": "node scripts/package.mjs --dmg"
   },
   "devDependencies": {

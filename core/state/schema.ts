@@ -21,6 +21,8 @@
  */
 
 /** Bumped only when a change cannot be read by an older build. Nothing migrates below 1. */
+import { MAX_NOTE_CHARS, NOTE_PLACES, type CarvedNote, type NotePlace } from './notes.ts'
+
 export const GROVE_SCHEMA_VERSION = 1
 
 /**
@@ -265,6 +267,8 @@ export interface GroveFile {
   stones: StoneConfig[]
   /** The agents you have connected to the tree, in the order they grew. Researcher is built in and not listed. */
   agents: AgentDefinition[]
+  /** Notes to your future self, waiting on a stone, an agent or the tree. See `notes.ts`. */
+  notes: CarvedNote[]
 }
 
 /**
@@ -280,6 +284,7 @@ export function defaultGrove(): GroveFile {
     settings: defaultSettings(),
     stones: [],
     agents: [],
+    notes: [],
   }
 }
 
@@ -453,6 +458,14 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
     }
   }
 
+  if (raw.notes !== undefined) {
+    if (!Array.isArray(raw.notes)) problems.push({ where: 'notes', message: 'Should be a list, like [ ].' })
+    else {
+      const seen = new Set<string>()
+      grove.notes = raw.notes.flatMap((entry, index) => parseNote(entry, `notes[${index}]`, problems, seen))
+    }
+  }
+
   // Two entries for one path means one of them is being ignored, and which one would depend on
   // iteration order. Better to say so than to pick.
   const seen = new Set<string>()
@@ -467,6 +480,37 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
   }
 
   return { grove, problems }
+}
+
+/**
+ * Read one carved note. The text may be anything you wrote; the place and the date must make
+ * sense, or the note could never show. A second note on the same place is dropped, since a place
+ * holds one note and carving a new one replaces the old.
+ */
+function parseNote(entry: unknown, at: string, problems: GroveProblem[], seen: Set<string>): CarvedNote[] {
+  if (!isRecord(entry)) {
+    problems.push({ where: at, message: 'Should be an object with "on", "text" and "at".' })
+    return []
+  }
+  const on = asString(entry.on) as NotePlace
+  const id = on === 'tree' ? '' : asString(entry.id)
+  const text = asString(entry.text).slice(0, MAX_NOTE_CHARS)
+  const when = asString(entry.at)
+  if (!NOTE_PLACES.includes(on) || (on !== 'tree' && !id)) {
+    problems.push({ where: at, message: 'Needs "on" ("stone", "agent" or "tree") and, for a stone or an agent, its "id".' })
+    return []
+  }
+  if (!text || !Number.isFinite(Date.parse(when))) {
+    problems.push({ where: at, message: 'Needs some "text" and a date in "at", like "2026-10-03T12:00:00Z".' })
+    return []
+  }
+  const key = `${on}:${id}`
+  if (seen.has(key)) {
+    problems.push({ where: at, message: `A second note on the same ${on}. Only the first is kept.` })
+    return []
+  }
+  seen.add(key)
+  return [{ on, id, text, at: new Date(when).toISOString() }]
 }
 
 /**

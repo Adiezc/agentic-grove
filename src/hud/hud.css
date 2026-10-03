@@ -2944,3 +2944,78 @@
     animation: none;
   }
 }
+
+/* ---- Carved notes: a note to your future self, top of a panel. Green and dim; never amber. ---- */
+
+.carved-note {
+  margin: 0.8rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-left: 1px solid var(--vein);
+  background: rgba(120, 200, 150, 0.04);
+  transition: opacity 6s ease;
+}
+
+.carved-note.is-showing {
+  border-left-color: var(--glow);
+  background: rgba(120, 220, 160, 0.07);
+}
+
+/* Read: it fades slowly while the panel stays open, and is gone the next time. */
+.carved-note.is-read {
+  opacity: 0.35;
+}
+
+.carved-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+
+.carved-text {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.carved-note.is-waiting .carved-text {
+  color: var(--text-dim);
+}
+
+.carved-edit {
+  margin-left: auto;
+  padding: 0.15rem;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.carved-edit:hover,
+.carved-edit:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.carved-note.is-editing {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.carved-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carved-note {
+    transition: none;
+  }
+}

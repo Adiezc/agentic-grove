@@ -30,6 +30,7 @@ import os from 'node:os'
 import { type GroveFile, type GroveProblem, type StoneConfig, BUILT_IN_AGENT_IDS, MAX_BRIEF_CHARS, defaultGrove, parseAgent, parseGrove } from './schema.ts'
 import { assignPlaces, placeFor } from './places.ts'
 import { type RepoInfo, readRepos, twinsOf } from './repos.ts'
+import { MAX_NOTE_CHARS, NOTE_PLACES, type NotePlace } from './notes.ts'
 
 /** `AGENTIC_GROVE_HOME` exists so tests can point somewhere disposable. */
 export const groveHome = (): string =>
@@ -238,6 +239,8 @@ export async function removeProject(stonePath: string): Promise<{ ok: boolean; e
       // Numbers first, so the stones that stay keep their places and this one leaves a gap.
       fixPlaces(grove.stones, repos)
       grove.stones = grove.stones.filter((stone) => stone !== leaving)
+      // A note on a stone that is gone could never show.
+      grove.notes = grove.notes.filter((note) => !(note.on === 'stone' && note.id === stonePath))
       // Unless it had a twin: then the twin steps into the place it leaves, rather than jumping to
       // whichever circle happens to be lowest.
       const heir = topLevel(grove.stones, repos).find((stone) => stone.place === undefined)
@@ -341,9 +344,49 @@ export async function removeAgent(id: string): Promise<{ ok: boolean; error?: st
       const kept = grove.agents.filter((agent) => agent.id !== id)
       if (kept.length === grove.agents.length) return { result: { ok: false, error: 'No agent with that id' }, write: false }
       grove.agents = kept
+      grove.notes = grove.notes.filter((note) => !(note.on === 'agent' && note.id === id))
       return { result: { ok: true }, write: true }
     },
     { ok: false, error: 'grove.json has an error; fix it before removing agents' }
+  )
+}
+
+/**
+ * Carve a note on a stone, an agent or the tree, replacing any note already there. Empty text
+ * takes the note away. The place must exist: a stone in the grove, or an agent on the tree.
+ */
+export async function carveNote(on: unknown, id: unknown, text: unknown): Promise<{ ok: boolean; error?: string }> {
+  if (!NOTE_PLACES.includes(on as NotePlace)) return { ok: false, error: 'Not a place for a note' }
+  const place = on as NotePlace
+  const key = place === 'tree' ? '' : typeof id === 'string' ? id : ''
+  const words = typeof text === 'string' ? text.trim() : ''
+  if (words.length > MAX_NOTE_CHARS) return { ok: false, error: `Keep it under ${MAX_NOTE_CHARS} characters` }
+  return updateGrove<{ ok: boolean; error?: string }>(
+    (grove) => {
+      const exists =
+        place === 'tree' ||
+        (place === 'stone' && grove.stones.some((stone) => stone.path === key)) ||
+        (place === 'agent' && ((BUILT_IN_AGENT_IDS as readonly string[]).includes(key) || grove.agents.some((agent) => agent.id === key)))
+      if (!exists) return { result: { ok: false, error: 'Nothing there to carve on' }, write: false }
+      const others = grove.notes.filter((note) => !(note.on === place && note.id === key))
+      grove.notes = words ? [...others, { on: place, id: key, text: words, at: new Date().toISOString() }] : others
+      return { result: { ok: true }, write: true }
+    },
+    { ok: false, error: 'grove.json has an error; fix it before carving notes' }
+  )
+}
+
+/** A note has been read where it showed: it goes. Reading one that is already gone is not an error. */
+export async function readNote(on: unknown, id: unknown): Promise<{ ok: boolean; error?: string }> {
+  const key = on === 'tree' ? '' : typeof id === 'string' ? id : ''
+  return updateGrove<{ ok: boolean; error?: string }>(
+    (grove) => {
+      const kept = grove.notes.filter((note) => !(note.on === on && note.id === key))
+      if (kept.length === grove.notes.length) return { result: { ok: true }, write: false }
+      grove.notes = kept
+      return { result: { ok: true }, write: true }
+    },
+    { ok: false, error: 'grove.json has an error; fix it before reading notes' }
   )
 }
 

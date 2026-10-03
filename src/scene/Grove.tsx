@@ -36,6 +36,7 @@ import type { Pairing } from '../../core/state/pairings.ts'
 import { Mushrooms } from './Mushrooms'
 import { AttentionMotes } from './AttentionMotes'
 import { TwinBase } from './TwinBase'
+import { useGrove } from '../store/grove'
 
 /**
  * The six stones, placed to match the concept art.
@@ -350,6 +351,12 @@ export function GroveScene({
   onContextLost,
 }: GroveSceneProps) {
   const { alwaysShowNames, ambientMotion } = useSettings()
+  // Stones with a note waiting to be read keep their name up, the quietest way to say "look here".
+  const notes = useGrove((state) => state.snapshot?.notes)
+  const noted = useMemo(
+    () => new Set((notes ?? []).filter((note) => note.on === 'stone' && note.state === 'showing').map((note) => note.id)),
+    [notes]
+  )
   const [hovered, setHovered] = useState<string | null>(null)
   const settings = QUALITY[quality]
   const view = useFlow((state) => state.view)
@@ -500,6 +507,7 @@ export function GroveScene({
           showLabel={
             // A photograph has no labels in it.
             !photo && (alwaysShowNames ||
+            noted.has(stone.id) ||
             answering === stone.id ||
             hovered === stone.id ||
             focused === stone.id ||

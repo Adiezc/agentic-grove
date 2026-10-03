@@ -109,7 +109,7 @@ Picked on 27 September 2026, after step 6. Ranked, most important first.
 8. **Twin stones. Done 3 October 2026** (`core/state/repos.ts`, `src/scene/TwinBase.tsx`, `npm run verify:twins`; `?demo&twin`). Two stones for the same repo on
    different branches or worktrees stand side by side, joined at the base. The scan already records
    each session's worktree (`worktree` in `core/harnesses/types.ts`), so the data is there.
-9. **Carved messages (about half a session).** Leave a note for your future self on a stone, an agent
+9. **Carved messages. Done 3 October 2026** (`core/state/notes.ts`, `src/hud/Note.tsx`, `npm run verify:notes`; not yet passed into Claude Code). Leave a note for your future self on a stone, an agent
    or the tree. When the next session starts there, the note is shown first, then fades once read.
    Passing the note into the Claude Code session itself (through a `SessionStart` hook's output)
    would be a second step with its own consent, because the current hook deliberately says nothing
