@@ -12,7 +12,7 @@ public issue, so it can be fixed before anyone else knows about it.
 Only the maintainer sees the report. You will get a reply there, and the fix and any public notice
 are worked out with you in the same place. You will be credited unless you would rather not be.
 
-This is a one-person project, so please allow a week or so for a first reply.
+This is a one-person project; I will reply when possible.
 
 ## Which versions
 
