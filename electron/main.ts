@@ -41,7 +41,7 @@ import { APP_DOWNLOADS, TOOL_PAGES, cliPath, setupScript, setupStatus, signInScr
 import { nextSetupStep } from '../core/readiness.ts'
 import { RunBook, type RunHarness } from '../core/spawn/runs.ts'
 import { launch } from '../core/spawn/launch.ts'
-import { BUILT_IN_BRIEFS, BUILT_IN_NAMES, PM_ID, SPAWNABLE_BUILT_INS, claudeAgentsJson, pmBrief, teamFor } from '../core/spawn/briefs.ts'
+import { BUILT_IN_BRIEFS, BUILT_IN_NAMES, PM_ID, SPAWNABLE_BUILT_INS, claudeAgentsJson, pmBrief, teamFor, teamMap } from '../core/spawn/briefs.ts'
 import { readTranscript } from '../core/spawn/transcript.ts'
 import { noticeFor } from '../core/attention.ts'
 import { headroomFrom, route } from '../core/routing.ts'
@@ -797,21 +797,27 @@ async function launchRun(request: unknown): Promise<RunResult> {
     harness = picked ? (asked as RunHarness) : routed === 'codex' ? 'codex' : 'claude-code'
   }
 
+  // PM gets its team: the built-in workers and your own agents on the same tool (see briefs.ts).
+  // The run keeps which worker is which agent, so the hooks can show each one working.
+  let brief = own ? (own.systemPrompt ?? '') : (BUILT_IN_BRIEFS[agentId] ?? '')
+  let agents: string | undefined
+  let team: Record<string, string> | undefined
+  if (agentId === PM_ID) {
+    const workers = teamFor(grove.agents.filter((agent) => agent.harness === harness), grove.builtInModels)
+    brief = pmBrief(workers, harness)
+    if (harness === 'claude-code') {
+      agents = claudeAgentsJson(workers)
+      team = teamMap(workers)
+    }
+  }
   const run = runs.create({
     harness,
     agentId,
     agentName: own?.name ?? BUILT_IN_NAMES[agentId] ?? agentId,
     stoneId,
     task: task.trim(),
+    team,
   })
-  // PM gets its team: the built-in workers and your own agents on the same tool (see briefs.ts).
-  let brief = own ? (own.systemPrompt ?? '') : (BUILT_IN_BRIEFS[agentId] ?? '')
-  let agents: string | undefined
-  if (agentId === PM_ID) {
-    const team = teamFor(grove.agents.filter((agent) => agent.harness === harness), grove.builtInModels)
-    brief = pmBrief(team, harness)
-    if (harness === 'claude-code') agents = claudeAgentsJson(team)
-  }
   // This job's model if the console chose one, otherwise the agent's; never a name the tool would refuse.
   const agentModel = own ? (own.model ?? '') : builtInModel(agentId, grove.builtInModels)
   const model = modelForJob(harness, agentModel, typeof askedModel === 'string' ? askedModel : undefined)

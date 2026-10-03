@@ -1610,3 +1610,28 @@ tool with a name it would refuse. No Grove-wide default setting: the tool's own 
 one. Rules in `core/models.ts`, `npm run verify:models` (8). Clicked through in the app against a
 test grove: choosing Opus for PM wrote `{"manager":"opus"}`, the console then read "PM · Claude
 Code · Opus", and its chip stepped through the choices for one job.
+
+## PM's workers shown above the stone, from the subagent hooks
+
+*3 October 2026*
+
+While PM delegates on Claude Code, the agents it has called in now show as orbs above the stone,
+beside PM's own, and as running on the tree. Claude Code fires `SubagentStart` and `SubagentStop`
+with the subagent's name (`agent_type`) and its own id (`agent_id`); the Grove's hooks now listen
+for both. A PM run keeps its team at launch (`team`: each worker's name in the session, and which
+agent on the tree it is), so a start for `researcher` lights the Researcher. Only workers on the
+team are shown: Claude Code's own helpers (Explore, Plan) have no orb and work unseen.
+
+These two moments never change the stone's or the run's own state: a background worker can finish
+after the session's turn has, and "finished" must not flip back to "working". Who is helping is
+live only, cleared when the session ends and not restored after a restart, because the hooks will
+say again and a stale orb would be a claim the Grove cannot back.
+
+Adding the two events makes an existing install read **Needs an update** in Settings → Live
+updates, with an Update button that shows the change first, as installing always has. Checked on a
+copy of the real Claude Code settings (outdated, then on with nine events), and in
+`npm run verify:spawn` with made-up hook calls. Not yet watched during a real PM run.
+
+Also this day: GitHub Actions runs the build and every `verify:` script on a Mac for each push and
+pull request (`npm run verify`, which needs real sessions, stays a local check), and the repo has
+issue and pull-request templates.

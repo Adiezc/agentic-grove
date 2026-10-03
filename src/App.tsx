@@ -160,7 +160,10 @@ export function App() {
       // While an agent is on its way, or (in the demo) once it has landed, its face joins the
       // stone's workers so you can see who went where.
       const sent = deployment?.stoneId === stone.id ? deployment.agentId : DEMO && !STAGE_GROVE ? DEMO_WORKERS[stone.id] : undefined
-      const live = runs.filter((run) => run.stoneId === stone.id && LIVE_RUN.has(run.state)).map((run) => run.agentId)
+      // PM's workers show beside it while they work (from the subagent hooks; see `core/spawn/runs.ts`).
+      const live = runs
+        .filter((run) => run.stoneId === stone.id && (LIVE_RUN.has(run.state) || run.helping))
+        .flatMap((run) => [...(LIVE_RUN.has(run.state) ? [run.agentId] : []), ...Object.values(run.helping ?? {})])
       const staged = STAGE_GROVE?.workers[stone.id] ?? []
       const workers = [...new Set([...(stone.workers ?? []), ...staged, ...live, ...(sent ? [sent] : [])])]
       return { ...stone, status: lit ?? stone.status, workers }

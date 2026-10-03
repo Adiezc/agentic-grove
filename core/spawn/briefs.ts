@@ -43,6 +43,8 @@ export const BUILT_IN_NAMES: Record<string, string> = {
 export interface Worker {
   /** Lower-case letters, digits and dashes: what PM calls it when delegating. */
   key: string
+  /** The agent on the tree it is, so its orb can show above the stone while it works. */
+  agentId: string
   name: string
   /** When PM should choose it. One sentence. */
   description: string
@@ -69,6 +71,7 @@ const BUILDER_PROMPT =
 export const BUILT_IN_WORKERS: Worker[] = [
   {
     key: 'researcher',
+    agentId: 'researcher',
     name: 'Researcher',
     description: 'Finds things out without changing anything: reads code and documents, searches, explains, reviews a change.',
     prompt: RESEARCHER_PROMPT,
@@ -76,6 +79,7 @@ export const BUILT_IN_WORKERS: Worker[] = [
   },
   {
     key: 'builder',
+    agentId: 'builder',
     name: 'Builder',
     description: 'Makes changes: writes and edits code and files, then checks they work.',
     prompt: BUILDER_PROMPT,
@@ -118,6 +122,7 @@ export function teamFor(yours: OwnAgent[], chosen?: Record<string, string>): Wor
     taken.add(key)
     team.push({
       key,
+      agentId: agent.id,
       name: agent.name,
       description: agent.description.trim() || `${agent.name}, one of the agents connected to this grove.`,
       prompt:
@@ -128,6 +133,11 @@ export function teamFor(yours: OwnAgent[], chosen?: Record<string, string>): Wor
     })
   }
   return team
+}
+
+/** Which agent on the tree each worker is, by its name in the session. Kept on the run. */
+export function teamMap(team: Worker[]): Record<string, string> {
+  return Object.fromEntries(team.map((worker) => [worker.key, worker.agentId]))
 }
 
 /** The team as Claude Code's `--agents` wants it: one JSON object, keyed by worker name. */

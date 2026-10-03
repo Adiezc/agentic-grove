@@ -62,6 +62,13 @@ export interface Run {
   sessionId: string
   /** Why it failed, in words a person can act on. */
   error?: string
+  /** PM runs: each worker's name in the session (`researcher`) and the agent it is on the tree. */
+  team?: Record<string, string>
+  /**
+   * PM runs: the workers busy right now, by Claude Code's id for each subagent, as tree agent ids.
+   * Drawn as their orbs above the stone. Live only: emptied when the session ends or the Grove restarts.
+   */
+  helping?: Record<string, string>
 }
 
 /** How long a run may say "starting" before that stops being believable. Covers a folder-trust prompt left unanswered. */
@@ -131,7 +138,8 @@ export class RunBook {
     try {
       const raw: unknown = JSON.parse(await fsp.readFile(this.file, 'utf8'))
       const list = typeof raw === 'object' && raw !== null ? (raw as { runs?: unknown }).runs : undefined
-      this.runs = Array.isArray(list) ? list.filter(isRun) : []
+      // Who was helping belongs to sessions that may be long gone; the hooks will say again.
+      this.runs = Array.isArray(list) ? list.filter(isRun).map(({ helping: _gone, ...run }) => run) : []
     } catch {
       this.runs = []
     }
@@ -148,7 +156,7 @@ export class RunBook {
   }
 
   /** Record a launch about to happen. The id is made here so it can be handed to `claude --session-id`. */
-  create(fields: Pick<Run, 'harness' | 'agentId' | 'agentName' | 'stoneId' | 'task'>, now = Date.now()): Run {
+  create(fields: Pick<Run, 'harness' | 'agentId' | 'agentName' | 'stoneId' | 'task' | 'team'>, now = Date.now()): Run {
     const run: Run = { ...fields, id: randomUUID(), createdAt: now, updatedAt: now, state: 'starting', sessionId: '' }
     this.runs.push(run)
     this.runs = this.list().slice(0, KEEP_RUNS)
@@ -170,10 +178,31 @@ export class RunBook {
     const run = this.runs.find((each) => each.harness === 'claude-code' && each.id === call.sessionId)
     if (!run || run.state === 'failed') return false
     this.heard.add(run.id)
+    if (call.event === 'SubagentStart' || call.event === 'SubagentStop') return this.onWorker(run, call)
+    if (call.event === 'SessionEnd' && run.helping) this.change(run.id, { helping: undefined }, call.at)
     // Claude Code's "waiting for your input" reminder arrives a minute after every finished turn.
     // It is not a question, so a finished run stays finished rather than turning amber.
     if (call.idle) return false
     return this.change(run.id, { state: stateAfter(call.event), sessionId: call.sessionId }, call.at)
+  }
+
+  /**
+   * A worker of a PM run started or stopped. Only workers on its team are shown, since only they
+   * have an orb; Claude Code's own helpers (Explore, Plan) do their job unseen. The run's own state
+   * is left alone: a background worker can finish after the run's turn has.
+   */
+  private onWorker(run: Run, call: HookCall): boolean {
+    if (!call.agentId) return false
+    const helping = { ...run.helping }
+    if (call.event === 'SubagentStart') {
+      const agent = run.team?.[call.agentType]
+      if (!agent) return false
+      helping[call.agentId] = agent
+    } else {
+      if (!(call.agentId in helping)) return false
+      delete helping[call.agentId]
+    }
+    return this.change(run.id, { helping: Object.keys(helping).length ? helping : undefined }, call.at)
   }
 
   /**
@@ -226,11 +255,13 @@ export class RunBook {
     const stateChanged = patch.state !== undefined && patch.state !== run.state
     const idChanged = patch.sessionId !== undefined && patch.sessionId !== run.sessionId
     const errorChanged = 'error' in patch && patch.error !== run.error
-    if (!stateChanged && !idChanged && !errorChanged) return false
+    const helpingChanged = 'helping' in patch && JSON.stringify(patch.helping ?? {}) !== JSON.stringify(run.helping ?? {})
+    if (!stateChanged && !idChanged && !errorChanged && !helpingChanged) return false
     const from = run.state
     const since = run.updatedAt
     Object.assign(run, patch)
     if (patch.error === undefined && 'error' in patch) delete run.error
+    if (patch.helping === undefined && 'helping' in patch) delete run.helping
     if (stateChanged) run.updatedAt = now
     this.save()
     if (stateChanged) this.onStateChange?.({ ...run }, from, since)

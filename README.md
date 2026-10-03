@@ -26,7 +26,8 @@ MIT licensed. No telemetry, ever.
   on the tree, plans it, hands each part to the agent whose job it is (Researcher finds things
   out, Builder makes changes, and any agents you add), checks the work and reports back. Bigger
   jobs get a plan you agree to before anything changes. It all runs in Terminal, in that project,
-  as your own Claude Code or Codex.
+  as your own Claude Code or Codex. With live updates on, the workers PM has called in show above
+  the stone while they work.
 - **Or send one agent yourself.** Pick a stone and an agent from the tree, or start the job with
   its name ("@builder fix the tests"). The console shows who would take it, on which model and
   where before anything is sent, and one click changes any of them.

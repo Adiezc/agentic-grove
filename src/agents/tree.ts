@@ -186,8 +186,7 @@ export function useTree(): { agents: TreeAgent[]; bud: [number, number, number];
   // re-lays itself when that set changes, not on every snapshot.
   const busyKey = useGrove((state) =>
     (state.snapshot?.runs ?? [])
-      .filter((run) => run.state === 'running' || run.state === 'waiting')
-      .map((run) => run.agentId)
+      .flatMap((run) => [...(run.state === 'running' || run.state === 'waiting' ? [run.agentId] : []), ...Object.values(run.helping ?? {})])
       .sort()
       .join(' ')
   )

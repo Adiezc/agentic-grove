@@ -23,8 +23,17 @@ export const HOOK_EVENTS = [
   'Stop',
   /** The session closed. */
   'SessionEnd',
+  /**
+   * One of the session's subagents started or finished. How the grove shows PM's workers above
+   * the stone while they work (3 October 2026). They say nothing about the session's own state.
+   */
+  'SubagentStart',
+  'SubagentStop',
 ] as const
 export type HookEvent = (typeof HOOK_EVENTS)[number]
+
+/** The subagent moments: who is helping, not whether the session is working. */
+export const SUBAGENT_EVENTS: ReadonlySet<HookEvent> = new Set(['SubagentStart', 'SubagentStop'])
 
 /** Tool events take a matcher (which tools); the others do not. `*` means every tool. */
 export const TOOL_EVENTS: ReadonlySet<HookEvent> = new Set(['PreToolUse', 'PostToolUse'])
@@ -56,6 +65,9 @@ export interface HookCall {
    * sent about a minute after a turn ends), not a permission prompt or a question. False otherwise.
    */
   idle: boolean
+  /** For the subagent moments: Claude Code's id for that one subagent, and its name (`researcher`). */
+  agentId: string
+  agentType: string
   at: number
 }
 
@@ -75,7 +87,10 @@ export function parseHookCall(raw: unknown, now = Date.now()): HookCall | null {
   if (!SESSION_ID.test(sessionId)) return null
   // Newer Claude Code names the kind (`idle_prompt`); older versions only send the message.
   const idle = event === 'Notification' && (str(raw.notification_type) === 'idle_prompt' || /waiting for your input/i.test(str(raw.message)))
-  return { event, sessionId, cwd: str(raw.cwd), tool: str(raw.tool_name), idle, at: now }
+  // Kept short: these are names, and a payload is not trusted to be sensible.
+  const agentId = str(raw.agent_id).slice(0, 100)
+  const agentType = str(raw.agent_type).slice(0, 100)
+  return { event, sessionId, cwd: str(raw.cwd), tool: str(raw.tool_name), idle, agentId, agentType, at: now }
 }
 
 /**

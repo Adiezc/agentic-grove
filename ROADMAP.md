@@ -16,13 +16,13 @@ the Grove already has (the scan plus Claude Code hooks). Decisions made along th
 | 5 | Heartbeat driven by real activity, mycelium, drifting motes | Done |
 | 6 | Hook installer and local listener, so changes arrive instantly | Done |
 | 7 | The crystal (usage and rate-limit headroom, with provenance), and a menu-bar shard | Done |
-| 8 | Agent definitions, the tree panel, the agent carousel | Done: built-in Researcher, Builder, Manager; your own agents take a brief and a model and can be changed (2 October 2026) |
+| 8 | Agent definitions, the tree panel, the agent carousel | Done: built-in PM, Researcher, Builder; your own agents take a brief and a model and can be changed (2 October 2026). PM became the front door and delegates to the others; every agent has a model picker (3 October 2026) |
 | 9 | Spawning agents, deploy-to-runestone animation, live transcript view | Done: launches your own Claude Code or Codex in Terminal (see DECISIONS.md) |
 | 10 | The rune console: natural-language routing to an agent and a stone | Done: plain rules with a preview (`core/console.ts`) |
 | 11 | Attention: motes, notifications, answer-or-wait behaviour | Done: see DECISIONS.md |
 | 12–13 | Settings, onboarding, empty states, keyboard shortcuts, performance presets | Partly: settings, graphics modes, one-button setup, update check |
-| 14 | Packaging, notarised Mac build, DMG | Done, unsigned: `npm run dmg` (no release published yet) |
-| 15 | README with an honest capability table, screenshots, a demo GIF | Partly: table, limits and three screenshots (2 October 2026). No GIF yet |
+| 14 | Packaging, notarised Mac build, DMG | Done, unsigned: `npm run dmg`. Release 0.1.0 prepared 3 October 2026 |
+| 15 | README with an honest capability table, screenshots, a demo GIF | Done: table, limits, screenshots, and a three-stage demo animation (3 October 2026) |
 
 Before the public release:
 
@@ -30,6 +30,8 @@ Before the public release:
   check has nothing to find. Unsigned, so the README explains the one-time "Open anyway".
 - **Windows support: left to contributors** (decided 3 October 2026). Not a release blocker; the
   README and CONTRIBUTING.md ask for it as the most wanted contribution.
+- **Checks on every change. Done 3 October 2026:** GitHub Actions runs the build and every
+  `verify:` script on a Mac (`.github/workflows/ci.yml`), plus issue and pull-request templates.
 - **Official Claude limits. Done 2 October 2026**, by a different route: a check you press in
   Settings runs your own Claude Code once and reads the limits it prints (`core/usage/probe.ts`).
   Off by default. It works for desktop-app and terminal users alike, so the statusline route is

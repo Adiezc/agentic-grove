@@ -13,7 +13,7 @@
  * better answer than anything remembered from before it.
  */
 import type { Session } from '../harnesses/types.ts'
-import { type HookCall, type LiveStatus, statusAfter } from './protocol.ts'
+import { type HookCall, type LiveStatus, SUBAGENT_EVENTS, statusAfter } from './protocol.ts'
 
 /** How much newer the transcript must be before the scan overrules a hook. Covers write lag. */
 const DISK_WINS_AFTER_MS = 10_000
@@ -35,6 +35,9 @@ export class LiveState {
   /** Record a call. Returns true when it changed a session's status, so a redraw is worth it. */
   record(call: HookCall): boolean {
     this.lastCallAt = call.at
+    // A worker starting or stopping is not news about the session itself: a background worker
+    // can finish long after the session's own turn ended.
+    if (SUBAGENT_EVENTS.has(call.event)) return false
     const status = statusAfter(call.event)
     const previous = this.sessions.get(call.sessionId)
     this.sessions.set(call.sessionId, { status, at: call.at })

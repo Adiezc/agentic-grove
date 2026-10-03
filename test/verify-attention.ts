@@ -46,9 +46,9 @@ const cases: [string, () => void | Promise<void>][] = [
     const seen: [string, string, number][] = []
     book.onStateChange = (changed, from, since) => seen.push([from, changed.state, since])
     const made = book.create({ harness: 'claude-code', agentId: 'b', agentName: 'B', stoneId: '/p', task: '' }, 1000)
-    book.onHook({ event: 'SessionStart', sessionId: made.id, cwd: '/p', tool: '', idle: false, at: 2000 })
-    book.onHook({ event: 'PreToolUse', sessionId: made.id, cwd: '/p', tool: 'Bash', idle: false, at: 3000 })
-    book.onHook({ event: 'Stop', sessionId: made.id, cwd: '/p', tool: '', idle: false, at: 90_000 })
+    book.onHook({ event: 'SessionStart', sessionId: made.id, cwd: '/p', tool: '', idle: false, agentId: '', agentType: '', at: 2000 })
+    book.onHook({ event: 'PreToolUse', sessionId: made.id, cwd: '/p', tool: 'Bash', idle: false, agentId: '', agentType: '', at: 3000 })
+    book.onHook({ event: 'Stop', sessionId: made.id, cwd: '/p', tool: '', idle: false, agentId: '', agentType: '', at: 90_000 })
     assert.deepEqual(seen, [['starting', 'running', 1000], ['running', 'finished', 2000]])
     await book.flushed()
     await fsp.rm(dir, { recursive: true, force: true })

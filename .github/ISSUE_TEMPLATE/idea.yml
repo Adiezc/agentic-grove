@@ -1,0 +1,23 @@
+name: An idea
+description: Something the Grove could do, or do better.
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The situation, not the solution. "I lose track of which agent is waiting" is more useful than "add a list".
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Fits the Grove's principles
+      description: See the README. Ideas that bend one are still welcome; say why.
+      options:
+        - label: It never invents a number or a state the Grove cannot know.
+        - label: It stays calm on a screen that is open all day.

@@ -9,6 +9,19 @@
     "type": "git",
     "url": "https://github.com/Adiezc/agentic-grove.git"
   },
+  "homepage": "https://github.com/Adiezc/agentic-grove#readme",
+  "bugs": {
+    "url": "https://github.com/Adiezc/agentic-grove/issues"
+  },
+  "keywords": [
+    "ai-agents",
+    "claude-code",
+    "codex",
+    "electron",
+    "macos",
+    "dashboard",
+    "three.js"
+  ],
   "type": "module",
   "main": "dist-electron/main.js",
   "engines": {

@@ -1,0 +1,52 @@
+name: Something is wrong
+description: The Grove shows something untrue, breaks, or does not do what the README says.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. A security problem? Please report it privately instead, as SECURITY.md describes.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead. A screenshot helps (photo mode is P).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen again
+      placeholder: |
+        1. Connect a project
+        2. Send PM a job from the console
+        3. ...
+  - type: input
+    id: version
+    attributes:
+      label: Grove version
+      description: Settings shows it, or the name of the disk image you installed from.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: mac
+    attributes:
+      label: Mac and macOS version
+      placeholder: MacBook Air M2, macOS 26.1
+  - type: dropdown
+    id: tools
+    attributes:
+      label: Tools involved
+      multiple: true
+      options:
+        - Claude Code
+        - Codex
+        - Claude app / Cowork
+        - ChatGPT app / Dots
+        - None, the Grove itself
+  - type: textarea
+    id: activity
+    attributes:
+      label: Anything in the Activity panel
+      description: The rail's pulse icon. Copy any problem it lists. Leave out project names you would rather not share.

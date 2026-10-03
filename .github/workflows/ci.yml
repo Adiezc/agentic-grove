@@ -1,0 +1,45 @@
+# Checks every push to main and every pull request: types, the build, and every rule the Grove
+# has a `verify:` script for. On a Mac, because the Grove is a Mac app.
+#
+# Left out on purpose: `npm run verify`, which reconciles the scanner against the real agent
+# sessions on the machine it runs on. A fresh CI machine has none, so it proves nothing there;
+# run it on your own Mac after changing anything under core/.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      # The checks never start Electron, so its 100 MB download is skipped.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Types and build
+        run: npm run build
+      - name: Every verify script except the live scan
+        run: |
+          failed=0
+          for script in $(node -p "Object.keys(require('./package.json').scripts).filter(s => s.startsWith('verify:')).join(' ')"); do
+            echo "::group::$script"
+            npm run --silent "$script" || { echo "::error::$script failed"; failed=1; }
+            echo "::endgroup::"
+          done
+          exit $failed

@@ -55,7 +55,7 @@ function fakeRun(fields: Partial<Run> = {}): Run {
 
 const session = (id: string, fields: Partial<Session> = {}): Session =>
   ({ id, harness: id.split(':')[0], status: 'running', cwd: folder, createdAt: 5000, ...fields }) as Session
-const hook = (event: HookCall['event'], sessionId: string, at = 9000): HookCall => ({ event, sessionId, cwd: folder, tool: '', idle: false, at })
+const hook = (event: HookCall['event'], sessionId: string, at = 9000, agentId = '', agentType = ''): HookCall => ({ event, sessionId, cwd: folder, tool: '', idle: false, agentId, agentType, at })
 
 const cases: [string, () => Promise<void>][] = [
   ['Claude Code gets the task as one argument, untouched, and nothing in it runs', async () => {
@@ -151,6 +151,27 @@ const cases: [string, () => Promise<void>][] = [
     assert.equal(book.get(run.id)?.state, 'finished')
     book.onHook(hook('SessionEnd', run.id))
     assert.equal(book.get(run.id)?.state, 'ended')
+  }],
+  ['PM\'s workers show while they work, and only workers on its team; the run\'s state is left alone', async () => {
+    const book = new RunBook(path.join(scratch, 'runs-w.json'))
+    const run = book.create({ harness: 'claude-code', agentId: 'manager', agentName: 'PM', stoneId: folder, task: 'x', team: { researcher: 'researcher', 'code-reviewer': 'a1' } }, 1000)
+    book.onHook(hook('SessionStart', run.id, 2000))
+    book.onHook(hook('Stop', run.id, 2500))
+    assert.equal(book.onHook(hook('SubagentStart', run.id, 3000, 'sub-1', 'researcher')), true)
+    assert.equal(book.onHook(hook('SubagentStart', run.id, 3100, 'sub-2', 'Explore')), false, 'a helper with no orb was shown')
+    book.onHook(hook('SubagentStart', run.id, 3200, 'sub-3', 'code-reviewer'))
+    assert.deepEqual(book.get(run.id)?.helping, { 'sub-1': 'researcher', 'sub-3': 'a1' })
+    assert.equal(book.get(run.id)?.state, 'finished', 'a worker starting changed the run\'s state')
+    book.onHook(hook('SubagentStop', run.id, 4000, 'sub-1', 'researcher'))
+    assert.deepEqual(book.get(run.id)?.helping, { 'sub-3': 'a1' })
+    book.onHook(hook('SessionEnd', run.id, 5000))
+    assert.equal(book.get(run.id)?.helping, undefined)
+    book.onHook(hook('SubagentStart', run.id, 6000, 'sub-4', 'researcher'))
+    await book.flushed()
+    const again = new RunBook(path.join(scratch, 'runs-w.json'))
+    await again.load()
+    assert.equal(again.get(run.id)?.helping, undefined, 'workers from before a restart were still shown')
+    assert.deepEqual(again.get(run.id)?.team, { researcher: 'researcher', 'code-reviewer': 'a1' })
   }],
   ['without hooks, the scan confirms a Claude Code run by its exact id', async () => {
     const book = new RunBook(path.join(scratch, 'runs-b.json'))
