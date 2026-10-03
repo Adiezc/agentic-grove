@@ -28,7 +28,8 @@ Before the public release:
 
 - **A downloadable build.** Step 14 (packaging, DMG) and a first GitHub release, or the update
   check has nothing to find. Unsigned, so the README explains the one-time "Open anyway".
-- **Windows support.**
+- **Windows support: left to contributors** (decided 3 October 2026). Not a release blocker; the
+  README and CONTRIBUTING.md ask for it as the most wanted contribution.
 - **Official Claude limits. Done 2 October 2026**, by a different route: a check you press in
   Settings runs your own Claude Code once and reads the limits it prints (`core/usage/probe.ts`).
   Off by default. It works for desktop-app and terminal users alike, so the statusline route is

@@ -41,8 +41,8 @@ MIT licensed. No telemetry, ever.
 | | |
 | --- | --- |
 | **macOS** (Apple Silicon) | Supported. This is the only platform today. |
-| **Windows** | Not yet. Planned; several pieces (setup, hooks, packaging) are Mac-specific for now. |
-| **Linux** | Not yet. Likely before Windows, since most of the Mac code carries over. |
+| **Windows** | Not yet, and **looking for a contributor**: the maintainer has no Windows machine. See [CONTRIBUTING.md](CONTRIBUTING.md) for what the port involves. |
+| **Linux** | Not yet. Contributions welcome; most of the Mac code carries over. |
 
 The Grove works with the two AI providers most people use today: **Claude** (the Claude app,
 Claude Code, Cowork) and **ChatGPT** (the ChatGPT app, Codex, Dots). Ideally you have the Claude
@@ -148,6 +148,9 @@ never touched, and everything removed goes to the Trash.
 
 ## For contributors
 
+**The most wanted contribution is a Windows version.** [CONTRIBUTING.md](CONTRIBUTING.md) lists
+the Mac-specific pieces and where they live.
+
 ```bash
 npm run scan     # print every agent session on this machine
 npm run watch    # the same thing on the live poll loop
@@ -179,6 +182,7 @@ and fails if the scanner disagrees, because a wrong number looks exactly like a 
 
 ## Documents
 
+- [CONTRIBUTING.md](CONTRIBUTING.md) — how to help, starting with the Windows port
 - [CREDITS.md](CREDITS.md) — every project this borrows from, what was taken, under which licence
 - [DECISIONS.md](DECISIONS.md) — append-only log of architectural decisions and why
 - [ROADMAP.md](ROADMAP.md) — the build plan, and ranked ideas for future sessions

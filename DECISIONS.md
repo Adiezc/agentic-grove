@@ -1366,3 +1366,14 @@ opens the same form to change it.
 
 Checked in the Electron window against a disposable grove (`AGENTIC_GROVE_HOME`), and in
 `npm run verify:reliability`.
+
+## Windows is left to contributors
+
+*3 October 2026*
+
+Adrian has no Windows machine, and a Windows build nobody can run is a guess. So the public
+release is Mac-only, and the Windows port is no longer something that has to happen before it.
+The README's platform table and `CONTRIBUTING.md` ask for it as the most wanted contribution, with
+a table of the Mac-specific pieces (session paths, tool lookup, Terminal launching, hooks, tray,
+packaging). New code should still prefer cross-platform Electron APIs, so the port stays cheap.
+This replaces the 26 September rule that Windows had to land first.
