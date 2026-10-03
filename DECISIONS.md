@@ -1519,3 +1519,23 @@ at a time found it: the tree's activity aura, a large glowing sprite just behind
 high view hid it behind the wood; from the lower view and from the side it floated free. It is
 gone. The point light beside it still carries the heartbeat onto the tree, and the home view looks
 the same without the sprite. The README screenshots show the old view and want retaking.
+
+## The home view, closer, and the stones laid out around it
+
+*3 October 2026, later the same day*
+
+Adrian's second framing was closer still, and he asked for the stones to be arranged so they are
+visible from it rather than the camera backing off to fit them: "the tree should be kind of the
+UI". The home camera is now thirteen and a half units out, fifteen degrees down, the tree centred
+and filling the window, standing just clear of the console.
+
+The art's six places did not fit: from this view the two front ones fell below the bottom edge and
+the two side ones sat on the window's edge. So the places (`HOME_PLACES` in `src/scene/layout.ts`)
+were chosen as points on the screen first and projected down to the floor with the development
+camera handle: nothing in front of the tree (the tree and the console own the front), nothing
+straight behind it, clear of the rail, the counters and the console, with room for a name. Twelve
+fit the home view, filling beside the trunk first, then further out and back, alternating sides;
+past that, rows further back that are in view when zoomed out. The closest two places are 2.8
+units apart and the nearest is 3.7 from the trunk, clear of the dais. Stones keep their place
+numbers, so an existing grove keeps its order; each number now just stands somewhere new. The demo's
+six stones stand on the first six places. Checked in `?demo` at the home view and fully zoomed out.

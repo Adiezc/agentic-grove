@@ -5,14 +5,18 @@
  * or creating a project fills the next one, and once two are filled more appear, always keeping a
  * couple free. So the grove grows with you rather than arriving full.
  *
- * The first six places are the concept art's own, read off it by hand, in an order that fills the
- * frame evenly: back left, back right, front left, front right, then the two sides. Three rules
- * from that hand placement hold for every place after them too:
+ * Laid out on 3 October 2026 around the home view Adrian chose: low, close, the tree filling the
+ * window. Every place was picked as a spot on the screen first and then projected down onto the
+ * floor (with `window.__groveCamera` in the dev preview), so that from the home view:
  *
- *   1. **Nothing front-centre.** The rune console sits there, and a stone behind it fights it.
- *   2. **Nothing straight behind the tree.** The trunk would hide it.
- *   3. **Wider than deep.** Stones sit further out sideways than towards the camera, which keeps
- *      them clear of the crown in an elevated view.
+ *   1. **Nothing in front of the tree.** The tree and the console own the front of the frame. The
+ *      art's two front places used to fall below the window's bottom edge from this view.
+ *   2. **Nothing straight behind it.** The trunk and canopy would hide it.
+ *   3. **Inside the window, clear of the interface.** Away from the rail on the left, the counters
+ *      bottom left and the console bottom centre, with room for a name under each stone.
+ *   4. **Filling outwards and backwards.** Beside the trunk first, then further out, then further
+ *      back, alternating sides so the grove stays balanced. The first twelve fit the home view;
+ *      beyond that the rows go further back, still in the frame zoomed out.
  *
  * A stone keeps the numbered place written for it in `grove.json`, so it never moves when another
  * project is added or removed; a removed one leaves an empty circle where it stood. The numbering
@@ -25,37 +29,36 @@ import type { StoneSpec } from './Runestone'
 
 type Place = [number, number]
 
-/** The concept art's six, in filling order. */
-const ART_PLACES: Place[] = [
-  [-3.7, -2.25],
-  [3.9, -2.05],
-  [-3.35, 3.1],
-  [2.9, 3.2],
-  [-5.25, 0.3],
-  [5.3, 0.7],
+/** The places that fit the home view, in filling order. Picked on screen, see the header. */
+const HOME_PLACES: Place[] = [
+  [-3.7, -0.6],
+  [3.9, -0.5],
+  [-5.6, -3.6],
+  [6.1, -3.4],
+  [-3.9, -5.9],
+  [4.5, -5.8],
+  [-7.4, -6.2],
+  [7.8, -6.0],
+  [-2.6, -8.4],
+  [3.4, -8.4],
+  [-6.0, -9.0],
+  [6.6, -8.8],
 ]
 
-/** Angle 0 is straight at the camera (+z); positive goes round to the right (+x). */
-function pointAt(degrees: number, reach: number): Place {
-  const radians = (degrees * Math.PI) / 180
-  return [Math.sin(radians) * 5.2 * reach, Math.cos(radians) * 3.4 * reach]
-}
-
 /**
- * Places beyond the art's six: rings further out, each set in the gaps between the ring inside
- * it, alternating sides so the grove stays balanced as it grows.
+ * Places beyond those: rows further back, each a little wider than the last, alternating sides.
+ * Seen from the home view they sit behind the canopy; zoomed out, they are in the open.
  */
 function outerPlace(index: number): Place {
-  const ring = Math.floor(index / 6)
+  const row = Math.floor(index / 6)
   const slot = index % 6
   const side = slot % 2 === 0 ? -1 : 1
-  const angles = [118, 72, 34]
-  const angle = angles[Math.floor(slot / 2)]!
-  return pointAt(side * (angle + (ring % 2) * 8), 1.38 + ring * 0.32)
+  const across = 2.6 + Math.floor(slot / 2) * 2.7 + row * 0.6
+  return [side * across, -10.2 - row * 2.6 - Math.floor(slot / 2) * 0.5]
 }
 
 export function placeAt(index: number): Place {
-  return index < ART_PLACES.length ? ART_PLACES[index]! : outerPlace(index - ART_PLACES.length)
+  return index < HOME_PLACES.length ? HOME_PLACES[index]! : outerPlace(index - HOME_PLACES.length)
 }
 
 /** A small stable number from a string, so size and turn vary per project but never flicker. */

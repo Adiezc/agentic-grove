@@ -26,7 +26,7 @@ import { Runestone, type StoneSpec } from './Runestone'
 import { ReferenceTree } from './ReferenceTree'
 import { Canopy, DeployWisp } from './Canopy'
 import { EmptyPlace } from './EmptyPlace'
-import type { EmptyPlace as Place } from './layout'
+import { placeAt, type EmptyPlace as Place } from './layout'
 import { useTree } from '../agents/tree'
 import { usePhoto } from '../store/photo'
 import { useAnswer } from '../store/answer'
@@ -52,23 +52,24 @@ import { useGrove } from '../store/grove'
 /* Pushed out by about a third once the tree was rebuilt with depth all round: its crown now
  * spreads nearly a metre further to each side, and the stones had started to crowd it. The
  * arrangement is the art's, scaled; only the distance from the trunk changed. */
+/** The demo's six stones, on the first six places, in the order a real grove fills them. */
 export const SPIKE_STONES: StoneSpec[] = [
-  { id: 'research', name: 'Research', rune: 'anm', status: 'running', at: [-3.7, -2.25], scale: 0.94, turn: 0.16 },
-  { id: 'data', name: 'Data', rune: 'maqi', status: 'idle', at: [-5.25, 0.3], scale: 1.02, turn: -0.24 },
-  { id: 'compute', name: 'Compute', rune: 'celi', status: 'idle', at: [-3.35, 3.1], scale: 1.06, turn: 0.09 },
-  { id: 'connect', name: 'Connect', rune: 'mucoi', status: 'waiting', at: [2.9, 3.2], scale: 1.05, turn: -0.13 },
+  { id: 'research', name: 'Research', rune: 'anm', status: 'running', at: placeAt(0), scale: 0.94, turn: 0.16 },
+  { id: 'data', name: 'Data', rune: 'maqi', status: 'idle', at: placeAt(4), scale: 1.02, turn: -0.24 },
+  { id: 'compute', name: 'Compute', rune: 'celi', status: 'idle', at: placeAt(2), scale: 1.06, turn: 0.09 },
+  { id: 'connect', name: 'Connect', rune: 'mucoi', status: 'waiting', at: placeAt(3), scale: 1.05, turn: -0.13 },
   {
     id: 'build',
     name: 'Build',
     rune: 'neta',
     status: 'running',
-    at: [3.9, -2.05],
+    at: placeAt(1),
     scale: 0.92,
     turn: 0.21,
     // A sample tell, so the demo shows what one looks like in the stone's panel.
     tells: [{ kind: 'repeated-failure', at: Date.now() - 12 * 60_000, detail: 'Bash failed 3 times in a row' }],
   },
-  { id: 'archive', name: 'Archive', rune: 'avi', status: 'idle', at: [5.3, 0.7], scale: 0.98, turn: -0.18 },
+  { id: 'archive', name: 'Archive', rune: 'avi', status: 'idle', at: placeAt(5), scale: 0.98, turn: -0.18 },
 ]
 
 export type QualityPreset = 'high' | 'balanced' | 'low'
@@ -196,7 +197,7 @@ function CameraRig({ shot, resetKey, animate, free, drift }: { shot: Shot; reset
       dampingFactor={0.065}
       rotateSpeed={0.42}
       zoomSpeed={0.55}
-      // Close enough for the canopy shot; the home shot sits at 21.
+      // Close enough for the canopy shot; the home shot sits at 13.5.
       minDistance={free ? 3.5 : 7}
       maxDistance={free ? 36 : 29}
       minPolarAngle={Math.PI * (free ? 0.06 : 0.22)}
