@@ -160,3 +160,9 @@ The runestone inscriptions are words from the corpus of early Irish Ogham stones
 sixth century). Letter forms and the spellings and meanings of the words follow Damian McManus,
 *A Guide to Ogam* (Maynooth, 1991). No text or images are copied from it; the letters are drawn in
 code in `src/scene/runes.ts`.
+
+### Concept art
+
+The concept art in `assets/concept/` is AI renders made for this project, used as the target for
+the scene's look. Nothing in the app is taken from it: the tree is modelled in Blender by
+`scripts/build-world-tree-blender.py`, and everything else is drawn in code.
