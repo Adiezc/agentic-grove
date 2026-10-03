@@ -23,6 +23,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { packager } from '@electron/packager'
+import { FuseV1Options, FuseVersion, flipFuses } from '@electron/fuses'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const NAME = 'Agentic Grove'
@@ -83,6 +84,18 @@ try {
     quiet: true,
   })
   const app = path.join(out, `${NAME}.app`)
+  // Electron's "fuses": switches baked into the program itself, so nothing on the Mac can turn
+  // them back on. These three would let another program use the Grove's app to run code of its
+  // own: as plain Node (`ELECTRON_RUN_AS_NODE`), with injected options (`NODE_OPTIONS`), or with a
+  // debugger attached (`--inspect`). The Grove needs none of them. Left as they are on purpose:
+  // the asar fuses (the app ships plain files, see `asar: false`) and the file:// privileges the
+  // page needs to read its own tree model. Flipped before signing, since it changes the program.
+  await flipFuses(app, {
+    version: FuseVersion.V1,
+    [FuseV1Options.RunAsNode]: false,
+    [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+    [FuseV1Options.EnableNodeCliInspectArguments]: false,
+  })
   // Ad-hoc: enough for Apple Silicon to run it; not a developer signature. See the header.
   run('codesign', ['--force', '--deep', '--sign', '-', app], { stdio: 'ignore' })
 

@@ -31,7 +31,8 @@ import { createShard, type Shard } from './tray.ts'
 import type { UsageReport } from '../core/usage/types.ts'
 import { startHookServer, type HookServer } from '../core/hooks/server.ts'
 import { applyHooks, hookToken, hooksState, planHooks, type HooksAction } from '../core/hooks/install.ts'
-import { ipcMain } from 'electron'
+import { ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { isAppLink, isOwnPage, lockDownPages } from './security.ts'
 import { CHECK_EVERY_MS, RELEASES_PAGE, checkForUpdate, type UpdateStatus } from '../core/updates.ts'
 import { sampleLoad, type SystemLoad } from '../core/system.ts'
 import { APP_DOWNLOADS, TOOL_PAGES, cliPath, setupScript, setupStatus, signInScript, type SetupStatus, type SetupTool } from '../core/setup.ts'
@@ -46,6 +47,8 @@ import { notify } from './notify.ts'
 import { execFile } from 'node:child_process'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
+/** The built interface. In development the dev server's page is loaded instead. */
+const pageFile = path.join(dirname, '..', 'dist', 'index.html')
 
 /**
  * Set by the Vite plugin while developing, absent in a packaged build. It is how we know whether
@@ -273,6 +276,9 @@ function createWindow(): void {
       preload: path.join(dirname, 'preload.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Chromium's own sandbox round the page as well. The preload is built as plain CommonJS
+      // that only asks for `electron`, which is what a sandboxed preload is allowed.
+      sandbox: true,
     },
   })
 
@@ -307,7 +313,7 @@ function createWindow(): void {
   if (devServerUrl) {
     void window.loadURL(devServerUrl)
   } else {
-    void window.loadFile(path.join(dirname, '..', 'dist', 'index.html'))
+    void window.loadFile(pageFile)
   }
 }
 
@@ -330,16 +336,29 @@ async function addAndRescan(folder: string, place?: number): Promise<ProjectResu
  * anything reaches the opener. Page code never gets to name a file for the node side to act on.
  */
 function registerHandlers(): void {
-  ipcMain.handle(CHANNELS.refresh, async () => {
+  /* Every handler below is registered through this, which drops any message that does not come
+   * from the Grove's own page (see `electron/security.ts`, rule 4). Navigation is already locked,
+   * so this should never trigger; it is the second wall, not the first. */
+  const handle = (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown) =>
+    ipcMain.handle(channel, (event, ...args) => {
+      if (!isOwnPage(event.senderFrame?.url, devServerUrl, pageFile)) throw new Error('Refused: not the Grove page')
+      return handler(event, ...args)
+    })
+
+  handle(CHANNELS.refresh, async () => {
     // Deliberately does not run a scan of its own: it restarts the loop, so an impatient click
     // cannot stack passes on top of the scheduled one.
     restartScanning()
   })
 
-  ipcMain.handle(CHANNELS.openSession, async (_event, harness: string, ref: Record<string, unknown>) => {
+  handle(CHANNELS.openSession, async (_event, harness: unknown, ref: unknown) => {
+    if (typeof harness !== 'string' || typeof ref !== 'object' || ref === null) return { ok: false, error: 'Not a session' }
     try {
-      const result = await openSession(harness, ref)
+      const result = await openSession(harness, ref as Record<string, unknown>)
       if (!result.ok) return { ok: false, error: result.error }
+      // The adapters build these links from checked ids; this is the last look before the system
+      // opener, and it should not depend on every adapter staying correct.
+      if (!isAppLink(result.url)) return { ok: false, error: 'Not a link to an app' }
       await shell.openExternal(result.url)
       return { ok: true }
     } catch (error) {
@@ -350,7 +369,7 @@ function registerHandlers(): void {
   /* Development only. A packaged build has no reason to be able to write PNGs of itself, and
    * registering it there would be a write surface with no caller. */
   if (devServerUrl) {
-    ipcMain.handle(CHANNELS.captureStill, async () => {
+    handle(CHANNELS.captureStill, async () => {
       const [window] = [...windows]
       if (!window || window.isDestroyed()) return { ok: false, error: 'No window to capture' }
       try {
@@ -367,7 +386,7 @@ function registerHandlers(): void {
     })
   }
 
-  ipcMain.handle(CHANNELS.connectSuggested, async (_event, folder: unknown, place: unknown): Promise<ProjectResult> => {
+  handle(CHANNELS.connectSuggested, async (_event, folder: unknown, place: unknown): Promise<ProjectResult> => {
     // Page code is untrusted: accept only a path the node side itself offered, as a project or as
     // a part of one worth its own sub-stone.
     const offered =
@@ -377,7 +396,7 @@ function registerHandlers(): void {
     return addAndRescan(folder, asPlace(place))
   })
 
-  ipcMain.handle(CHANNELS.browseProject, async (event, place: unknown): Promise<ProjectResult> => {
+  handle(CHANNELS.browseProject, async (event, place: unknown): Promise<ProjectResult> => {
     const owner = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.OpenDialogOptions = {
       title: 'Connect a project',
@@ -391,7 +410,7 @@ function registerHandlers(): void {
     return addAndRescan(folder, asPlace(place))
   })
 
-  ipcMain.handle(CHANNELS.browseSubProject, async (event, stoneId: unknown): Promise<ProjectResult> => {
+  handle(CHANNELS.browseSubProject, async (event, stoneId: unknown): Promise<ProjectResult> => {
     const { grove } = await loadGrove()
     const parent = grove.stones.find((stone) => stone.path === stoneId)
     if (!parent) return { ok: false, error: 'Not one of your stones' }
@@ -409,7 +428,7 @@ function registerHandlers(): void {
     return addAndRescan(folder)
   })
 
-  ipcMain.handle(CHANNELS.createProject, async (event, place: unknown): Promise<ProjectResult> => {
+  handle(CHANNELS.createProject, async (event, place: unknown): Promise<ProjectResult> => {
     const owner = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.SaveDialogOptions = {
       title: 'New project',
@@ -445,7 +464,7 @@ function registerHandlers(): void {
     }
   }
 
-  ipcMain.handle(CHANNELS.addAgent, async (_event, draft: unknown): Promise<AgentResult> => {
+  handle(CHANNELS.addAgent, async (_event, draft: unknown): Promise<AgentResult> => {
     const fields = asDraft(draft)
     if (!fields) return { ok: false, error: 'Not an agent' }
     const result = await addAgent(fields).catch((error: unknown) => ({ ok: false, error: String(error) }))
@@ -453,7 +472,7 @@ function registerHandlers(): void {
     return result
   })
 
-  ipcMain.handle(CHANNELS.updateAgent, async (_event, id: unknown, draft: unknown): Promise<AgentResult> => {
+  handle(CHANNELS.updateAgent, async (_event, id: unknown, draft: unknown): Promise<AgentResult> => {
     const fields = asDraft(draft)
     if (typeof id !== 'string' || !fields) return { ok: false, error: 'Not an agent' }
     const result = await updateAgent(id, fields).catch((error: unknown) => ({ ok: false, error: String(error) }))
@@ -461,21 +480,21 @@ function registerHandlers(): void {
     return result
   })
 
-  ipcMain.handle(CHANNELS.removeProject, async (_event, stoneId: unknown): Promise<ProjectResult> => {
+  handle(CHANNELS.removeProject, async (_event, stoneId: unknown): Promise<ProjectResult> => {
     if (typeof stoneId !== 'string') return { ok: false, error: 'Not a stone' }
     const result = await removeProject(stoneId).catch((error: unknown) => ({ ok: false, error: String(error) }))
     if (result.ok) await restartScanning()
     return result
   })
 
-  ipcMain.handle(CHANNELS.removeAgent, async (_event, id: unknown): Promise<AgentResult> => {
+  handle(CHANNELS.removeAgent, async (_event, id: unknown): Promise<AgentResult> => {
     if (typeof id !== 'string') return { ok: false, error: 'Not an agent id' }
     const result = await removeAgent(id).catch((error: unknown) => ({ ok: false, error: String(error) }))
     if (result.ok) await restartScanning()
     return result
   })
 
-  ipcMain.handle(CHANNELS.openAgentLink, async (_event, id: unknown): Promise<AgentResult> => {
+  handle(CHANNELS.openAgentLink, async (_event, id: unknown): Promise<AgentResult> => {
     const { grove } = await loadGrove()
     const agent = grove.agents.find((each) => each.id === id)
     if (!agent || !isLinkOnly(agent.harness)) return { ok: false, error: 'That agent runs in the Grove, not in a browser' }
@@ -490,7 +509,7 @@ function registerHandlers(): void {
 
   // Both take only a word from the page: which action. The file and the change are worked out here.
   const asAction = (value: unknown): HooksAction | null => (value === 'install' || value === 'remove' ? value : null)
-  ipcMain.handle(CHANNELS.planHooks, async (_event, action: unknown) => {
+  handle(CHANNELS.planHooks, async (_event, action: unknown) => {
     const which = asAction(action)
     if (!which) return { ok: false, error: 'Unknown action', action: 'install', lines: [], baseline: '', changes: false }
     return planHooks(which).catch((error: unknown) => ({
@@ -502,7 +521,7 @@ function registerHandlers(): void {
       changes: false,
     }))
   })
-  ipcMain.handle(CHANNELS.applyHooks, async (_event, action: unknown, baseline: unknown) => {
+  handle(CHANNELS.applyHooks, async (_event, action: unknown, baseline: unknown) => {
     const which = asAction(action)
     if (!which || typeof baseline !== 'string') return { ok: false, error: 'Unknown action' }
     const result = await applyHooks(which, baseline).catch((error: unknown) => ({ ok: false, error: String(error) }))
@@ -510,7 +529,7 @@ function registerHandlers(): void {
     return result
   })
 
-  ipcMain.handle(CHANNELS.openProjectFolder, async (_event, stoneId: unknown): Promise<ProjectResult> => {
+  handle(CHANNELS.openProjectFolder, async (_event, stoneId: unknown): Promise<ProjectResult> => {
     // Only a folder that is a stone in grove.json, never a path chosen by page code.
     const { grove } = await loadGrove()
     const stone = grove.stones.find((each) => each.path === stoneId)
@@ -519,7 +538,7 @@ function registerHandlers(): void {
     return failure ? { ok: false, error: failure } : { ok: true }
   })
 
-  ipcMain.handle(CHANNELS.saveSettings, async (_event, patch: unknown) => {
+  handle(CHANNELS.saveSettings, async (_event, patch: unknown) => {
     if (typeof patch !== 'object' || patch === null || Array.isArray(patch)) return { ok: false, error: 'Not settings' }
     const result = await saveSettings(patch as Record<string, unknown>).catch((error: unknown) => ({
       ok: false,
@@ -538,21 +557,21 @@ function registerHandlers(): void {
     return result
   })
 
-  ipcMain.handle(CHANNELS.checkForUpdates, async () => maybeCheckForUpdate(true))
+  handle(CHANNELS.checkForUpdates, async () => maybeCheckForUpdate(true))
 
-  ipcMain.handle(CHANNELS.checkClaudeLimits, async (): Promise<LimitsCheck> => checkClaudeLimits())
+  handle(CHANNELS.checkClaudeLimits, async (): Promise<LimitsCheck> => checkClaudeLimits())
 
-  ipcMain.handle(CHANNELS.openRelease, async () => {
+  handle(CHANNELS.openRelease, async () => {
     await shell.openExternal(RELEASES_PAGE)
   })
 
-  ipcMain.handle(CHANNELS.setUpTool, async (_event, tool: unknown) => {
+  handle(CHANNELS.setUpTool, async (_event, tool: unknown) => {
     if (tool !== 'claude-code' && tool !== 'codex') return { ok: false, error: 'Unknown tool' }
     setup = await setupStatus()
     return openSetup(tool)
   })
 
-  ipcMain.handle(CHANNELS.getReady, async (): Promise<ReadyResult> => {
+  handle(CHANNELS.getReady, async (): Promise<ReadyResult> => {
     // Worked out again here from fresh facts, never taken from the page: the page only says "go".
     setup = await setupStatus()
     const hooks = await hooksState().catch(() => ({ state: 'unreadable' as const }))
@@ -575,13 +594,13 @@ function registerHandlers(): void {
     return { ...opened, liveUpdates }
   })
 
-  ipcMain.handle(CHANNELS.getApp, async (_event, which: unknown) => {
+  handle(CHANNELS.getApp, async (_event, which: unknown) => {
     if (which === 'claude' || which === 'chatgpt') await shell.openExternal(APP_DOWNLOADS[which])
   })
 
-  ipcMain.handle(CHANNELS.launchRun, async (_event, request: unknown): Promise<RunResult> => launchRun(request))
+  handle(CHANNELS.launchRun, async (_event, request: unknown): Promise<RunResult> => launchRun(request))
 
-  ipcMain.handle(CHANNELS.resumeRun, async (_event, runId: unknown): Promise<RunResult> => {
+  handle(CHANNELS.resumeRun, async (_event, runId: unknown): Promise<RunResult> => {
     const run = typeof runId === 'string' ? runs.get(runId) : undefined
     if (!run) return { ok: false, error: 'No such run' }
     // The folder must still be one of your stones: a run's folder came from the Grove, but a stone
@@ -595,7 +614,7 @@ function registerHandlers(): void {
     return { ok: true, runId: run.id }
   })
 
-  ipcMain.handle(CHANNELS.readTranscript, async (_event, runId: unknown) => {
+  handle(CHANNELS.readTranscript, async (_event, runId: unknown) => {
     const run = typeof runId === 'string' ? runs.get(runId) : undefined
     if (!run) return { ok: false, error: 'No such run' }
     if (run.harness !== 'claude-code') return { ok: false, error: 'Codex runs show their work in their Terminal window.' }
@@ -603,20 +622,20 @@ function registerHandlers(): void {
     return lines ? { ok: true, lines } : { ok: true, lines: [] }
   })
 
-  ipcMain.handle(CHANNELS.focusTerminal, async () => {
+  handle(CHANNELS.focusTerminal, async () => {
     // By bundle id, so it finds Terminal wherever macOS keeps it. macOS only; the Windows port
     // needs its own answer here (see the Windows-before-release note).
     await new Promise<void>((resolve) => execFile('open', ['-b', 'com.apple.Terminal'], () => resolve()))
   })
 
-  ipcMain.handle(CHANNELS.planUninstall, async (): Promise<UninstallPlan> => planUninstall())
+  handle(CHANNELS.planUninstall, async (): Promise<UninstallPlan> => planUninstall())
 
-  ipcMain.handle(CHANNELS.uninstall, async (_event, options: unknown) => {
+  handle(CHANNELS.uninstall, async (_event, options: unknown) => {
     const removeGrove = typeof options === 'object' && options !== null && (options as { removeGrove?: unknown }).removeGrove === true
     return uninstall(removeGrove)
   })
 
-  ipcMain.handle(CHANNELS.revealGroveFile, async () => {
+  handle(CHANNELS.revealGroveFile, async () => {
     const file = grovePath()
     // `showItemInFolder` on a file that does not exist yet opens nothing at all, which reads as
     // a broken button. Falling back to the containing folder is the honest behaviour, and the
@@ -829,6 +848,7 @@ async function restartScanning(): Promise<void> {
 }
 
 void app.whenReady().then(async () => {
+  lockDownPages(devServerUrl, pageFile)
   await runs.load()
   registerHandlers()
   await startListening()

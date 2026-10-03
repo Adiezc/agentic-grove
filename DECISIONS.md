@@ -1377,3 +1377,27 @@ The README's platform table and `CONTRIBUTING.md` ask for it as the most wanted 
 a table of the Mac-specific pieces (session paths, tool lookup, Terminal launching, hooks, tray,
 packaging). New code should still prefer cross-platform Electron APIs, so the port stays cheap.
 This replaces the 26 September rule that Windows had to land first.
+
+## The window's walls: a security pass before going public
+
+*3 October 2026*
+
+The window already had no node access (`contextIsolation` on, `nodeIntegration` off) and every
+IPC handler checked its own input. Added, so a slip elsewhere (say a project name treated as HTML)
+still cannot reach the Mac, all in `electron/security.ts` and `electron/page-rules.ts`:
+
+- **A content security policy** in the built page: scripts only from the app, no eval, no
+  network from the page. Written in at build time only; the dev server's hot reloading needs more.
+  The tree model was loading drei's meshopt decoder, WebAssembly the policy refuses; the model
+  uses no meshopt, so the decoder is now off rather than the policy loosened.
+- **No navigation away, no new windows, no webviews, every permission refused.**
+- **Chromium's sandbox** on the page (`sandbox: true`). The preload was already plain CommonJS.
+- **Every IPC message must come from the Grove's own page** (a wrapper round `ipcMain.handle`).
+- **Only `claude:`, `codex:` and `cursor:` links** go to the system opener from `openSession`.
+- **Fuses** in the packaged app: run-as-Node, `NODE_OPTIONS` and `--inspect` off. Costs one
+  development dependency, `@electron/fuses` (Electron's own, nothing ships). The file-protocol
+  fuse stays on, since the page reads its model over `file://`.
+
+Checked by `npm run verify:security` (10 checks) and by probing the built app over the debugging
+port: outside fetch, `window.open`, navigation, inline scripts and notifications all refused, the
+grove still drawn at 59 fps and settings still saved. The Dock app ignored `ELECTRON_RUN_AS_NODE`.

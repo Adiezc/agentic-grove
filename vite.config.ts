@@ -12,10 +12,20 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import electron from 'vite-plugin-electron/simple'
+import { CONTENT_SECURITY_POLICY } from './electron/page-rules.ts'
 
 export default defineConfig({
   plugins: [
     react(),
+    // The content security policy goes into the built page only. The development server's hot
+    // reloading injects scripts of its own, which the policy would rightly refuse.
+    {
+      name: 'grove-content-security-policy',
+      apply: 'build',
+      transformIndexHtml: () => [
+        { tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: CONTENT_SECURITY_POLICY }, injectTo: 'head-prepend' },
+      ],
+    },
     electron({
       main: { entry: 'electron/main.ts' },
       preload: { input: 'electron/preload.ts' },

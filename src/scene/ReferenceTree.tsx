@@ -97,7 +97,9 @@ function addBarkGlow(
  */
 export function ReferenceTree({ activity, attention, animate, network }: ReferenceTreeProps) {
   const modelUrl = new URL('../../assets/models/world-tree-blender.glb', import.meta.url).href
-  const { scene: sourceTree } = useGLTF(modelUrl, false)
+  // No Draco and no meshopt: the model uses neither, and the meshopt decoder is WebAssembly that
+  // the page's security policy (`electron/page-rules.ts`) rightly refuses to compile.
+  const { scene: sourceTree } = useGLTF(modelUrl, false, false)
   const model = useMemo(() => {
     const clone = sourceTree.clone(true)
     const energyMaterials: THREE.MeshStandardMaterial[] = []
@@ -306,4 +308,4 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
   )
 }
 
-useGLTF.preload(new URL('../../assets/models/world-tree-blender.glb', import.meta.url).href, false)
+useGLTF.preload(new URL('../../assets/models/world-tree-blender.glb', import.meta.url).href, false, false)

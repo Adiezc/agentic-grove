@@ -139,6 +139,14 @@ off by default and never runs on a timer.
 Your grove (projects, agents, settings) lives in `~/.agentic-grove/grove.json`, outside the app,
 so an update never touches it. It is plain JSON and meant to be edited by hand if you like.
 
+**How the app protects your Mac.** The window that draws the grove cannot touch your files or run
+programs itself. It can only ask the app for a short list of actions, each checked before it
+happens. It cannot load anything from the internet, open web pages or windows of its own, or ask
+for your camera, microphone or location. The packaged app also refuses to be used as a back door
+for running other code. The details, and a check that keeps them in place
+(`npm run verify:security`), are in `electron/security.ts`. Found a hole? Please open an issue,
+or for anything serious, contact the maintainer through GitHub before publishing it.
+
 ## Uninstalling
 
 Settings → Uninstall. It takes the Grove's lines out of Claude Code's settings (if you turned live
@@ -162,7 +170,7 @@ npm run dmg      # build release/Agentic-Grove-<version>-arm64.dmg for a GitHub 
 ```
 
 Each part with rules of its own has a `verify:` script beside it (`spawn`, `console`, `attention`,
-`health`, `places`, `readiness`, `reliability`, `pairings`, `tells`, `probe`, `history`, `codex-usage`); they run in seconds and touch nothing of
+`health`, `places`, `readiness`, `reliability`, `pairings`, `tells`, `probe`, `history`, `codex-usage`, `twins`, `security`); they run in seconds and touch nothing of
 yours.
 
 `verify` is the one worth knowing about. It counts the files on disk with its own separate code
