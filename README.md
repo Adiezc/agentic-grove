@@ -19,17 +19,24 @@ MIT licensed. No telemetry, ever.
 ## What you can do with it
 
 - **See your work at a glance.** Each project is a stone. It lights while an agent works there and
-  turns amber, the grove's one warning colour, when an agent is waiting for you.
+  turns amber, the grove's one warning colour, when an agent is waiting for you. A git worktree
+  stands beside its repository as a twin stone.
 - **Send an agent to a project.** Pick a stone, pick an agent from the tree, type the job. Terminal
   opens in that project running your own Claude Code or Codex.
 - **Type instead of click.** The console at the bottom reads a job, shows who would take it and
   where ("Builder → Shellter") before anything is sent, and lets you change either with a click.
+- **Save the jobs you repeat.** A saved task on a stone runs in one click. When three sessions in a
+  project start with the same prompt, the Grove offers to save it, and remembers if you say no.
+- **Leave a note for next time.** On a stone, an agent or the tree. It stays out of the way until
+  work next starts there, then shows once.
 - **Ask about your own week.** "What did I do yesterday?" is answered by the Grove itself, from
   the records on your Mac, and the stones involved light in the order you came to them.
 - **Know how much you have left.** Five-hour and weekly headroom for Claude and ChatGPT, each
   figure marked official, counted or unknown.
 - **Use it without a mouse.** Arrow keys move between stones, Enter opens one, Esc goes back.
 - **Take its picture.** Press P for photo mode: the interface steps aside and you can save a large image.
+- **Leave it open all day.** When nothing has happened for a few seconds it draws less, and hidden
+  it uses almost nothing.
 
 | | |
 | --- | --- |
@@ -51,11 +58,31 @@ walkthrough and Settings help you get it in a click or two.
 
 Those two are a starting point, not a wall. Other providers and locally run models (Ollama, LM
 Studio and the like) can be added: each tool the Grove understands is one small adapter in
-`core/harnesses/`, and the contract is in its README. Contributions are welcome.
+`core/harnesses/`, and the contract is in its README. One for Cursor is already written but has
+never been tested on real data. Contributions are welcome.
 
 ---
 
 ## Getting started
+
+You need a Mac with Apple Silicon (M1 or later) running macOS 13 Ventura or newer. Building it
+yourself also needs [Node.js](https://nodejs.org) 22 or newer.
+
+### Download
+
+Builds appear under [Releases](https://github.com/Adiezc/agentic-grove/releases) as a disk image
+(`Agentic-Grove-<version>-arm64.dmg`).
+
+1. Open the disk image and drag **Agentic Grove** onto **Applications**.
+2. Open it. macOS will refuse the first time, because the app is not signed with a paid Apple
+   developer certificate.
+3. Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** beside
+   Agentic Grove. Confirm once more. From then on it opens normally.
+
+A newer version replaces the app the same way. Your projects, agents and settings live in
+`~/.agentic-grove`, outside the app, so they are kept.
+
+### Build it yourself
 
 **The easy way:** if you use Claude Code or Codex, ask it:
 
@@ -73,26 +100,14 @@ open ~/Applications/"Agentic Grove.app"
 
 (`npm run dev` runs it in development mode instead, for working on the Grove itself.)
 
-On first launch Researcher walks you through the grove. The second card has one button, **Get
-ready**. It looks for Claude Code and Codex first (including the copies inside the Claude and
-ChatGPT apps), and only installs what is missing. Then it does whichever of these is still needed:
-install Claude Code, sign you in (in Terminal and your browser, the one step that needs you), and
-turn on live updates. If you already have everything, there is nothing to press. Settings has
-the same controls, one per tool.
+### First launch
 
-### Installing a download
-
-Builds for Apple Silicon Macs appear under [Releases](https://github.com/Adiezc/agentic-grove/releases)
-as a disk image (`Agentic-Grove-<version>-arm64.dmg`).
-
-1. Open the disk image and drag **Agentic Grove** onto **Applications**.
-2. Open it. macOS will refuse the first time, because the app is not signed with a paid Apple
-   developer certificate.
-3. Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** beside
-   Agentic Grove. Confirm once more. From then on it opens normally.
-
-A newer version replaces the app the same way. Your projects, agents and settings live in
-`~/.agentic-grove`, outside the app, so they are kept.
+Researcher walks you through the grove. The second card has one button, **Get ready**. It looks
+for Claude Code and Codex first (including the copies inside the Claude and ChatGPT apps), and
+only installs what is missing. Then it does whichever of these is still needed: install Claude
+Code, sign you in (in Terminal and your browser, the one step that needs you), and turn on live
+updates. If you already have everything, there is nothing to press. Settings has the same
+controls, one per tool.
 
 ## What it can and cannot see
 
@@ -105,7 +120,6 @@ interface is built to show the difference rather than hide it.
 | Codex | **Watch and send.** Every session, with OpenAI's own five-hour and weekly figures. Sends agents by opening your own Codex in Terminal |
 | Claude Cowork | **Link only.** Everyday work in the Claude app; the Grove opens it |
 | ChatGPT Dots | **Link only.** OpenAI's always-on agents; no public API yet |
-| Cursor | **Watch**, in principle. Adapter written but unverified; see `core/harnesses/README.md` |
 
 "Link only" means the Grove can open it for you and nothing more, and the interface shows those
 as loose fireflies rather than agents on the tree. A figure the Grove cannot know honestly is shown
@@ -144,8 +158,8 @@ programs itself. It can only ask the app for a short list of actions, each check
 happens. It cannot load anything from the internet, open web pages or windows of its own, or ask
 for your camera, microphone or location. The packaged app also refuses to be used as a back door
 for running other code. The details, and a check that keeps them in place
-(`npm run verify:security`), are in `electron/security.ts`. Found a hole? Please open an issue,
-or for anything serious, contact the maintainer through GitHub before publishing it.
+(`npm run verify:security`), are in `electron/security.ts`. Found a hole? Please report it
+privately, as [SECURITY.md](SECURITY.md) describes, rather than in a public issue.
 
 ## Uninstalling
 
@@ -170,7 +184,7 @@ npm run dmg      # build release/Agentic-Grove-<version>-arm64.dmg for a GitHub 
 ```
 
 Each part with rules of its own has a `verify:` script beside it (`spawn`, `console`, `attention`,
-`health`, `places`, `readiness`, `reliability`, `pairings`, `tells`, `probe`, `history`, `codex-usage`, `twins`, `security`); they run in seconds and touch nothing of
+`health`, `places`, `readiness`, `reliability`, `pairings`, `tells`, `probe`, `history`, `codex-usage`, `twins`, `suggest-runes`, `notes`, `security`); they run in seconds and touch nothing of
 yours.
 
 `verify` is the one worth knowing about. It counts the files on disk with its own separate code
@@ -191,6 +205,7 @@ and fails if the scanner disagrees, because a wrong number looks exactly like a 
 ## Documents
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to help, starting with the Windows port
+- [SECURITY.md](SECURITY.md) — how to report a security problem privately
 - [CREDITS.md](CREDITS.md) — every project this borrows from, what was taken, under which licence
 - [DECISIONS.md](DECISIONS.md) — append-only log of architectural decisions and why
 - [ROADMAP.md](ROADMAP.md) — the build plan, and ranked ideas for future sessions
