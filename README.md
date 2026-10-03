@@ -6,9 +6,11 @@ working and whether anything needs you, and look away again.
 
 It is not a chat app. It is a cockpit.
 
-![The grove: a tree at the centre, a lit stone for each project, roots carrying light to the ones being worked on](assets/screenshots/grove-home.jpg)
+![The grove in use: choosing a project's stone, typing a job into the console and sending Builder to the Data stone, which lights up; then the tree's agents and the ChatGPT usage readout](assets/screenshots/grove-demo.webp)
 
-*The demo grove. A real one starts empty and grows a stone for each project you connect.*
+*Half a minute in the demo grove: open a project, send an agent from the console, look over the
+tree's agents and your usage. A real grove starts empty and grows a stone for each project you
+connect.*
 
 **Status: early, and changing quickly.** The grove shows your real projects and agent sessions,
 live, with usage headroom per provider, and sends agents to work in your projects through your own
