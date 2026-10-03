@@ -119,9 +119,16 @@ export const camera = {
    * give it room. */
   /* Nudged on 30 September 2026 at Adrian's request: the view centres a little right of and below
    * the tree, and sits about eight per cent further back. Same direction, so the elevation holds. */
+  /* Lowered on 3 October 2026, from a framing Adrian set up by hand and asked to keep: about
+   * sixteen degrees down instead of thirty, the tree centred and aimed above its middle so it sits
+   * low in the frame, clear above the console. The grove reads as a place you stand in rather than
+   * a map you look down on. His own view was closer still (about fourteen units), but that was a
+   * grove of one stone; with all six of the art's places filled the front two were cut off and sat
+   * on the console, so the camera stands back to twenty-one, judged with `window.__groveCamera` in
+   * the dev preview. The stone close-up keeps the old thirty-degree angle (`STONE_OFFSET` in
+   * Grove.tsx), since every rune is carved to face it.
+   * position = target + 21 * (0, sin 16°, cos 16°) */
   fov: 30,
-  // Tilted up to about thirty degrees, looking down into the grove as the user's chosen view does.
-  // position = target + (0, 10.65, 18.4) * 1.08
-  position: [0.45, 12.35, 19.87] as [number, number, number],
-  target: [0.45, 0.85, 0] as [number, number, number],
+  position: [0.3, 8.19, 20.19] as [number, number, number],
+  target: [0.3, 2.4, 0] as [number, number, number],
 } as const

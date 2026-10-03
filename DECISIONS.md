@@ -1500,3 +1500,22 @@ minutes. It brightens a little with the same activity measure as the heartbeat, 
 and holds still under reduced motion or with drifting motes switched off. One flat mesh and one
 small shader. Judged in `?demo`: twice the final brightness already competed with the tree, so it
 sits at the level where you notice depth before you notice mist.
+
+## A lower home view, and the tree's floating dot removed
+
+*3 October 2026*
+
+Adrian framed a view by hand and asked for it as the home view: lower, the tree centred and
+sitting low in the window. The home camera now looks down about sixteen degrees instead of thirty,
+aimed above the tree's middle, twenty-one units out (`camera` in `src/theme/palette.ts`). His own
+framing was closer, about fourteen units, but with all six of the art's places filled the front two
+stones were cut off and sat on the console, so it stands back as far as a full grove needs. The
+stone close-up keeps the old angle (`STONE_OFFSET`), because every rune faces it. Judged in the dev
+preview with a new development-only handle, `window.__groveCamera` (camera, controls, scene), which
+also made the next fix findable.
+
+He also asked about a soft green dot floating beside the trunk. Switching the scene's parts off one
+at a time found it: the tree's activity aura, a large glowing sprite just behind the trunk. The old
+high view hid it behind the wood; from the lower view and from the side it floated free. It is
+gone. The point light beside it still carries the heartbeat onto the tree, and the home view looks
+the same without the sprite. The README screenshots show the old view and want retaking.

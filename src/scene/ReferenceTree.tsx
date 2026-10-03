@@ -31,28 +31,6 @@ function sampleStart(curve: THREE.CatmullRomCurve3, portion: number, lift = 0) {
   )
 }
 
-function activityTexture() {
-  const size = 256
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const context = canvas.getContext('2d')
-  if (context) {
-    const centre = size / 2
-    const gradient = context.createRadialGradient(centre, centre, 0, centre, centre, centre)
-    gradient.addColorStop(0, 'rgba(210,255,226,0.96)')
-    gradient.addColorStop(0.07, 'rgba(114,246,162,0.72)')
-    gradient.addColorStop(0.3, 'rgba(66,178,110,0.24)')
-    gradient.addColorStop(0.68, 'rgba(18,77,42,0.06)')
-    gradient.addColorStop(1, 'rgba(0,0,0,0)')
-    context.fillStyle = gradient
-    context.fillRect(0, 0, size, size)
-  }
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  return texture
-}
-
 /**
  * Lets the bark around the veins glow, as it does in the concept art.
  *
@@ -222,8 +200,6 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
     []
   )
 
-  const auraMap = useMemo(activityTexture, [])
-  const aura = useRef<THREE.Sprite>(null)
   const auraLight = useRef<THREE.PointLight>(null)
   const smoothedActivity = useRef(0)
   const amber = useRef(0)
@@ -255,15 +231,8 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
     model.energyMaterials.forEach((material, i) => {
       material.emissive.copy(model.veinColours[i]!).lerp(amberColour, lean)
     })
-    ;(aura.current?.material as THREE.SpriteMaterial | undefined)?.color.copy(energyColour).lerp(amberColour, lean)
     auraLight.current?.color.copy(energyColour).lerp(amberColour, lean)
 
-    if (aura.current) {
-      const radius = 2.45 + workload * 2.7 + beat * 0.82
-      aura.current.scale.set(radius, radius, 1)
-      ;(aura.current.material as THREE.SpriteMaterial).opacity =
-        0.035 + workload * 0.06 + beat * 0.075
-    }
     if (auraLight.current) {
       auraLight.current.intensity = 0.22 + workload * 0.75 + beat * 1.45
       auraLight.current.distance = 5.5 + workload * 6.2 + beat * 1.8
@@ -272,16 +241,11 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
 
   return (
     <group position={[0, DAIS_INNER_TOP, 0]}>
-      <sprite ref={aura} position={[0, 1.45, -0.95]} renderOrder={0}>
-        <spriteMaterial
-          map={auraMap}
-          color={palette.energy}
-          transparent
-          opacity={0.16}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </sprite>
+      {/* There used to be a soft glowing disc here too, a sprite just behind the trunk that swelled
+          with the heartbeat. From the old high view the trunk hid it; from the lower home view of
+          3 October 2026, and from any side, it floated beside the tree as a green dot (Adrian
+          asked what it was). Removed: the point light below still carries the heartbeat's glow
+          onto the wood, and the home view looked the same without it. */}
 
       {rootWood ? <mesh geometry={rootWood} material={woodMaterial} renderOrder={1} /> : null}
       {rootLight ? <mesh geometry={rootLight} material={rootLightMaterial} renderOrder={3} /> : null}

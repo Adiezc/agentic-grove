@@ -105,7 +105,8 @@ interface Shot {
 
 /** The home composition, and the direction every other shot looks from. */
 const HOME: Shot = { position: cameraSpec.position, target: cameraSpec.target }
-const HOME_OFFSET = new THREE.Vector3(...cameraSpec.position).sub(new THREE.Vector3(...cameraSpec.target))
+/** The stone close-up's direction: the original thirty-degree home angle, which every rune faces. */
+const STONE_OFFSET = new THREE.Vector3(0, 10.65, 18.4).multiplyScalar(1.08)
 
 /**
  * Where the camera should be for each step of the flow.
@@ -121,7 +122,7 @@ function shotFor(view: FlowView, stone: StoneSpec | undefined): Shot {
     // looks at the home camera, and swinging round a stone shows you its blank back. Aimed right
     // of the stone, so it lands left of centre with the tree beside it and the panel clear.
     const target = new THREE.Vector3(stone.at[0] + 2.6, 1.1, stone.at[1])
-    const position = target.clone().addScaledVector(HOME_OFFSET, 0.74)
+    const position = target.clone().addScaledVector(STONE_OFFSET, 0.74)
     return { target: target.toArray() as Vec3, position: position.toArray() as Vec3 }
   }
   if (view === 'agents') {
@@ -195,7 +196,7 @@ function CameraRig({ shot, resetKey, animate, free, drift }: { shot: Shot; reset
       dampingFactor={0.065}
       rotateSpeed={0.42}
       zoomSpeed={0.55}
-      // Close enough for the canopy shot; the home shot sits at about 22.
+      // Close enough for the canopy shot; the home shot sits at 21.
       minDistance={free ? 3.5 : 7}
       maxDistance={free ? 36 : 29}
       minPolarAngle={Math.PI * (free ? 0.06 : 0.22)}
@@ -244,6 +245,21 @@ function TreeHitbox({ onOpen }: { onOpen: () => void }) {
       </mesh>
     </group>
   )
+}
+
+/**
+ * Development only: the camera and its controls on `window.__groveCamera`, so a framing can be
+ * read off and tried out from the browser console instead of guessed from screenshots.
+ */
+function DevCameraHandle() {
+  const camera = useThree((state) => state.camera)
+  const controls = useThree((state) => state.controls)
+  const scene = useThree((state) => state.scene)
+  const invalidate = useThree((state) => state.invalidate)
+  useEffect(() => {
+    ;(window as unknown as { __groveCamera?: unknown }).__groveCamera = { camera, controls, scene, invalidate }
+  }, [camera, controls, scene, invalidate])
+  return null
 }
 
 /**
@@ -472,6 +488,7 @@ export function GroveScene({
     >
       <CameraRig shot={shot} resetKey={viewResetKey} animate={animate} free={photo} drift={drift && animate && !photo} />
       {maxFps ? <FrameCap fps={maxFps} /> : null}
+      {import.meta.env.DEV ? <DevCameraHandle /> : null}
       {onPerf ? <Perf onSample={onPerf} /> : null}
 
       {/* Light is minimal on purpose. Nearly everything in this scene emits rather than reflects,
