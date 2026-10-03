@@ -1469,3 +1469,20 @@ to spend part of the hour covered and part of it visible, which measured both ca
 The visible figure is too high for something meant to sit on a screen all day, against "calm by
 default". The obvious next step is review item 8's quiet idle mode: draw fewer frames when nothing
 is running or moving, and full speed again the moment something happens.
+
+## Quiet mode: 8 frames a second when nothing is happening
+
+*3 October 2026*
+
+After the hour-long run showed a visible idle grove at two-thirds of a CPU core, the scene now
+drops to 8 frames a second after ten seconds with no input, no agent running or waiting, no
+deployment and no photo mode (`quiet` in `src/App.tsx`, through the existing frame cap). Any mouse
+movement, key or scroll, or any work starting, brings full speed back at once. While quiet, the
+adaptive graphics ignore the frame rate, so a slow-on-purpose grove is not mistaken for a slow Mac.
+On by default, with a switch in Settings → Graphics.
+
+Measured in the built app on a copy of Adrian's grove, visible, total CPU time of every process:
+about 53% of a core awake, 20% quiet at 12 fps, **16% at 8 fps**, 11% at 4 fps. Roughly 6% is fixed
+(the scan, and the interface's frosted panels re-blurring over a changing scene) and each frame per
+second adds about 1%. 8 keeps the heartbeat readable; 4 looked like a slideshow. The page's own
+JavaScript was 94% idle while quiet, so what remains is drawing, not code.

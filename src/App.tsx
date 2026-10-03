@@ -95,6 +95,9 @@ function focusSoon(selector: string): void {
 
 const driftSeconds = Number(new URLSearchParams(window.location.search).get('drift'))
 /** How long the grove waits, untouched, before the camera starts its slow turn. */
+/** Quiet mode: how long with nothing happening before it starts, and how fast it then draws. */
+const QUIET_AFTER_MS = 10_000
+const QUIET_FPS = 8
 const DRIFT_AFTER_MS = driftSeconds > 0 ? driftSeconds * 1000 : 5 * 60_000
 
 /** Shared, so an empty grove is the same value from one render to the next. */
@@ -136,13 +139,6 @@ export function App() {
   const snapshot = useGrove((state) => state.snapshot)
   const deployment = useFlow((state) => state.deployment)
   const runs = useRuns()
-  useAdaptiveGraphics({
-    chosen: settings.graphics,
-    adaptive: settings.adaptiveGraphics,
-    fps: perf?.fps ?? null,
-    cpu: snapshot?.system.cpu ?? null,
-    displays: snapshot?.displays ?? 1,
-  })
 
   /* Your projects, from the scan. A new grove has none, and that is the intended first sight: the
    * tree, Researcher, and three empty circles. The concept art's six stones appear only in demo
@@ -365,6 +361,23 @@ export function App() {
     DRIFT_AFTER_MS
   )
 
+  /* Quiet mode. A visible grove with nothing happening was measured (3 October 2026) at two-thirds
+   * of a CPU core, almost all of it redrawing the same picture 60 times a second. So after a few
+   * seconds with no input, no agent working or waiting, nothing animating in or out and no photo,
+   * it draws 8 frames a second instead: the heartbeat and the motes still move, just less finely.
+   * Any input or any change of state brings full speed back at once (`useIdle` wakes on input). */
+  const busy = stones.some((stone) => stone.status === 'running' || stone.status === 'waiting')
+  const quiet = useIdle(settings.quietWhenIdle && !photo && !deployment && !busy, QUIET_AFTER_MS)
+  useAdaptiveGraphics({
+    chosen: settings.graphics,
+    adaptive: settings.adaptiveGraphics,
+    // A quiet grove draws slowly on purpose; reading that as "this Mac is slow" would lower the
+    // detail for no reason. So frame rate only counts while drawing at full speed.
+    fps: quiet ? null : (perf?.fps ?? null),
+    cpu: snapshot?.system.cpu ?? null,
+    displays: snapshot?.displays ?? 1,
+  })
+
   // The whole interface is sized in rem, so full screen scales it by changing one number.
   useEffect(() => {
     document.documentElement.classList.toggle('is-fullscreen', fullScreen)
@@ -401,7 +414,7 @@ export function App() {
           // test of whether the composition works rather than the movement.
           animate={!reducedMotion}
           post={post && (forced ? true : scene.post)}
-          maxFps={forced ? undefined : scene.maxFps}
+          maxFps={forced ? undefined : quiet ? QUIET_FPS : scene.maxFps}
           onPerf={onPerf}
           onHoverStone={setHovered}
           viewResetKey={viewResetKey}

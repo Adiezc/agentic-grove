@@ -221,6 +221,12 @@ export interface GroveSettings {
    * movement brings the view home. Never while something needs you.
    */
   idleDrift: boolean
+  /**
+   * When nothing is running and you have not touched the window for a few seconds, draw 12 frames
+   * a second instead of 60. Measured on 3 October 2026: a visible, idle grove cost two-thirds of a
+   * CPU core at full rate. Any movement, or any work starting, brings full speed straight back.
+   */
+  quietWhenIdle: boolean
   /** A macOS notification when an agent you sent finishes a job that took a minute or more. */
   notifyFinished: boolean
   /** A macOS notification when an agent you sent is waiting on you. Off by default: amber is enough. */
@@ -245,6 +251,7 @@ export function defaultSettings(): GroveSettings {
     alwaysShowNames: false,
     ambientMotion: true,
     idleDrift: true,
+    quietWhenIdle: true,
     notifyFinished: true,
     notifyNeedsYou: false,
     officialClaudeLimits: false,
@@ -260,6 +267,7 @@ export const SETTING_SWITCHES = [
   'alwaysShowNames',
   'ambientMotion',
   'idleDrift',
+  'quietWhenIdle',
   'notifyFinished',
   'notifyNeedsYou',
   'officialClaudeLimits',

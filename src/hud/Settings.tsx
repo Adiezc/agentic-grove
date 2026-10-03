@@ -87,6 +87,12 @@ function Graphics({ settings }: { settings: GroveSettings }) {
         on={settings.adaptiveGraphics}
         onChange={(on) => void saveSettings({ adaptiveGraphics: on })}
       />
+      <Switch
+        label="Draw less when nothing is happening"
+        detail="8 frames a second while no agent is working and you are not using the window. Full speed the moment anything moves."
+        on={settings.quietWhenIdle}
+        onChange={(on) => void saveSettings({ quietWhenIdle: on })}
+      />
       <p className="setting-fine">
         {lowered
           ? `Drawing at ${MODE_NAME[drawing.mode]} for now, ${REASON_LINE[drawing.reason]}.`
