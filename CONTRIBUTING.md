@@ -61,5 +61,29 @@ needs the agent sessions on a real Mac.
 `verify` is the one worth knowing about. It counts the files on disk with its own separate code
 and fails if the scanner disagrees, because a wrong number looks exactly like a right one.
 
+## The checks GitHub runs
+
+Every pull request, every push to `main`, and (for the security ones) once a week. You do not
+start them; a red cross on your pull request means one needs a look.
+
+| Check | What it protects against | Blocks a merge? |
+| --- | --- | --- |
+| **CI** (`ci.yml`) | A change that breaks the types, the build or any `verify:` rule | Yes |
+| **Secret scan** (gitleaks) | An API key, token or password committed by mistake, even if a later commit deleted it | Yes |
+| **Workflow files** (actionlint, zizmor) | A broken automation file, or one that could leak the repository's access token | Yes |
+| **New dependencies** (dependency review) | A pull request that adds a library version with a known high or critical hole | Yes |
+| **npm audit** | Known holes in the libraries already used, Electron included | No, it warns |
+| **CodeQL** | Real bugs in the Grove's own code: paths escaping their folder, text reaching a shell | No, findings go to the Security tab |
+
+Every action in those files is pinned to an exact commit, not a movable tag, and Dependabot
+proposes updates monthly. To run the same checks on your Mac first:
+
+```bash
+brew install actionlint zizmor gitleaks
+actionlint && zizmor .github && gitleaks git --redact .
+```
+
+The idea for these checks, and for this table, came from Odysseus; see [CREDITS.md](CREDITS.md).
+
 Comments explain *why*, in full sentences, and plain code beats clever code. Match the files
 around the one you are changing.

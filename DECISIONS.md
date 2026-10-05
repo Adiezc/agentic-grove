@@ -1635,3 +1635,30 @@ copy of the real Claude Code settings (outdated, then on with nine events), and 
 Also this day: GitHub Actions runs the build and every `verify:` script on a Mac for each push and
 pull request (`npm run verify`, which needs real sessions, stays a local check), and the repo has
 issue and pull-request templates.
+
+## Security checks on every change
+
+*6 October 2026*
+
+Before the repository gets attention, GitHub now checks every pull request, every push to `main`
+and, once a week, the repository as it stands. The idea, and the plain-language table in
+CONTRIBUTING.md, came from reading Odysseus (AGPL, so ideas only; see CREDITS.md).
+
+| Check | Blocks a merge? | Why that choice |
+| --- | --- | --- |
+| Secret scan (gitleaks, whole history) | Yes | A leaked key is never acceptable, and is found even if a later commit deleted it |
+| actionlint and zizmor on the workflow files | Yes | A broken workflow stops checking silently; an unsafe one can leak the repository's token |
+| Dependency review | Yes, at high or critical | Judges only what a pull request adds |
+| npm audit | No, a warning | A hole in a library is often unreachable from the Grove; it deserves a read, not a reflex |
+| CodeQL (TypeScript and the workflows) | No, the Security tab | Sometimes wrong; each finding deserves a read |
+
+Every action is pinned to an exact commit with its version in a comment, because a tag such as
+`@v3` can be moved by whoever controls that repository and a commit cannot. Dependabot proposes
+updates monthly, a week after each release, since a hijacked release is usually pulled within days.
+Workflows start with no permissions and each job asks for what it needs; checkouts do not keep the
+token. npm libraries are left out of Dependabot so the repo is not flooded with pull requests.
+
+Checked on this Mac before pushing: actionlint and zizmor (offline and online) report nothing,
+gitleaks finds no secret in the 69 commits or the working folder, and npm audit finds no known
+hole. **One step is Adrian's on GitHub:** "Blocks a merge" only bites once `main` has a rule
+requiring these checks (Settings → Rules → Rulesets), the setting zizmor's own docs recommend.
