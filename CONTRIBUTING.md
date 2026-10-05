@@ -136,7 +136,7 @@ and fails if the scanner disagrees, because a wrong number looks exactly like a 
 Every pull request, every push to `main`, and (for the security ones) once a week. You do not
 start them; a red cross on your pull request means one needs a look.
 
-| Check | What it protects against | Blocks a merge? |
+| Check | What it protects against | Must pass to merge? |
 | --- | --- | --- |
 | **CI** (`ci.yml`) | A change that breaks the types, the build or any `verify:` rule | Yes |
 | **Secret scan** (gitleaks) | An API key, token or password committed by mistake, even if a later commit deleted it | Yes |

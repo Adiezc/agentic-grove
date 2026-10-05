@@ -1660,5 +1660,7 @@ token. npm libraries are left out of Dependabot so the repo is not flooded with 
 
 Checked on this Mac before pushing: actionlint and zizmor (offline and online) report nothing,
 gitleaks finds no secret in the 69 commits or the working folder, and npm audit finds no known
-hole. **One step is Adrian's on GitHub:** "Blocks a merge" only bites once `main` has a rule
-requiring these checks (Settings → Rules → Rulesets), the setting zizmor's own docs recommend.
+hole. **"Blocks a merge" means a red cross, not a locked button:** Adrian chose no branch
+protection when the repo went public (3 October), so nothing stops a merge over a failing check.
+Requiring these checks on `main` (Settings → Rules → Rulesets) is the step that would make it
+literal, and stays his call.
