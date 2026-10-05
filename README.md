@@ -175,6 +175,18 @@ never touched, and everything removed goes to the Trash.
 the Mac-specific pieces and where they live, the commands for running and building the Grove, and
 the checks every change should pass.
 
+**Other features open to anyone who wants one**, each described in CONTRIBUTING.md with the
+files to start from:
+
+- Runs that always end in a word to you, even when Terminal closes mid-job
+- A second try on a stronger model when a run shows signs of struggling
+- A look before PM hands work that read the web to an agent that changes files
+- An adapter for [opencode](https://github.com/anomalyco/opencode)
+- A one-page threat model, a short map of how each part works, and a landing page
+
+Several came from reading [Odysseus](https://github.com/odysseus-dev/odysseus) by PewDiePie
+(ideas only; see [CREDITS.md](CREDITS.md)).
+
 ## Principles
 
 1. **Read-only towards other people's tools.** The Grove never writes to another tool's session

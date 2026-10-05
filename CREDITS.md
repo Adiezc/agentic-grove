@@ -122,6 +122,13 @@ those repositories directly, never from Odysseus's adapted copies.
   it blocks a merge. Ours are in `.github/workflows/security.yml` and `codeql.yml`, written for
   this repository; the table is in CONTRIBUTING.md.
 
+**What we offer contributors, from the same reading** (CONTRIBUTING.md, "Also wanted: ideas from
+Odysseus"): runs that always end in a word to you, a second try on a stronger model after a tell
+(its "teacher escalation"), a look before PM hands web-read work to Builder (its approval gate
+after untrusted content), a one-page threat model, a short "how it works now" map per area (its
+`specs/`), an opencode adapter, and a landing page with a short clip per feature. Whoever builds
+one writes it fresh; this entry then moves the idea under "What we use".
+
 **What we deliberately do not take:** its everything-app scope (email, calendar, gallery), using a
 ChatGPT plan by signing in as the Codex app, and a phone companion. The Grove is one calm cockpit,
 on your own plan, on your Mac.
