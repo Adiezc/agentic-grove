@@ -32,6 +32,8 @@ Before the public release:
   README and CONTRIBUTING.md ask for it as the most wanted contribution.
 - **Checks on every change. Done 3 October 2026:** GitHub Actions runs the build and every
   `verify:` script on a Mac (`.github/workflows/ci.yml`), plus issue and pull-request templates.
+  **Security checks added 6 October 2026:** secret scan, workflow linting, dependency review, npm
+  audit and CodeQL (`security.yml`, `codeql.yml`), every action pinned to an exact commit.
 - **Official Claude limits. Done 2 October 2026**, by a different route: a check you press in
   Settings runs your own Claude Code once and reads the limits it prints (`core/usage/probe.ts`).
   Off by default. It works for desktop-app and terminal users alike, so the statusline route is

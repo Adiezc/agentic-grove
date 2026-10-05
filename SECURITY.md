@@ -32,3 +32,7 @@ Anything that lets a web page, a project folder, a transcript or another program
 
 How the app is locked down, and the check that keeps it so (`npm run verify:security`), is in
 `electron/security.ts`.
+
+Every change to the repository is also checked automatically for committed secrets, unsafe
+workflow files, libraries with known holes, and common bugs (CodeQL). What each check does is in
+[CONTRIBUTING.md](CONTRIBUTING.md), under "The checks GitHub runs".

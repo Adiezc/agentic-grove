@@ -1,0 +1,101 @@
+# Security checks on every push to main, every pull request, and once a week.
+#
+# Four jobs, each guarding against one way a public repo gets hurt. Three block a merge when they
+# fail; the npm audit only warns, because a hole in a library is often not reachable from the
+# Grove and should be judged, not reflexively blocked. CodeQL lives in codeql.yml.
+#
+# The weekly run is there because new holes are published about libraries we already use; nothing
+# in the repo has to change for one of them to start mattering.
+#
+# Every action is pinned to an exact commit (the long hex), with its version in a comment. A tag
+# like `@v3` can be moved by whoever controls that repo; a commit cannot. Dependabot
+# (.github/dependabot.yml) proposes the updates.
+#
+# The checking ideas, and the plain-language table in CONTRIBUTING.md, came from reading Odysseus
+# (github.com/odysseus-dev/odysseus). No code was taken: see CREDITS.md.
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 6 * * 1'
+
+# Nothing by default; each job asks only for what it needs.
+permissions: {}
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # gitleaks lists a pull request's commits so it scans only those.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # The whole history, so a key added in one commit and deleted in the next is still found.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # It would need write access to comment; the red check is enough.
+          GITLEAKS_ENABLE_COMMENTS: 'false'
+
+  workflows:
+    name: Workflow files (actionlint, zizmor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      # actionlint catches broken workflow files before they silently stop running. Built from a
+      # pinned version with Go, which checks the download against Go's public checksum database.
+      - name: actionlint
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      # zizmor catches workflow patterns that could leak the repo's access token or let a pull
+      # request run code with more rights than it should. Fails the job on any finding.
+      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          advanced-security: false
+
+  dependency-review:
+    name: New dependencies (dependency review)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      # Blocks a pull request that adds or upgrades to a library version with a known high or
+      # critical hole. Only looks at what the pull request changes.
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
+  npm-audit:
+    name: Known holes in current libraries (npm audit, advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      # Development libraries are included on purpose: Electron is one, and it ships inside the app.
+      # Warns instead of failing; see the top of this file.
+      - name: npm audit
+        run: |
+          npm audit --audit-level=high || echo "::warning::npm audit found a known high or critical hole in a library the Grove uses. Read the log above and judge whether it is reachable."

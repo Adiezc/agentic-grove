@@ -101,6 +101,38 @@ merging and pushing without review, probing usage on a timer, treating a missing
 to spare, and sharing work across several people's accounts. Those suit an unattended server in a
 container; the Grove runs on your own Mac, with your real files, and never invents a number.
 
+### odysseus-dev/odysseus — AGPL-3.0-or-later
+
+<https://github.com/odysseus-dev/odysseus> · Odysseus, the self-hosted AI workspace started by
+PewDiePie ([pewdiepie-archdaemon](https://github.com/pewdiepie-archdaemon)) and built with its
+contributors
+
+A browser workspace for chat, agents, research, documents, email and local models. We read it on
+6 October 2026 (licence file read that day) to see what it had worked out that the Grove had not.
+
+**AGPL-3.0 is a copyleft licence: any of its code in the Grove would make the whole Grove AGPL.
+So: ideas only, not one line of code.** Two projects Odysseus itself borrows from are MIT
+(`anomalyco/opencode` and `AlexsJones/llmfit`); if the Grove ever uses them, the code comes from
+those repositories directly, never from Odysseus's adapted copies.
+
+**What we use:**
+
+- **Security checks on every pull request**, explained in plain words: a secret scan, workflow
+  linting, dependency review and CodeQL, with a table saying what each guards against and whether
+  it blocks a merge. Ours are in `.github/workflows/security.yml` and `codeql.yml`, written for
+  this repository; the table is in CONTRIBUTING.md.
+
+**What we offer contributors, from the same reading** (CONTRIBUTING.md, "Also wanted: ideas from
+Odysseus"): runs that always end in a word to you, a second try on a stronger model after a tell
+(its "teacher escalation"), a look before PM hands web-read work to Builder (its approval gate
+after untrusted content), a one-page threat model, a short "how it works now" map per area (its
+`specs/`), an opencode adapter, and a landing page with a short clip per feature. Whoever builds
+one writes it fresh; this entry then moves the idea under "What we use".
+
+**What we deliberately do not take:** its everything-app scope (email, calendar, gallery), using a
+ChatGPT plan by signing in as the Codex app, and a phone companion. The Grove is one calm cockpit,
+on your own plan, on your Mac.
+
 ### Maciek-roboblog/Claude-Code-Usage-Monitor — MIT
 
 <https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor> · Copyright (c) 2025 Maciej

@@ -1,0 +1,18 @@
+# Keeps the pinned actions in .github/workflows current. Each action is pinned to an exact commit
+# for safety (see security.yml); without this, those pins would quietly age.
+#
+# Workflow actions only. npm libraries are left to hand updates and to the security checks, so
+# the repo is not flooded with one pull request per library.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    # Wait a week after a release before proposing it: a hijacked release is usually caught and
+    # pulled within days.
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ['*']
