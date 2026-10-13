@@ -74,6 +74,7 @@ const api: GroveApi = {
   launchRun: (request) => ipcRenderer.invoke(CHANNELS.launchRun, request),
   resumeRun: (runId) => ipcRenderer.invoke(CHANNELS.resumeRun, runId),
   readTranscript: (runId) => ipcRenderer.invoke(CHANNELS.readTranscript, runId),
+  readActivity: (stoneId, sessionId) => ipcRenderer.invoke(CHANNELS.readActivity, stoneId, sessionId),
   focusTerminal: () => ipcRenderer.invoke(CHANNELS.focusTerminal),
   pathForFile: (file) => {
     try {

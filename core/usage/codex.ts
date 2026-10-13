@@ -12,12 +12,12 @@
  * passed the old percentage says nothing at all about the new window: it becomes `unknown`.
  */
 import fsp from 'node:fs/promises'
-import os from 'node:os'
+import { observationPaths } from '../observation-paths.ts'
 import path from 'node:path'
 import { isRecord, jsonLines, listDirs, listFiles, num, readTail, str } from '../harnesses/fsutil.ts'
 import type { ProviderUsage, UsageWindow, WindowKey } from './types.ts'
 
-const CODEX_HOME = process.env.CODEX_HOME || path.join(os.homedir(), '.codex')
+const CODEX_HOME = observationPaths().codex
 const SESSIONS_DIR = path.join(CODEX_HOME, 'sessions')
 
 /** The last `token_count` is near the end; a long final answer can push it back a little. */

@@ -20,7 +20,8 @@
  */
 import fsp from 'node:fs/promises'
 import path from 'node:path'
-import os from 'node:os'
+import { observationPaths } from '../observation-paths.ts'
+import { readActivityFile } from '../activity.ts'
 import { readTells } from './claude-tells.ts'
 import type { HarnessAdapter, OpenResult, Provenance, Session, SessionStatus, Tell } from './types.ts'
 import {
@@ -36,7 +37,7 @@ import {
   str,
 } from './fsutil.ts'
 
-const HOME = os.homedir()
+const HOME = observationPaths().home
 
 /** One JSON record per session, written by the desktop app. */
 const DESKTOP_SESSIONS = path.join(HOME, 'Library', 'Application Support', 'Claude', 'claude-code-sessions')
@@ -461,6 +462,7 @@ function toSession(draft: Draft, status: SessionStatus, statusProvenance: Proven
   }
 }
 
+let activityFiles = new Map<string, string>()
 async function scanSessions(): Promise<Session[]> {
   const [desktop, transcripts, live] = await Promise.all([
     scanDesktopSessions(),
@@ -583,6 +585,7 @@ async function scanSessions(): Promise<Session[]> {
   )
 
   const sessions: Session[] = []
+  const files = new Map<string, string>()
   for (const draft of drafts) {
     const fresh = now - draft.lastActivityAt < ACTIVE_WINDOW_MS
     // Only sessions that could plausibly be mid-turn pay for the tail read.
@@ -592,11 +595,13 @@ async function scanSessions(): Promise<Session[]> {
         : false
     const { status, statusProvenance } = statusOf(draft, waiting, fresh)
     const session = toSession(draft, status, statusProvenance)
+    if (draft.transcriptFile) files.set(session.id, draft.transcriptFile)
     if (draft.transcriptFile && now - draft.lastActivityAt < TELLS_WINDOW_MS) {
       session.tells = await cachedTells(draft.transcriptFile, draft.sizeBytes, now)
     }
     sessions.push(session)
   }
+  activityFiles = files
   return sessions
 }
 
@@ -655,6 +660,10 @@ const adapter: HarnessAdapter = {
   /** Only claim this machine if one of the two stores is actually there. */
   detect: async () => (await exists(DESKTOP_SESSIONS)) || (await exists(CLI_PROJECTS)),
   scanSessions,
+  readActivity: async (id) => {
+    const file = activityFiles.get(id)
+    return file ? readActivityFile(file, 'claude') : null
+  },
   openSession,
   newSession,
   paths: { DESKTOP_SESSIONS, CLI_PROJECTS, CLI_LIVE },

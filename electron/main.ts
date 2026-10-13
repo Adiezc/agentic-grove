@@ -30,6 +30,7 @@ import { LiveState } from '../core/hooks/live.ts'
 import { startUsageLoop, usage as readUsage } from '../core/usage/index.ts'
 import { isProbeFolder, runProbe, type ClaudeReading } from '../core/usage/probe.ts'
 import { createShard, type Shard } from './tray.ts'
+import { installApplicationMenu, showAbout } from './about.ts'
 import type { UsageReport } from '../core/usage/types.ts'
 import { startHookServer, type HookServer } from '../core/hooks/server.ts'
 import { applyHooks, hookToken, hooksState, planHooks, type HooksAction } from '../core/hooks/install.ts'
@@ -43,6 +44,8 @@ import { RunBook, type RunHarness } from '../core/spawn/runs.ts'
 import { launch } from '../core/spawn/launch.ts'
 import { BUILT_IN_BRIEFS, BUILT_IN_NAMES, PM_ID, SPAWNABLE_BUILT_INS, claudeAgentsJson, pmBrief, teamFor, teamMap } from '../core/spawn/briefs.ts'
 import { readTranscript } from '../core/spawn/transcript.ts'
+import { selectedActivity } from '../core/activity-access.ts'
+import { harnessById } from '../core/harnesses/index.ts'
 import { noticeFor } from '../core/attention.ts'
 import { headroomFrom, route } from '../core/routing.ts'
 import { notify } from './notify.ts'
@@ -663,6 +666,10 @@ function registerHandlers(): void {
     return lines ? { ok: true, lines } : { ok: true, lines: [] }
   })
 
+  handle(CHANNELS.readActivity, async (_event, stoneId: unknown, sessionId: unknown) => {
+    return selectedActivity(latest?.grove.stones ?? [], stoneId, sessionId, harnessById)
+  })
+
   handle(CHANNELS.focusTerminal, async () => {
     // By bundle id, so it finds Terminal wherever macOS keeps it. macOS only; the Windows port
     // needs its own answer here (see the Windows-before-release note).
@@ -928,12 +935,14 @@ if (process.env.AGENTIC_GROVE_HOME) app.setPath('userData', `${groveHome()}-wind
 
 void app.whenReady().then(async () => {
   lockDownPages(devServerUrl, pageFile)
+  installApplicationMenu()
   await runs.load()
   registerHandlers()
   await startListening()
   await restartScanning()
   shard = createShard(path.join(dirname, '..', 'assets', 'tray', 'crystalTemplate.png'), {
     open: showWindow,
+    about: () => { void showAbout() },
     quit: () => app.quit(),
   })
   stopUsage = startUsageLoop(showUsage, undefined, () => claudeReading)

@@ -117,6 +117,7 @@ npm run dev        # the interface in a browser; add ?demo to the address for sa
 npm run scan       # print every agent session on this machine
 npm run watch      # the same thing on the live poll loop
 npm run verify     # check the scanner against the raw files, independently
+npm run verify:provider-fixtures # scan synthetic Claude/Codex/Cursor records, never real sessions
 npm run typecheck
 npm run app        # build the Mac app into ~/Applications
 npm run dmg        # build release/Agentic-Grove-<version>-arm64.dmg for a GitHub release
@@ -124,12 +125,33 @@ npm run dmg        # build release/Agentic-Grove-<version>-arm64.dmg for a GitHu
 
 Each part with rules of its own has a `verify:` script beside it (`routing`, `spawn`, `console`,
 `attention`, `health`, `places`, `readiness`, `reliability`, `pairings`, `tells`, `probe`,
-`history`, `codex-usage`, `twins`, `suggest-runes`, `notes`, `models`, `security`); they run in
+`history`, `codex-usage`, `twins`, `suggest-runes`, `notes`, `models`, `security`,
+`attribution`, `provider-fixtures`, `activity`); they run in
 seconds and touch nothing of yours. GitHub runs all of them on every push, except `verify`, which
 needs the agent sessions on a real Mac.
 
 `verify` is the one worth knowing about. It counts the files on disk with its own separate code
 and fails if the scanner disagrees, because a wrong number looks exactly like a right one.
+
+For reproducible scanner work, start with **`npm run verify:provider-fixtures`**. It creates
+disposable Grove/provider folders, seeds JSONL transcripts and Codex SQLite databases and checks
+running, waiting, failed, finished, aborted and resumed sessions. It also checks subagent
+exclusion, duplicate identity, project assignment and usage reads. A read guard rejects provider
+directory/content reads outside the fixture; Cursor's project-path decoding may inspect filesystem
+metadata. File fingerprints verify that observation does not change the seeded records.
+This script runs automatically in CI. The reliability check now uses the same isolated setup.
+
+`test/fixtures/observation.ts` sets `AGENTIC_GROVE_PROVIDER_HOME` and `AGENTIC_GROVE_HOME`
+before observers are imported, and restores them on cleanup. Both must be absolute, separate
+folders; the provider fixture root must differ from the real user home. In fixture mode, all
+three adapters and both transcript-usage readers use that root, including Codex even if the
+machine has its own `CODEX_HOME`. Invalid overrides throw rather than falling back to real data.
+Without the override, existing user-home and `CODEX_HOME` behaviour is preserved.
+
+This override controls **read-only session observation**, not CLI execution, tool setup or hook
+configuration. It does not sandbox the whole desktop app. Do not launch agents, install hooks or
+run paid probes in a scanner fixture. `npm run verify` remains an explicitly live, read-only check
+and refuses fixture mode so it cannot compare two different stores by mistake.
 
 ## The checks GitHub runs
 

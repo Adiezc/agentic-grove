@@ -4,9 +4,10 @@ Agentic Grove exists because other people published their work and let others us
 is written before the feature code, not after it, and it is a condition of the project rather
 than a courtesy.
 
-Every licence below was **read from the repository itself on 12 September 2026**, not taken on
-trust from a project description. Where a repository has no licence file, that is stated plainly
-and the consequence is stated with it.
+The initial reference review was made on **12 September 2026**; later readings have their own
+dates below. The **13 October 2026** distribution audit follows the actual production build,
+including package and font notices. Where upstream notices are incomplete or contradict package
+metadata, that is recorded rather than silently guessed.
 
 ---
 
@@ -44,23 +45,20 @@ bot-crossing, where they are maintained. We also renamed its `Thread` to `Sessio
 word our brief uses. `core/harnesses/README.md` carries a field-by-field mapping so the two can
 still be read side by side.
 
-### Material Design Icons — Apache-2.0
-
-<https://github.com/google/material-design-icons>
-
-Icon set, if and where we use one. Not yet in the repository.
-
-### Kay Lousberg asset packs — CC0
-
-<https://kaylousberg.itch.io/> (found by way of bot-crossing)
-
-Public-domain 3D kit pieces, available as placeholder geometry during the look-development
-spike. Not yet in the repository. CC0 asks for nothing, which is exactly why it deserves a
-mention here.
-
 ---
 
 ## Ideas we use, without taking code
+
+### jarrodwatts/claude-hud — MIT
+
+<https://github.com/jarrodwatts/claude-hud> · Jarrod Watts and contributors
+
+Its optional tools, agents and todos readouts informed the activity details shown when you open
+a stone or run panel. We read the README and MIT licence at revision
+`02d73c416b52b4e510a9be004fca469f961cd5bc` on 13 October 2026. Grove's bounded transcript
+projection and panel code are independently written; no Claude HUD source or assets are copied.
+The details stay inside the selected panel, show evidence timestamps and treat recorded tool
+calls and reported todos as observations, never proof that tests passed or work was accepted.
 
 ### hoangsonww/Claude-Code-Agent-Monitor — MIT
 
@@ -164,13 +162,39 @@ inspiration is fine; copying from it without a licence is not, however small the
 
 ## Tools and libraries
 
-The usual dependency tree, each under its own licence as declared in `package.json` — Electron,
-Vite, React, TypeScript, and later Three.js with React Three Fiber, Zustand and Framer Motion.
+Grove's interface uses React and React DOM, Three.js, React Three Fiber, drei, postprocessing,
+React Three Postprocessing and Zustand. Phosphor supplies the icons and Geist Variable supplies
+the locally bundled font. Thank you to their authors and the maintainers of the supporting
+libraries that reach the bundle. Vite and TypeScript are development tools.
+
+The build records the exact packages whose modules reach the renderer, main process and preload,
+including transitive packages such as maath, n8ao and Babel's runtime helpers. `npm run build`
+generates human credits, the Grove licence, complete available upstream licence texts and
+embedded source notices in `dist/attribution/`. The signed Mac app carries these documents plus
+Electron's MIT licence and its complete Chromium notices. Open them through **Agentic Grove →
+About Agentic Grove**, **Settings → Credits and acknowledgements**, the adjacent native
+Credits/Licences menu items or the menu-bar shard's
+**About and credits** entry. Declaring dependencies alone does not replace their required notices.
+
+Two packages need version-specific records in `attribution.json`: React Three Fiber 9.7.0 omits
+its MIT file from npm, so we retain the original from its exact release commit. Maath 0.10.8
+declares MIT but has no standalone licence or package-wide copyright notice in its published
+package or release tree; `licenses/maath-0.10.8.txt` records that limitation, the declared terms
+and their provenance without inventing a holder or substituting the new math repository's 2026
+licence. Its embedded Max Kaufmann MIT and Stefan Gustavson public-domain notices are retained.
+N8ao 2.0.1's metadata says ISC while its actual licence file is CC0-1.0; the supplied CC0 text
+travels with the app and the mismatch is recorded. These exceptions require review on upgrade.
+
+The Geist font's original SIL Open Font License is included in full. The tree model, scene
+geometry, material code and menu-bar/logo assets are authored for Grove; no Material Design
+Icons or Kay Lousberg asset packs are included. No Framer Motion code is bundled.
+
 `@electron/packager` (BSD-2-Clause) builds the Mac app for `npm run app` and `npm run dmg`; it is a
 development tool only, and none of it ships inside the app.
-They are credited by being declared, which is the convention, and no more is owed. The projects
-above are named individually because they are people's side projects rather than infrastructure,
-and because this project would not exist without them.
+
+Research candidates do not become "code we use" merely because they have been suggested. Future
+source, asset or algorithm adaptations get their own original notices and an accurate credit
+when adopted. Ideas written independently are identified separately above.
 
 ---
 

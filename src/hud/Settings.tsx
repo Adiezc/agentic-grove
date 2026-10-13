@@ -11,8 +11,9 @@
  * change too.
  */
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowsClockwise, Asterisk, Bell, Eye, Gauge, Monitor, Plugs, Trash, X } from '@phosphor-icons/react'
+import { ArrowsClockwise, Asterisk, Bell, Eye, Gauge, Leaf, Monitor, Plugs, Trash, X } from '@phosphor-icons/react'
 import { ToolSetup } from './Setup'
+import { CreditsReader } from './Credits'
 import type { HooksAction, HooksPlan } from '../../core/hooks/install.ts'
 import type { HooksStatus, UninstallPlan } from '../../electron/bridge.ts'
 import { GRAPHICS_MODES, type GraphicsMode, type GroveSettings } from '../../core/state/schema.ts'
@@ -316,6 +317,10 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       <ClaudeLimits settings={settings} />
       <Updates settings={settings} />
       <LiveUpdates open={open} />
+      <Section icon={<Leaf size={14} weight="regular" />} name="Credits and acknowledgements">
+        <p className="setting-line">With thanks to the people whose open-source work helped this grove grow.</p>
+        <CreditsReader />
+      </Section>
       <Uninstall open={open} />
     </aside>
   )

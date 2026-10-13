@@ -23,6 +23,8 @@
  * `official` is reserved for figures a provider tells us outright, which so far means Claude's
  * rate limits via the statusline hook. Nothing in the poll layer earns it.
  */
+import type { ActivityDetail } from '../activity.ts'
+
 export type Provenance = 'official' | 'measured' | 'inferred' | 'unknown'
 
 /**
@@ -154,6 +156,8 @@ export interface HarnessAdapter {
    * something invented.
    */
   scanSessions(): Promise<Session[]>
+  /** Bounded transcript evidence, read only when a selected panel requests a known session. */
+  readActivity?(sessionId: string): Promise<ActivityDetail | null>
 
   /** Hand a session back to its own tool. */
   openSession(ref: Record<string, unknown>): Promise<OpenResult> | OpenResult

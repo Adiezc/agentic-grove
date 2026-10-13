@@ -19,12 +19,12 @@
  */
 import fsp from 'node:fs/promises'
 import path from 'node:path'
-import os from 'node:os'
+import { observationPaths } from '../observation-paths.ts'
+import { readActivityFile } from '../activity.ts'
 import type { HarnessAdapter, OpenResult, Provenance, Session, SessionStatus } from './types.ts'
 import { exists, isRecord, jsonLines, listDirs, listFiles, num, readHead, readTail, str } from './fsutil.ts'
 
-const HOME = os.homedir()
-const CODEX_HOME = process.env.CODEX_HOME || path.join(HOME, '.codex')
+const CODEX_HOME = observationPaths().codex
 const SESSIONS_DIR = path.join(CODEX_HOME, 'sessions')
 const SESSION_INDEX = path.join(CODEX_HOME, 'session_index.jsonl')
 
@@ -402,11 +402,13 @@ function statusOf(lifecycle: Facts['lifecycle'], lastActivityAt: number, now: nu
   return { status: 'idle', statusProvenance: 'inferred' }
 }
 
+let activityFiles = new Map<string, string>()
 async function scanSessions(): Promise<Session[]> {
   const [rows, rollouts, index] = await Promise.all([databaseRows(), scanRollouts(), readIndex()])
   const ids = new Set([...rows.keys(), ...rollouts.keys()])
   const now = Date.now()
   const out: Session[] = []
+  const files = new Map<string, string>()
 
   for (const id of ids) {
     const row = rows.get(id)
@@ -426,6 +428,7 @@ async function scanSessions(): Promise<Session[]> {
     const lastActivityAt = Math.max(num(row?.updated_at_ms), entry?.mtime ?? 0)
     const { status, statusProvenance } = statusOf(facts.lifecycle, lastActivityAt, now)
 
+    if (entry) files.set(ID(id), entry.file)
     out.push({
       id: ID(id),
       harness: '',
@@ -460,6 +463,7 @@ async function scanSessions(): Promise<Session[]> {
     })
   }
 
+  activityFiles = files
   return out
 }
 
@@ -500,6 +504,10 @@ const adapter: HarnessAdapter = {
   detect,
   diagnostic,
   scanSessions,
+  readActivity: async (id) => {
+    const file = activityFiles.get(id)
+    return file ? readActivityFile(file, 'codex') : null
+  },
   openSession,
   newSession,
   paths: { CODEX_HOME, SESSIONS_DIR },
