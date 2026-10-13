@@ -2,16 +2,14 @@
  * The two reliability faults the 30 September review reproduced, reproduced again and checked
  * fixed. Run with `npm run verify:reliability`.
  *
- * Works in a disposable folder (`AGENTIC_GROVE_HOME`), never your grove. The scan check reads this
- * Mac's sessions, read-only, like `npm run scan`.
+ * Works in disposable Grove and provider folders, never your grove or the Mac's real sessions.
  */
 import assert from 'node:assert/strict'
 import fsp from 'node:fs/promises'
-import os from 'node:os'
-import path from 'node:path'
+import { observationFixture } from './fixtures/observation.ts'
 
-const home = await fsp.mkdtemp(path.join(os.tmpdir(), 'agentic-grove-verify-reliability-'))
-process.env.AGENTIC_GROVE_HOME = home
+const fixture = await observationFixture()
+const home = fixture.grove
 const { addAgent, grovePath, loadGrove, saveSettings, updateAgent, updateGrove } = await import('../core/state/grove.ts')
 const { startScanLoop } = await import('../core/scan.ts')
 
@@ -83,6 +81,6 @@ for (const [name, check] of cases) {
     console.log(`FAIL  ${name}\n      ${error instanceof Error ? error.message : String(error)}`)
   }
 }
-await fsp.rm(home, { recursive: true, force: true })
+await fixture.dispose()
 if (failed) process.exit(1)
 console.log(`\nAll ${cases.length} reliability checks hold.`)

@@ -1261,6 +1261,73 @@
   padding: 0;
 }
 
+/* Activity belongs to the selected panel only; long histories scroll inside its glass. */
+.stone-panel,
+.run-panel {
+  max-height: 78vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(46 111 72 / 0.5) transparent;
+}
+
+.session-activity {
+  border-top: 1px solid rgb(46 111 72 / 0.3);
+  padding-top: 0.9rem;
+  margin: 1rem 0;
+}
+
+.activity-heading {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 500;
+  margin: 0 0 0.75rem;
+}
+
+.activity-session-label,
+.activity-label {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+
+.activity-session {
+  display: block;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.6rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 8px;
+  background: #06120b;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+.activity-evidence {
+  margin-top: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.activity-evidence p {
+  margin: 0.4rem 0;
+}
+
+.activity-tool,
+.activity-tasks {
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.activity-workers {
+  padding-left: 1rem;
+  color: var(--text);
+  font-size: 0.75rem;
+}
+
+.activity-session:focus-visible {
+  outline: 1px solid var(--live);
+  outline-offset: 2px;
+}
+
 /* ---- Settings: opens beside the rail, since it belongs to the rail's gear, not to the scene. ---- */
 
 .settings-panel {
@@ -1281,6 +1348,71 @@
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgb(46 111 72 / 0.5) transparent;
+}
+
+.credits-reader {
+  margin-top: 0.85rem;
+}
+
+.credits-reader summary {
+  color: var(--text);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.credits-scroll {
+  max-height: min(24rem, 48vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-top: 0.8rem;
+  padding: 0.85rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 10px;
+  background: rgb(2 9 4 / 0.45);
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  user-select: text;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(46 111 72 / 0.5) transparent;
+}
+
+.credits-reader summary:focus-visible,
+.credits-scroll:focus-visible {
+  outline: 1px solid var(--live);
+  outline-offset: 3px;
+}
+
+.credits-scroll h3,
+.credits-scroll h4 {
+  color: var(--text);
+  margin: 1.2rem 0 0.5rem;
+  font-size: 0.82rem;
+}
+
+.credits-scroll p {
+  margin: 0 0 0.8rem;
+}
+
+.credits-scroll ul {
+  padding-left: 1.1rem;
+}
+
+.credits-scroll li + li {
+  margin-top: 0.5rem;
+}
+
+.credits-scroll hr {
+  border: 0;
+  border-top: 1px solid rgb(46 111 72 / 0.3);
+  margin: 1rem 0;
+}
+
+.credits-notices {
+  margin: 0;
+  white-space: pre-wrap;
+  font: inherit;
 }
 
 .segmented {

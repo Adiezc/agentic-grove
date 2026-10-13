@@ -169,6 +169,41 @@ updates on), moves the app to the Trash and quits. Your grove in `~/.agentic-gro
 you tick "Also remove my grove". Your project folders, and Claude Code and Codex themselves, are
 never touched, and everything removed goes to the Trash.
 
+## Credits and acknowledgements
+
+With thanks to the people whose open-source work helped this grove grow:
+
+- **[bot-crossing](https://github.com/Station-Sciences/bot-crossing), by Jarren Rocks** — the
+  original inspiration and the source of the Claude Code, Codex and Cursor adapters and scan
+  helpers, adapted to TypeScript with the original MIT notice preserved.
+- **[React](https://github.com/facebook/react) and its contributors** — the interface.
+- **[Three.js](https://github.com/mrdoob/three.js) and its contributors** — the living scene.
+- **[Poimandres](https://github.com/pmndrs) and contributors to React Three Fiber, drei,
+  React Three Postprocessing, maath and Zustand** — the scene's React integration, supporting
+  geometry, effects and state.
+- **[postprocessing](https://github.com/pmndrs/postprocessing) and
+  [n8ao](https://github.com/N8python/n8ao)** — scene effects and ambient occlusion.
+- **[Phosphor Icons](https://github.com/phosphor-icons/react) and
+  [Geist](https://github.com/vercel/geist-font)** — the icons and locally bundled font.
+- **[Electron](https://github.com/electron/electron) and its contributors** — the desktop
+  runtime, with thanks also to the maintainers of the supporting bundled libraries and build tools.
+
+We also thank **[Claude HUD](https://github.com/jarrodwatts/claude-hud)** for the tool, worker and
+todo readout ideas behind selected-panel activity details, and
+**[Claude-Code-Agent-Monitor](https://github.com/hoangsonww/Claude-Code-Agent-Monitor)**,
+**[clodfarm](https://github.com/matank001/clodfarm)**,
+**[Odysseus](https://github.com/odysseus-dev/odysseus)** and
+**[Claude-Code-Usage-Monitor](https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor)**
+for specific ideas explained in [CREDITS.md](CREDITS.md). Those credits describe design influences;
+their code was not copied into Grove.
+
+**Settings → Credits and acknowledgements** has a scrollable reader for the full human credits
+and bundled licence notices. They are also available from the native **Agentic Grove → About
+Agentic Grove** menu. [CREDITS.md](CREDITS.md) describes what was used and changed;
+[the attribution ledger](attribution.json) and [notice records](licenses/README.md) explain exact
+versions and upstream notice gaps. The packaged app preserves the original notices, including
+the font and Electron/Chromium. Research candidates are credited when actually adopted.
+
 ## For contributors
 
 **The most wanted contribution is a Windows version.** [CONTRIBUTING.md](CONTRIBUTING.md) lists

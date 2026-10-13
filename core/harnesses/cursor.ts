@@ -30,11 +30,11 @@
  */
 import fsp from 'node:fs/promises'
 import path from 'node:path'
-import os from 'node:os'
+import { observationPaths } from '../observation-paths.ts'
 import type { HarnessAdapter, OpenResult, Session } from './types.ts'
 import { exists, isRecord, jsonLines, listDirs, listFiles, readHead, readTail, str } from './fsutil.ts'
 
-const HOME = os.homedir()
+const HOME = observationPaths().home
 const PROJECTS = path.join(HOME, '.cursor', 'projects')
 const TRANSCRIPTS = 'agent-transcripts'
 

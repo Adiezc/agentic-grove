@@ -12,11 +12,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import electron from 'vite-plugin-electron/simple'
+import { fileURLToPath } from 'node:url'
 import { CONTENT_SECURITY_POLICY } from './electron/page-rules.ts'
+import { attributionInventory } from './scripts/attribution.ts'
+
+const root = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineConfig({
   plugins: [
     react(),
+    attributionInventory(root, 'renderer'),
     // The content security policy goes into the built page only. The development server's hot
     // reloading injects scripts of its own, which the policy would rightly refuse.
     {
@@ -27,8 +32,8 @@ export default defineConfig({
       ],
     },
     electron({
-      main: { entry: 'electron/main.ts' },
-      preload: { input: 'electron/preload.ts' },
+      main: { entry: 'electron/main.ts', vite: { plugins: [attributionInventory(root, 'main')] } },
+      preload: { input: 'electron/preload.ts', vite: { plugins: [attributionInventory(root, 'preload')] } },
     }),
   ],
   build: {

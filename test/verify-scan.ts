@@ -24,6 +24,9 @@ import { defaultGrove, parseGrove } from '../core/state/schema.ts'
 import { loadGrove } from '../core/state/grove.ts'
 import type { Session } from '../core/harnesses/types.ts'
 
+if (process.env.AGENTIC_GROVE_PROVIDER_HOME !== undefined) {
+  throw new Error('npm run verify reconciles live records. Use npm run verify:provider-fixtures for isolated provider folders.')
+}
 const HOME = os.homedir()
 
 const results: { ok: boolean; label: string; detail: string }[] = []

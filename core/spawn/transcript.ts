@@ -11,7 +11,7 @@
  * Claude Code only for now. Codex writes its rollouts in a different shape, and a Codex run's
  * window is always open in Terminal anyway.
  */
-import os from 'node:os'
+import { observationPaths } from '../observation-paths.ts'
 import path from 'node:path'
 import { exists, isRecord, jsonLines, listDirs, readTail, str } from '../harnesses/fsutil.ts'
 
@@ -22,7 +22,7 @@ export interface TranscriptLine {
   at: number
 }
 
-const PROJECTS = path.join(os.homedir(), '.claude', 'projects')
+const PROJECTS = path.join(observationPaths().home, '.claude', 'projects')
 /** Enough for the last few dozen records of a busy session. */
 const TAIL_BYTES = 256 * 1024
 /** A screenful. The view scrolls, but past this it is the Terminal's job. */

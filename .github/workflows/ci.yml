@@ -3,7 +3,8 @@
 #
 # Left out on purpose: `npm run verify`, which reconciles the scanner against the real agent
 # sessions on the machine it runs on. A fresh CI machine has none, so it proves nothing there;
-# run it on your own Mac after changing anything under core/.
+# run it on your own Mac after changing anything under core/. The separate
+# verify:provider-fixtures script checks actual synthetic provider files in CI.
 name: CI
 
 on:

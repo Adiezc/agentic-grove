@@ -19,12 +19,12 @@
  * is read again from the start.
  */
 import fsp from 'node:fs/promises'
-import os from 'node:os'
+import { observationPaths } from '../observation-paths.ts'
 import path from 'node:path'
 import { isRecord, listDirs, listFiles, num, str } from '../harnesses/fsutil.ts'
 import type { ProviderUsage, UsageWindow, WindowKey } from './types.ts'
 
-const PROJECTS = path.join(os.homedir(), '.claude', 'projects')
+const PROJECTS = path.join(observationPaths().home, '.claude', 'projects')
 
 const HOUR = 60 * 60 * 1000
 const WINDOWS: { key: WindowKey; ms: number }[] = [

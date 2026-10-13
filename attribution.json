@@ -1,0 +1,28 @@
+{
+  "packageNotices": {
+    "@react-three/fiber@9.7.0": {
+      "notice": "licenses/react-three-fiber-9.7.0.txt",
+      "url": "https://github.com/pmndrs/react-three-fiber/blob/0a107412ac64667b1908422e859447952f57feef/LICENSE",
+      "note": "Original MIT licence from npm's gitHead for this exact version; the npm archive omits it."
+    },
+    "maath@0.10.8": {
+      "notice": "licenses/maath-0.10.8.txt",
+      "url": "https://github.com/pmndrs/math/blob/626d198fbae28ba82f2f1b184db7fcafd4d23846/packages/maath/package.json",
+      "note": "Release declares MIT but supplies no standalone licence or package-wide copyright notice. See the honest version-specific provenance record; embedded source notices are preserved too."
+    }
+  },
+  "packageLicenceNotes": {
+    "n8ao@2.0.1": "The distributed package.json says ISC, but its actual LICENSE is CC0-1.0. The complete supplied CC0 text is retained below; metadata is not substituted for that text."
+  },
+  "vendored": [
+    {
+      "name": "Station-Sciences/bot-crossing",
+      "url": "https://github.com/Station-Sciences/bot-crossing",
+      "license": "MIT",
+      "notice": "core/harnesses/LICENSE-bot-crossing",
+      "source": ["server/harnesses/", "server/lib/fsutil.mjs", "server/scan.mjs"],
+      "destinations": ["core/harnesses/", "core/scan.ts"],
+      "revisionNote": "The original upstream revision was not recorded during the September 2026 port. See CREDITS.md for the source mapping and changes. Record exact revisions for future adaptations."
+    }
+  ]
+}

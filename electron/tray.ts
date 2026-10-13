@@ -41,7 +41,7 @@ function title(report: UsageReport | null): string {
   return left < LOW_HEADROOM ? ` ${tight.provider.name} ${Math.round(left)}% left` : ''
 }
 
-export function createShard(iconPath: string, actions: { open: () => void; quit: () => void }): Shard {
+export function createShard(iconPath: string, actions: { open: () => void; about: () => void; quit: () => void }): Shard {
   const icon = nativeImage.createFromPath(iconPath)
   // The file name ends in "Template", which already tells macOS to tint it; saying so again
   // costs nothing and survives a rename.
@@ -56,6 +56,7 @@ export function createShard(iconPath: string, actions: { open: () => void; quit:
         ...usageItems(report),
         { type: 'separator' },
         { label: 'Open the Grove', click: actions.open },
+        { label: 'About and credits', click: actions.about },
         { label: 'Quit', click: actions.quit },
       ])
     )

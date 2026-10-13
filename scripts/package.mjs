@@ -24,10 +24,24 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { packager } from '@electron/packager'
 import { FuseV1Options, FuseVersion, flipFuses } from '@electron/fuses'
+import { verifyPackagedNotices } from './verify-packaged-notices.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const NAME = 'Agentic Grove'
-const mode = process.argv.includes('--dmg') ? 'dmg' : 'install'
+const args = process.argv.slice(2)
+for (let index = 0; index < args.length; index++) {
+  const argument = args[index]
+  if (argument === '--dmg') continue
+  if (argument === '--output' && args.indexOf('--output') === index) { index++; continue }
+  throw new Error(`Unknown or repeated packaging option: ${argument}`)
+}
+const outputIndex = process.argv.indexOf('--output')
+const reviewDirectory = outputIndex < 0 ? undefined : process.argv[outputIndex + 1]
+if (outputIndex >= 0 && (!reviewDirectory || reviewDirectory.startsWith('--'))) throw new Error('--output requires a directory')
+if (reviewDirectory && process.argv.includes('--dmg')) throw new Error('Choose --output or --dmg')
+const mode = reviewDirectory ? 'review' : process.argv.includes('--dmg') ? 'dmg' : 'install'
+const reviewApp = reviewDirectory ? path.resolve(reviewDirectory, `${NAME}.app`) : undefined
+if (reviewApp && fs.existsSync(reviewApp)) throw new Error(`Review app already exists: ${reviewApp}`)
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 const electronVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'node_modules/electron/package.json'), 'utf8')).version
 const run = (command, args, options = {}) => execFileSync(command, args, { stdio: 'inherit', cwd: ROOT, ...options })
@@ -35,7 +49,7 @@ const run = (command, args, options = {}) => execFileSync(command, args, { stdio
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'agentic-grove-package-'))
 try {
   console.log('1/5  Building the app code')
-  run('npx', ['vite', 'build', '--logLevel', 'warn'])
+  run('npm', ['run', 'build'])
 
   console.log('2/5  Cutting the icon from assets/logo.png')
   const png = path.join(work, 'icon.png')
@@ -58,6 +72,12 @@ try {
   const stage = path.join(work, 'stage')
   fs.mkdirSync(stage)
   fs.cpSync(path.join(ROOT, 'dist'), path.join(stage, 'dist'), { recursive: true })
+  // These notices ship outside Electron.app in its download, so packager does not carry them
+  // into the renamed app automatically. Copy the exact runtime's notices explicitly.
+  const electronDist = path.join(ROOT, 'node_modules', 'electron', 'dist')
+  if (fs.readFileSync(path.join(electronDist, 'version'), 'utf8').trim() !== electronVersion) throw new Error('Installed Electron runtime version differs from its package')
+  if (!fs.readFileSync(path.join(electronDist, 'LICENSE')).equals(fs.readFileSync(path.join(ROOT, 'dist', 'attribution', 'ELECTRON_LICENSE.txt')))) throw new Error('Electron runtime licence differs from the generated notice')
+  fs.copyFileSync(path.join(electronDist, 'LICENSES.chromium.html'), path.join(stage, 'dist', 'attribution', 'LICENSES.chromium.html'))
   fs.cpSync(path.join(ROOT, 'dist-electron'), path.join(stage, 'dist-electron'), { recursive: true })
   fs.cpSync(path.join(ROOT, 'assets/tray'), path.join(stage, 'assets/tray'), { recursive: true })
   fs.writeFileSync(
@@ -84,6 +104,7 @@ try {
     quiet: true,
   })
   const app = path.join(out, `${NAME}.app`)
+  verifyPackagedNotices(ROOT, app)
   // Electron's "fuses": switches baked into the program itself, so nothing on the Mac can turn
   // them back on. These three would let another program use the Grove's app to run code of its
   // own: as plain Node (`ELECTRON_RUN_AS_NODE`), with injected options (`NODE_OPTIONS`), or with a
@@ -99,13 +120,20 @@ try {
   // Ad-hoc: enough for Apple Silicon to run it; not a developer signature. See the header.
   run('codesign', ['--force', '--deep', '--sign', '-', app], { stdio: 'ignore' })
 
-  if (mode === 'install') {
+  if (mode === 'review') {
+    console.log('5/5  Saving a review app')
+    fs.mkdirSync(path.dirname(reviewApp), { recursive: true })
+    run('ditto', [app, reviewApp])
+    verifyPackagedNotices(ROOT, reviewApp)
+    console.log(`Done. Review app: ${reviewApp}`)
+  } else if (mode === 'install') {
     console.log('5/5  Installing to ~/Applications')
     const dest = path.join(os.homedir(), 'Applications', `${NAME}.app`)
     fs.mkdirSync(path.dirname(dest), { recursive: true })
     fs.rmSync(dest, { recursive: true, force: true })
     // `ditto` keeps the signature and extended attributes intact, which a plain copy may not.
     run('ditto', [app, dest])
+    verifyPackagedNotices(ROOT, dest)
     fs.utimesSync(dest, new Date(), new Date())
     console.log(`Done. Open it with:  open "${dest}"`)
   } else {
@@ -114,6 +142,7 @@ try {
     const volume = path.join(work, 'volume')
     fs.mkdirSync(volume)
     run('ditto', [app, path.join(volume, `${NAME}.app`)])
+    verifyPackagedNotices(ROOT, path.join(volume, `${NAME}.app`))
     fs.symlinkSync('/Applications', path.join(volume, 'Applications'))
     const release = path.join(ROOT, 'release')
     fs.mkdirSync(release, { recursive: true })

@@ -25,6 +25,7 @@ import type { DesktopApp, SetupStatus, SetupTool } from '../core/setup.ts'
 import type { Run } from '../core/spawn/runs.ts'
 import type { NotePlace, NoteView } from '../core/state/notes.ts'
 import type { TranscriptLine } from '../core/spawn/transcript.ts'
+import type { ActivityResult } from '../core/activity-access.ts'
 
 /**
  * One complete picture of the grove, sent after every scan.
@@ -232,6 +233,8 @@ export interface GroveApi {
   resumeRun(runId: string): Promise<RunResult>
   /** The last lines of a run's transcript, for the live view. Claude Code runs only. */
   readTranscript(runId: string): Promise<{ ok: boolean; lines?: TranscriptLine[]; error?: string }>
+  /** On-demand bounded evidence for one session currently attached to a known stone. */
+  readActivity(stoneId: string, sessionId: string): Promise<ActivityResult>
   /**
    * Where a file you dropped on or picked for the console lives, so an agent can be told to read
    * it. Only works on a `File` the page got from a drop or the file picker, which is a file you
@@ -343,6 +346,7 @@ export const CHANNELS = {
   launchRun: 'grove:launch-run',
   resumeRun: 'grove:resume-run',
   readTranscript: 'grove:read-transcript',
+  readActivity: 'grove:read-activity',
   focusRun: 'grove:focus-run',
   focusTerminal: 'grove:focus-terminal',
 } as const

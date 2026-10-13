@@ -22,6 +22,7 @@ import { StoneRunes } from './Runes'
 import { DEMO } from '../demo'
 import { ModelPicker } from './ModelPicker'
 import { toolOf } from '../../core/models.ts'
+import { SessionActivity } from './ActivityDetail'
 
 /** One line per fixture stone. Real stones will take theirs from the project's README or name. */
 const STONE_LINES: Record<string, string> = {
@@ -154,6 +155,7 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
             </ul>
           ) : null}
           <StoneRuns stoneId={stone.id} />
+          {real ? <SessionActivity stoneId={real.id} sessions={real.sessions} open={open} /> : null}
           {real ? <StoneRunes stone={real} /> : null}
           {stone.splits?.length && canOpen ? (
             <div className="split-offer">
@@ -256,6 +258,7 @@ export function RunPanel({ stones }: { stones: StoneSpec[] }) {
   const run = runs.find((each) => each.id === runId)
   const open = view === 'run' && Boolean(run)
   const stone = stones.find((each) => each.id === run?.stoneId)
+  const real = useGrove((state) => state.snapshot?.grove.stones.find((each) => each.id === run?.stoneId))
   const Glyph = agents.find((agent) => agent.id === run?.agentId)?.Glyph ?? User
   const [lines, setLines] = useState<TranscriptLine[] | null>(null)
   const [note, setNote] = useState<string | null>(null)
@@ -319,6 +322,7 @@ export function RunPanel({ stones }: { stones: StoneSpec[] }) {
           </header>
           {run.task ? <p className="run-task">{run.task}</p> : null}
           {run.error ? <p className="panel-error">{run.error}</p> : null}
+          {real && run.sessionId ? <SessionActivity stoneId={real.id} sessions={real.sessions} open={open} sessionId={`${run.harness}:${run.sessionId}`} /> : null}
           {note ? (
             <p className="panel-aside">{note}</p>
           ) : (
