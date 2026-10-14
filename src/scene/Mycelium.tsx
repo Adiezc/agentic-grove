@@ -33,6 +33,7 @@ import { heartbeatFrame } from './heartbeat'
 import { myceliumStrip } from './myceliumStrip'
 import { junctionBrightness, ownerPhase, type MyceliumSignal } from './myceliumFlow'
 import { cordRadius, CordVein } from './rootCord'
+import { HYPHA_BODY, HYPHA_GLOW } from './rootTransition'
 
 /** How much wider than its core a strand's floor wash is. Generous: it is a wash, not an outline. */
 const HALO_WIDTH = 8
@@ -245,8 +246,8 @@ function build(strands: Strand[]): { core: THREE.BufferGeometry | null; halo: TH
 
 /** Smooth luminous hyphae retain rounded volume; a surface vein carries the task pulse. */
 function cordMaterial() {
-  const material = new THREE.MeshStandardMaterial({ color: '#69c58b', roughness: 0.58,
-    emissive: '#55f58c', emissiveIntensity: 0.85 })
+  const material = new THREE.MeshStandardMaterial({ color: HYPHA_BODY, roughness: 0.58,
+    emissive: HYPHA_GLOW, emissiveIntensity: 0.85 })
   const previous = material.onBeforeCompile, key = material.customProgramCacheKey()
   const growth = { value: 1 }
   material.onBeforeCompile = (shader, renderer) => {
@@ -491,7 +492,7 @@ export function Mycelium({ network, arriving, active, attention, failed, activit
       if (group.grow < 1) group.grow = animate ? Math.min(1, group.grow + delta / GROW_SECONDS) : 1
       const tint = Math.min(1, amber.current * (0.18 + organismBeat * 0.5) + (needsAttention || isFailed ? 0.5 : 0))
       group.cord.growth.value = group.grow
-      group.cord.material.emissive.set('#55f58c').lerp(cordAmber, tint * 0.25)
+      group.cord.material.emissive.set(HYPHA_GLOW).lerp(cordAmber, tint * 0.25)
       group.cord.material.emissiveIntensity = 0.85 + organismBeat * 0.3
       signals.current.set(owner, { active: next + attentionLift, attention: tint, grow: group.grow,
         beat: organismBeat * (0.28 + activity * 0.72) + attentionLift, time })

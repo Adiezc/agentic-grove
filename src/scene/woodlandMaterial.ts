@@ -54,6 +54,9 @@ diffuseColor.rgb *= mix(0.68 + woodlandHeight * 0.50, 0.76 + woodlandHeight * 0.
 // Preserve pale shari, with weathered recesses rather than living moss.
 float woodLuma = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
 diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(woodLuma), diffuseColor.rgb, 0.38), deadwood * 0.7);
+// Living bark: the baked colour comes out golden under the grove's warm key light, while the
+// concept trunk is a cool grey-taupe. Pull its saturation down rather than re-tuning the bake.
+diffuseColor.rgb = mix(diffuseColor.rgb, woodLuma * vec3(0.96, 1.0, 0.93), 0.42 * (1.0 - deadwood));
 float woodlandLichen = texture2D(woodlandMask, woodlandP.xz * 0.6 + woodlandP.y * 0.12).r;
 // Moss is sparse, concentrated near the roots; pale shari remains legible above.
 float woodlandBase = 1.0 - smoothstep(0.25, 2.0, woodlandP.y);
@@ -75,5 +78,5 @@ vec3 woodlandSlope = sign(woodlandDet) * (dFdx(woodlandHeight) * woodlandR1 + dF
 normal = normalize(max(abs(woodlandDet), 0.00000001) * normal - woodlandSlope * mix(0.007, 0.004, deadwood));
 `)
   }
-  material.customProgramCacheKey = () => `${previousKey}:woodland-dryad-v3`
+  material.customProgramCacheKey = () => `${previousKey}:woodland-dryad-v4`
 }

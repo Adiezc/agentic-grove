@@ -258,9 +258,10 @@ function DevCameraHandle() {
   const controls = useThree((state) => state.controls)
   const scene = useThree((state) => state.scene)
   const invalidate = useThree((state) => state.invalidate)
+  const gl = useThree((state) => state.gl)
   useEffect(() => {
-    ;(window as unknown as { __groveCamera?: unknown }).__groveCamera = { camera, controls, scene, invalidate }
-  }, [camera, controls, scene, invalidate])
+    ;(window as unknown as { __groveCamera?: unknown }).__groveCamera = { camera, controls, scene, invalidate, gl }
+  }, [camera, controls, scene, invalidate, gl])
   return null
 }
 

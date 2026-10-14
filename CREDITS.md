@@ -83,6 +83,21 @@ with separate deadwood weathering and living moss. Baked colours, geometry and
 heartbeat remain Grove's. No genome, skeletal wind, SDF renderer or demo assets
 are imported. The full [MIT notice](licenses/dryad.txt) is packaged with the app.
 
+### dgreenheck/ez-tree — MIT
+
+[EZ-Tree](https://github.com/dgreenheck/ez-tree/tree/dcf309bd86bd521083d9c70f01f2de45fdc7c457),
+read 14 October 2026. Copyright (c) 2024 Daniel Greenheck.
+
+The branch-growth method in `src/lib/tree.js` (`#growBranch` and `generateChildBranches`)
+is ported to Python in `scripts/build-world-tree-blender.py` (`ez_limb`, `ez_children`,
+`pad_branches`) and grows the canopy boughs and twigs baked into the tree model. Each branch
+walks in short sections, kinks by a random gnarliness that grows as it thins (1/sqrt of its
+radius) and turns toward a growth force by at most strength/radius; children sit in
+stratified, shuffled slots along and around their parent. Grove steers toward the authored
+foliage pads instead of a world axis, keeps twigs inside the pad they support, and flattens
+them the way bonsai twigs are wired. No leaves, bark textures, presets, wind or demo assets
+are imported. The full [MIT notice](licenses/ez-tree.txt) is packaged with the app.
+
 ### cortiz2894/stylized-components — MIT
 
 [Stylized Components](https://github.com/cortiz2894/stylized-components/tree/1cece0a296b29299d1380c34feb5c158b2f04500),

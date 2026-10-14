@@ -138,6 +138,21 @@
         "src/scene/woodlandMaterial.ts"
       ],
       "revisionNote": "Pinned revision 1cece0a296b29299d1380c34feb5c158b2f04500. Adapted smooth colour-patch noise, canopy gradient and local-space wind/pendulum mask. No demo assets or textures copied. See CREDITS.md. Bark luminance/desaturation adaptation is also used for pale deadwood."
+    },
+    {
+      "name": "dgreenheck/ez-tree",
+      "url": "https://github.com/dgreenheck/ez-tree",
+      "license": "MIT",
+      "notice": "licenses/ez-tree.txt",
+      "source": [
+        "src/lib/tree.js/#growBranch",
+        "src/lib/tree.js/generateChildBranches"
+      ],
+      "destinations": [
+        "scripts/build-world-tree-blender.py",
+        "assets/models/world-tree-blender.glb"
+      ],
+      "revisionNote": "Pinned revision dcf309bd86bd521083d9c70f01f2de45fdc7c457. Section-walk gnarliness (scaled by 1/sqrt(radius)), radius-limited growth force and stratified, shuffled child placement ported to Python for the canopy boughs and twigs, steered toward authored foliage pads. Scope and changes recorded in CREDITS.md."
     }
   ]
 }

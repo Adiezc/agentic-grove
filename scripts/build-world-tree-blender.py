@@ -540,7 +540,15 @@ GLOW_WASH_WIDTH = .035    # metres; how far the soft light spreads either side o
 INNER_GLOW = .55          # `_glow` deep in a groove, low on the trunk: the light from inside
 
 
-def cord_surface(c, a, along, twist, cords, phase):
+# Deadwood is weathered harder than living bark. Sun and wind strip the soft wood between the
+# hard grain, so a jin's fibres stand proud with deep, sharp checks between them, and the whole
+# blade is fluted by two or three broad spiral channels where the grain twisted as it grew.
+DEAD_GROOVE_DEPTH = .40
+DEAD_CRACK_DEPTH = .15
+DEAD_FLUTE_DEPTH = .12
+
+
+def cord_surface(c, a, along, twist, cords, phase, dead=False):
     """Radius multiplier, groove amount (0 on a fibre's crest, 1 deep in a groove or crack)
     and tone streak at angle `a` round the strand, `along` metres from its base.
 
@@ -549,7 +557,10 @@ def cord_surface(c, a, along, twist, cords, phase):
     channels so the channels can sit exactly in the grooves instead of floating over them."""
     # |sin| gives rounded crests with sharp V-shaped valleys between them, like twisted cord.
     # The fibres vary in width, so the angle is nudged by slow noise before it is used.
-    wobble = .35 * noise.noise(Vector((along * .9, phase * 3, 0)))
+    # Living fibres merge and part along the trunk instead of running as even combed ridges, so
+    # the wobble is larger and changes faster than it used to.
+    wobble = (.8 if dead else .6) * noise.noise(Vector((along * .9, phase * 3, 0))) \
+        + .25 * noise.noise(Vector((along * 3.1, phase * 5, 1.7)))
     crest = abs(math.sin(cords * (a - twist + wobble / cords) / 2)) ** .6
     # a ring round the strand in noise space: radius 2 gives about a dozen features around it
     ring = Vector((math.cos(a) * 2.0, math.sin(a) * 2.0, phase * 7))
@@ -564,7 +575,17 @@ def cord_surface(c, a, along, twist, cords, phase):
             + .35 * noise.noise(ring * .7 + Vector((along * .9, 0, 0)))
             + .20 * noise.noise(ring * 1.8 + Vector((0, along * 2.2, 0))))
     lumps = .03 * noise.noise(ring * .8 + Vector((0, 0, along * 4)))
-    factor = 1.06 - CORD_GROOVE_DEPTH * (1 - crest) - CRACK_DEPTH * crack + lumps
+    if dead:
+        # Broad spiral flutes, and grooves that open and close along the blade.
+        flute = abs(math.sin((a - twist * 1.3) * 1.5 + phase)) ** 3
+        depth = DEAD_GROOVE_DEPTH * (.75 + .5 * (noise.noise(Vector((along * 1.4, phase, 4.2))) + .5))
+        factor = 1.04 - depth * (1 - crest) - DEAD_CRACK_DEPTH * crack - DEAD_FLUTE_DEPTH * flute + lumps
+        return factor, max(1 - crest, crack, flute * .8), max(-.5, min(.5, tone * 1.7))
+    # Groove depth varies along each strand, and slow swellings stand in for the burls and
+    # callus ridges of an old trunk; perfectly even relief read as extruded plastic.
+    depth = CORD_GROOVE_DEPTH * (.65 + .7 * (noise.noise(Vector((along * 1.1, phase * 2, 2.3))) + .5))
+    burl = .07 * max(0.0, noise.noise(ring * .45 + Vector((along * .7, phase, 0))) - .1)
+    factor = 1.06 - depth * (1 - crest) - CRACK_DEPTH * crack + lumps + burl
     # mathutils noise rarely leaves +-0.5, so the streaks are stretched to use the full range
     return factor, max(1 - crest, crack), max(-.5, min(.5, tone * 1.7))
 
@@ -572,8 +593,10 @@ def cord_surface(c, a, along, twist, cords, phase):
 def carved(name, controls, radii, material, glow=False, phase=0, tip_glow=False, root_segments=0):
     # Big strands get the dense surface the eye lands on; thin roots stay cheap.
     big = max(radii) > .15
-    rings, sides = (150, 64) if big else (70, 24)
-    cords = (9 if big else 5) + int(phase * 10) % 3
+    # Small deadwood (the tines) still carries the fine weathered relief, so it needs more sides.
+    rings, sides = (150, 64) if big else ((90, 40) if material == MAT_DEAD else (70, 24))
+    dead = material == MAT_DEAD
+    cords = (9 if big else 5) + int(phase * 10) % 3 + (5 if dead else 0)
     co=resample(controls, rings)
     rr=lerp_radii(radii,rings)
     vertices=[]; faces=[]; grooves=[]; tones=[]; grains=[]
@@ -592,12 +615,14 @@ def carved(name, controls, radii, material, glow=False, phase=0, tip_glow=False,
         # axis, so this adds mass seen from the side without touching the front outline. Spreading
         # the strands further apart in depth instead turned the trunk into a cage.
         if big: v=v*STRAND_DEPTH_FATNESS
+        # A jin is a blade more than a rod: wind wears it flat across its sweep.
+        if dead: u=u*1.08; v=v*.74
         frames.append((u,v))
-        twist = phase + along*TWIST_PER_METRE + .3*math.sin(along*1.7+phase)
+        twist = phase + along*TWIST_PER_METRE*(1.7 if dead else 1) + .3*math.sin(along*1.7+phase)
         twists.append(twist)
         for j in range(sides):
             a=j*math.tau/sides
-            factor, groove, tone = cord_surface(c, a, along, twist, cords, phase)
+            factor, groove, tone = cord_surface(c, a, along, twist, cords, phase, dead)
             vertices.append(c+r*factor*(u*math.cos(a)+v*math.sin(a)))
             grooves.append(groove); tones.append(tone)
             grains.append((a/math.tau,along,1.0 if material == MAT_DEAD else 0.0))
@@ -610,7 +635,7 @@ def carved(name, controls, radii, material, glow=False, phase=0, tip_glow=False,
 
     def on_surface(i, a, lift):
         """A point on the sculpted surface, pushed out by `lift` so glow is not buried."""
-        factor, _, _ = cord_surface(co[i], a, alongs[i], twists[i], cords, phase)
+        factor, _, _ = cord_surface(co[i], a, alongs[i], twists[i], cords, phase, dead)
         u,v=frames[i]
         return co[i]+(rr[i]*factor+lift)*(u*math.cos(a)+v*math.sin(a))
 
@@ -717,6 +742,8 @@ _axis_b = resample(plate_raw(flows[1][0]), 60)
 TRUNK_AXIS.extend(sorted(((a.z + b.z) / 2, (a.x + b.x) / 2, (a.y + b.y) / 2) for a, b in zip(_axis_a, _axis_b)))
 
 ROOT_TIP_RADIUS = .016
+DEAD_FLOWS = (3, 4, 5)
+DEAD_PATHS = []
 ROOT_TIP_GLOW = 1.6   # `_glow` at a root tip; Grove's mycelium core is about this bright at rest
 ROOT_TIPS = []
 ROOTLET_TIPS = []
@@ -740,7 +767,38 @@ for i,(pts,rr) in enumerate(flows):
     path=[tip,mid,foot]+path[1:]
     rr=[ROOT_TIP_RADIUS,max(.045,rr[0]*.7),max(rr[0],.07)]+list(rr[1:])
     ROOT_TIPS.append((tip.copy(),(tip-mid).normalized(),ROOT_TIP_RADIUS))
-    carved('Anatomical flow %02d'%i,path,rr,MAT_DEAD if i in (3,4,5) else MAT_LIVING,i in (0,2),i*.7,root_segments=2)
+    if i in DEAD_FLOWS:
+        # Thin steadily from the widest point to the tip, the way a jin weathers back, rather
+        # than staying fat and closing in the last span like a horn.
+        widest=max(range(len(rr)),key=lambda k:rr[k])
+        last=len(rr)-1
+        rr=rr[:widest+1]+[max(rr[last],rr[widest]*((last-k)/(last-widest))**1.35) for k in range(widest+1,last+1)]
+        DEAD_PATHS.append((path,rr,i))
+    carved('Anatomical flow %02d'%i,path,rr,MAT_DEAD if i in DEAD_FLOWS else MAT_LIVING,i in (0,2),i*.7,root_segments=2)
+
+# Split tines. Old jin rarely ends in one clean point: the dead limb tears along its grain, and
+# where side branches died back they leave shorter spikes of their own. Each deadwood flow sheds
+# two, starting buried inside it and curling upward and outward as they thin to a needle.
+# Own generator, so the roots and pads built after this keep their shapes.
+_tines=random.Random(SEED+31)
+for path,rr,i in DEAD_PATHS:
+    co=resample(path,120); radii=lerp_radii(rr,120)
+    for share,side in ((.58,1),(.80,-1)):
+        k=int(share*119)
+        base=co[k]; tangent=(co[k+1]-co[k-1]).normalized()
+        across_=tangent.cross(Vector((0,0,1)))
+        if across_.length<.05: across_=tangent.cross(Vector((1,0,0)))
+        across_.normalize()
+        r=radii[k]
+        direction=(tangent*.55+across_*side*_tines.uniform(.45,.8)+Vector((0,0,_tines.uniform(.35,.7)))).normalized()
+        length=_tines.uniform(.38,.62)
+        curl=Vector((0,0,1)).lerp(tangent,.4)*length*.22
+        pts=[base-direction*r*.4,
+             base+direction*length*.34,
+             base+direction*length*.68+curl*.6,
+             base+direction*length+curl]
+        pts=jitter(pts,.035,freq=2.3,offset=i+share)
+        carved('Deadwood tine %02d %d'%(i,k),pts,[r*.62,r*.42,r*.2,.003],MAT_DEAD,False,i*.7+share*3)
 # Low living branch curls out of the main braid and supports the detached low pad.
 carved('Low left bough',plate([(395,381,-.45),(427,334,-.5),(417,300,-.45),(385,286,-.38),(350,297,-.2),(309,277,.0),(273,259,.2)]),[.12,.115,.10,.095,.07,.045,.006],MAT_LIVING,False)
 # Roots descend from the braid, bend across the ground and divide recursively.
@@ -787,6 +845,105 @@ front_roots=[
 # every direction, and each of them hands over to the mycelium. Kept for reference.
 del front_roots
 
+
+# --------------------------------------------------------------------------------------
+# canopy branches, grown the EZ-Tree way
+# --------------------------------------------------------------------------------------
+# Adapted from Daniel Greenheck's EZ-Tree (MIT, see licenses/ez-tree.txt and CREDITS.md),
+# src/lib/tree.js at dcf309bd86bd521083d9c70f01f2de45fdc7c457: `#growBranch` walks a branch
+# in short sections, kinking each one by a random "gnarliness" that grows as the branch thins
+# (1/sqrt(radius)), then turns it toward a growth force by at most strength/radius, so thick
+# limbs hold their line and fine twigs wander. `generateChildBranches` spreads children over
+# stratified slots along the parent and round it, with the slot order shuffled so length and
+# direction are not correlated. Grove's version steers toward an authored target (the pad a
+# bough holds up) instead of a world axis, and stops children inside the pad they support.
+
+def ez_limb(start, target, radius, tip_radius, sections, gnarliness, strength, local, initial=None):
+    """Points and radii of one branch from `start`, steered toward `target`."""
+    span = (target - start).length
+    step = span / sections
+    heading = (initial or (target - start)).normalized()
+    points, radii = [start.copy()], [radius]
+    at = start.copy()
+    for i in range(1, sections + 1):
+        t = i / sections
+        r = radius + (tip_radius - radius) * t
+        at = at + heading * step
+        points.append(at.copy()); radii.append(r)
+        # EZ-Tree's gnarliness: a random kink, larger as the branch thins.
+        kink = max(1.0, 1.0 / math.sqrt(max(r, 1e-4) * 12)) * gnarliness
+        heading = (heading + Vector((local.uniform(-kink, kink), local.uniform(-kink, kink),
+                                     local.uniform(-kink, kink) * .6))).normalized()
+        # EZ-Tree's growth force, aimed at the target: turn by at most strength / radius.
+        wanted = (target - at)
+        if wanted.length > 1e-5:
+            wanted.normalize()
+            full = heading.angle(wanted, 0.0)
+            turn = min(full, strength / max(r * 12, .05))
+            if full > 1e-5:
+                axis = heading.cross(wanted)
+                if axis.length > 1e-6:
+                    heading = (Matrix.Rotation(turn, 3, axis.normalized()) @ heading).normalized()
+    # Land on the target, easing the last few sections there so the end still wanders.
+    miss = target - points[-1]
+    for i in range(len(points)):
+        w = (i / (len(points) - 1)) ** 2
+        points[i] = points[i] + miss * w
+    return points, radii
+
+
+def ez_children(points, radii, count, start_share, ratio, angle, length, local, keep_inside):
+    """EZ-Tree's stratified child branches along one parent; returns (points, radii) per child."""
+    slots = list(range(count)); local.shuffle(slots)
+    offset = local.random()
+    out = []
+    for i in range(count):
+        share = start_share + (i + local.random()) * (1 - start_share) / count
+        k = min(len(points) - 2, int(share * (len(points) - 1)))
+        base, tangent = points[k], (points[k + 1] - points[k]).normalized()
+        side = tangent.cross(Vector((0, 0, 1)))
+        if side.length < .05: side = tangent.cross(Vector((1, 0, 0)))
+        side.normalize()
+        spin = math.tau * (offset + (slots[i] + local.uniform(-.5, .5)) / count)
+        side = Matrix.Rotation(spin, 3, tangent) @ side
+        # Bonsai twigs are wired flat into the pad, so the upward half of each spin is damped.
+        side.z *= .35
+        heading = (tangent * math.cos(angle) + side.normalized() * math.sin(angle)).normalized()
+        target = keep_inside(base + heading * length * local.uniform(.7, 1.0))
+        r0 = radii[k] * ratio
+        sections = 4
+        out.append(ez_limb(base, target, r0, max(.0012, r0 * .15), sections, .09, .05, local, heading))
+    return out
+
+
+def pad_branches(attach, c, rx, ry, bough_radius, twig_count, local):
+    """A supporting bough to a pad and its EZ-Tree ramification, hidden under the foliage."""
+    hub = c - Vector((0, 0, .14))
+    sections = max(5, int((hub - attach).length / .09))
+    # Leave the trunk slightly downward, as the authored boughs did, before rising to the pad.
+    initial = (hub - attach).normalized() - Vector((0, 0, .35))
+    pts, rr = ez_limb(attach, hub, bough_radius, .011, sections, .075, .03, local, initial)
+    branch_parts.append(make_curve('Supporting bough', pts, rr, MAT_BRANCH, samples=max(30, sections * 6), res_v=3))
+
+    def inside(p):
+        # Keep twig tips within the pad's footprint and below its top, so none show through.
+        d = p - c
+        e = math.sqrt((d.x / (rx * .7)) ** 2 + (d.y / (ry * .7)) ** 2)
+        if e > 1: d.x /= e; d.y /= e
+        d.z = min(max(d.z, -.12), -.03)
+        return c + d
+
+    for k in range(twig_count):
+        a = k * math.tau / twig_count + .4 + local.uniform(-.25, .25)
+        tip = inside(c + Vector((math.cos(a) * rx * .62, math.sin(a) * ry * .62, -.06)))
+        tw_pts, tw_rr = ez_limb(hub, tip, .014, .0015, 5, .1, .045, local)
+        branch_parts.append(make_curve('Canopy ramification', tw_pts, tw_rr, MAT_BRANCH, samples=20, res_v=2))
+        for sub_pts, sub_rr in ez_children(tw_pts, tw_rr, 2, .3, .6, math.radians(38), rx * .22, local, inside):
+            branch_parts.append(make_curve('Canopy twig', sub_pts, sub_rr, MAT_BRANCH, samples=12, res_v=1))
+
+
+_branches = random.Random(SEED + 59)
+
 # Separated, irregular foliage islands match the reference plate tiers.
 pad_specs=[
  (333,38,72,18,.70),(315,74,106,18,.78),(244,106,91,18,.87),
@@ -803,15 +960,10 @@ for i,(x,z,width,height,y) in enumerate(pad_specs):
     PADS.append((c,rx,ry,height*8.1/768*.57,.72))
     attach=plate([(350 if z<100 else (380 if z<150 else 375),112 if z<100 else (155 if z<150 else 224),.55)])[0]
     if z>235:attach=plate([(309,277,0)])[0]
-    branch_parts.append(make_curve('Supporting bough', [attach,attach.lerp(c,.35)-Vector((0,.02,.18)),attach.lerp(c,.68)+Vector((0,.03,.025)),c-Vector((0,0,.14))],[.045,.028,.014],MAT_BRANCH,samples=30,res_v=3))
-    for k in range(9):
-        # Twigs spread from just under the pad's own centre and stop well inside its rim, so they
-        # sit hidden in the underside. Starting them back along the bough made a fan of parallel
-        # sticks hanging out below the foliage.
-        a=k*math.tau/9+.4
-        tip=c+Vector((math.cos(a)*rx*.62,math.sin(a)*ry*.62,-.06))
-        hub=c-Vector((0,0,.14))
-        branch_parts.append(make_curve('Canopy ramification',[hub,hub.lerp(tip,.55)+Vector((0,0,.02)),tip],[.02,.012,.002],MAT_BRANCH,samples=16,res_v=2))
+    # Twigs spread from just under the pad's own centre and stop well inside its rim, so they
+    # sit hidden in the underside. Starting them back along the bough made a fan of parallel
+    # sticks hanging out below the foliage.
+    pad_branches(attach, c, rx, ry, .05, 9, _branches)
 
 # Pads all round the trunk. The traced tiers all hang to one side, which is right from the
 # front and wrong from anywhere else: turn the tree and the canopy vanished behind the trunk.
@@ -843,15 +995,7 @@ for attach_px, direction, distance, lift, rx in extra_pads:
     c=attach+direction*distance+Vector((0,0,lift))
     ry=rx*PAD_DEPTH_RATIO
     PADS.append((c,rx,ry,.1,.72))
-    branch_parts.append(make_curve('Supporting bough', [attach,attach.lerp(c,.35)-Vector((0,.02,.16)),attach.lerp(c,.68)+Vector((0,.03,.025)),c-Vector((0,0,.14))],[.05,.03,.014],MAT_BRANCH,samples=30,res_v=3))
-    for k in range(7):
-        # Twigs spread from just under the pad's own centre and stop well inside its rim, so they
-        # sit hidden in the underside. Starting them back along the bough made a fan of parallel
-        # sticks hanging out below the foliage.
-        a=k*math.tau/7+.4
-        tip=c+Vector((math.cos(a)*rx*.62,math.sin(a)*ry*.62,-.06))
-        hub=c-Vector((0,0,.14))
-        branch_parts.append(make_curve('Canopy ramification',[hub,hub.lerp(tip,.55)+Vector((0,0,.02)),tip],[.02,.012,.002],MAT_BRANCH,samples=16,res_v=2))
+    pad_branches(attach, c, rx, ry, .055, 7, _branches)
 
 # A solid core of wood up the inside of the braid. The strands wander apart as they twist, and
 # the gaps between them used to show a glowing core as flat green panels. Filling them with wood

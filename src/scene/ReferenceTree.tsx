@@ -11,6 +11,7 @@ import { addWoodlandSurface } from './woodlandMaterial'
 import { addFoliageSurface } from './foliageMaterial'
 import { rootBoundary, weldedRoot, barkIslands, type BarkVertex } from './rootWeld'
 import type { MyceliumSignal } from './myceliumFlow'
+import { HYPHA_BODY, HYPHA_GLOW, HYPHA_TIP_GLOW } from './rootTransition'
 
 /** `_glow` at a root tip in the model. Must match ROOT_TIP_GLOW in the Blender build script. */
 const ROOT_TIP_GLOW = 1.6
@@ -36,27 +37,39 @@ interface ReferenceTreeProps {
 function addBarkGlow(
   material: THREE.MeshStandardMaterial,
   strength: { value: number },
-  colour: { value: THREE.Color }
+  colour: { value: THREE.Color },
+  hypha: { value: THREE.Color }
 ) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.barkGlow = strength
     // Shared, like `strength`, so the whole tree's glow can lean amber at once.
     shader.uniforms.barkGlowColor = colour
+    shader.uniforms.hyphaTipEmission = hypha
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nattribute float _glow;\nvarying float vBarkGlow;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBarkGlow = _glow;')
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
-        '#include <common>\nuniform float barkGlow;\nuniform vec3 barkGlowColor;\nvarying float vBarkGlow;'
+        '#include <common>\nuniform float barkGlow;\nuniform vec3 barkGlowColor;\nuniform vec3 hyphaTipEmission;\nvarying float vBarkGlow;'
       )
+      // Towards a root tip the wood takes on the mycelium's own body colour and light, so the
+      // root has already become a hypha where the network takes over. Only root tips reach this
+      // `_glow` band (the trunk's grooves stop at about 0.55), so the trunk is untouched.
+      .replace('#include <metalnessmap_fragment>', `
+        float hyphaTip = smoothstep(${HYPHA_TIP_GLOW[0].toFixed(2)}, ${HYPHA_TIP_GLOW[1].toFixed(2)}, vBarkGlow);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(${new THREE.Color(HYPHA_BODY).toArray().join(',')}), hyphaTip);
+        roughnessFactor = mix(roughnessFactor, 0.58, hyphaTip);
+        #include <metalnessmap_fragment>`)
       .replace(
         '#include <emissivemap_fragment>',
-        '#include <emissivemap_fragment>\ntotalEmissiveRadiance += barkGlowColor * vBarkGlow * barkGlow;'
+        `#include <emissivemap_fragment>
+        totalEmissiveRadiance += barkGlowColor * vBarkGlow * barkGlow * (1.0 - hyphaTip);
+        totalEmissiveRadiance = mix(totalEmissiveRadiance, hyphaTipEmission, hyphaTip);`
       )
   }
   // Without this, three would reuse a compiled program from a wood material that has no glow.
-  material.customProgramCacheKey = () => 'bark-glow'
+  material.customProgramCacheKey = () => 'bark-glow-hypha'
 }
 
 /**
@@ -83,6 +96,7 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
     const woodMaterials: THREE.MeshStandardMaterial[] = []
     const barkGlow = { value: 0 }
     const barkGlowColour = { value: new THREE.Color(palette.energy) }
+    const hyphaTip = { value: new THREE.Color(HYPHA_GLOW) }
     clone.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return
       object.castShadow = true
@@ -102,7 +116,7 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
         } else {
           // A small ambient floor keeps the baked grain visible without flattening its shadows.
           material.emissive.set('#11180f')
-          if (object.geometry.hasAttribute('_glow')) addBarkGlow(material, barkGlow, barkGlowColour)
+          if (object.geometry.hasAttribute('_glow')) addBarkGlow(material, barkGlow, barkGlowColour, hyphaTip)
           if (woodland && material.name.includes('Bark')) addWoodlandSurface(material, lichen)
           woodMaterials.push(material)
         }
@@ -139,7 +153,7 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
       }
     })
     const veinColours = energyMaterials.map((material) => material.emissive.clone())
-    return { tree: clone, energyMaterials, foliageMaterials, woodMaterials, barkGlow, barkGlowColour, veinColours, barkSamples }
+    return { tree: clone, energyMaterials, foliageMaterials, woodMaterials, barkGlow, barkGlowColour, hyphaTip, veinColours, barkSamples }
   }, [sourceTree, lichen, woodland, foliageUniforms])
 
   useEffect(() => () => {
@@ -167,11 +181,11 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
     return [...byOwner].map(([owner, pieces]) => {
       const geometry = mergeAll(pieces)
       if (pieces.length > 1) pieces.forEach(piece => piece.dispose())
-      const emission = { value: new THREE.Color('#55f58c') }
+      const emission = { value: new THREE.Color(HYPHA_GLOW) }
       const growth = { value: 1 }
       const material = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true,
         roughness: 0.78, emissive: '#11180f', emissiveIntensity: 0.15 })
-      addBarkGlow(material, model.barkGlow, model.barkGlowColour)
+      addBarkGlow(material, model.barkGlow, model.barkGlowColour, model.hyphaTip)
       if (woodland) addWoodlandSurface(material, lichen)
       const previous = material.onBeforeCompile, key = material.customProgramCacheKey()
       material.onBeforeCompile = (shader, renderer) => {
@@ -185,7 +199,7 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
           .replace('#include <common>', '#include <common>\nvarying float vRootBlend; varying float vRootJourney; uniform vec3 hyphaEmission; uniform float rootGrowth;')
           .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif (vRootBlend >= 1.0 && vRootJourney > rootGrowth * 1.2) discard;')
           .replace('#include <metalnessmap_fragment>', `
-            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(${new THREE.Color('#69c58b').toArray().join(',')}), vRootBlend);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(${new THREE.Color(HYPHA_BODY).toArray().join(',')}), vRootBlend);
             roughnessFactor = mix(roughnessFactor, 0.58, vRootBlend);
             #include <metalnessmap_fragment>`)
           .replace('#include <lights_physical_fragment>', `
@@ -225,7 +239,7 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
       const signal = signals.current.get(root.owner)
       root.growth.value = signal?.grow ?? 1
       root.material.emissiveIntensity = 0.12 + beat * 0.10
-      root.emission.value.set('#55f58c').lerp(amberColour, (signal?.attention ?? 0) * 0.25)
+      root.emission.value.set(HYPHA_GLOW).lerp(amberColour, (signal?.attention ?? 0) * 0.25)
         .multiplyScalar(0.85 + pulse * 0.3)
     }
 
@@ -238,6 +252,8 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
       material.emissive.copy(model.veinColours[i]!).lerp(amberColour, lean)
     })
     auraLight.current?.color.copy(energyColour).lerp(amberColour, lean)
+    // The same light the network's cords carry (Mycelium's cord material), so tip and cord match.
+    model.hyphaTip.value.set(HYPHA_GLOW).lerp(amberColour, lean * 0.25).multiplyScalar(0.85 + pulse * 0.3)
 
     if (auraLight.current) {
       auraLight.current.intensity = 0.22 + workload * 0.75 + beat * 1.45

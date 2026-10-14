@@ -16,3 +16,13 @@ export function sharedRadius(strand: Strand, at: number): number {
   return THREE.MathUtils.lerp(strand.rootRadius, hyphaRadius(strand, at),
     THREE.MathUtils.smoothstep(distance, 0, Math.min(ROOT_CONTINUATION, strand.curve.getLength())))
 }
+
+/**
+ * The one look a root has by the time it becomes mycelium, shared by the tree's root tips, the
+ * welded continuation and the network's cords. When each of the three chose its own colour, the
+ * eye found the join at once: tan bark lit mint read as yellow, beside cords that were green.
+ */
+export const HYPHA_BODY = '#69c58b'
+export const HYPHA_GLOW = '#55f58c'
+/** `_glow` values above the trunk's own groove light: only root tips reach this band. */
+export const HYPHA_TIP_GLOW: [number, number] = [0.5, 1.35]
