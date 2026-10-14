@@ -1,0 +1,9 @@
+Photographed textures in assets/materials/, all dedicated to the public domain under
+Creative Commons CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/).
+No attribution is required; Agentic Grove credits the authors anyway.
+
+juniper-colour.jpg, juniper-opacity.jpg, juniper-normal.jpg
+  "Leaf Set 019" by ambientCG (Lennart Demes)
+  https://ambientcg.com/view?id=LeafSet019 (1K JPG colour, opacity and OpenGL normal, unmodified)
+
+Downloaded 14 October 2026.

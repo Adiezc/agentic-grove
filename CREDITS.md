@@ -83,6 +83,39 @@ with separate deadwood weathering and living moss. Baked colours, geometry and
 heartbeat remain Grove's. No genome, skeletal wind, SDF renderer or demo assets
 are imported. The full [MIT notice](licenses/dryad.txt) is packaged with the app.
 
+### Vermos, "Bonsai" — CC BY 4.0
+
+"Bonsai" (https://skfb.ly/6XnsZ) by Vermos is licensed under Creative Commons Attribution
+(http://creativecommons.org/licenses/by/4.0/). The tree's living bark and pale deadwood are
+painted with two patches cut from this model's hand-painted base colour and normal maps,
+made to tile and wrapped round every strand along its grain in `woodlandMaterial.ts`. Changes:
+cropped, edge-blended to tile, resampled to 512 px, normal map converted from DirectX to OpenGL
+(`scripts/tile-vermos-bark.py`). The model's mesh and leaves are not used. Full notice:
+[licenses/vermos-bonsai.txt](licenses/vermos-bonsai.txt).
+
+### ambientCG, "Leaf Set 019" — CC0
+
+[Leaf Set 019](https://ambientcg.com/view?id=LeafSet019), photographed juniper-like scale-leaf
+sprays by ambientCG (Lennart Demes), downloaded 14 October 2026 and unmodified. CC0, so no credit
+is required; it is given anyway. `foliageMaterial.ts` cuts each spray card to the photographed
+outline and takes its scale pattern as brightness and its normal map as lighting. Listed in
+[licenses/cc0-textures.txt](licenses/cc0-textures.txt).
+
+### dgreenheck/ez-tree — MIT
+
+[EZ-Tree](https://github.com/dgreenheck/ez-tree/tree/dcf309bd86bd521083d9c70f01f2de45fdc7c457),
+read 14 October 2026. Copyright (c) 2024 Daniel Greenheck.
+
+The branch-growth method in `src/lib/tree.js` (`#growBranch` and `generateChildBranches`)
+is ported to Python in `scripts/build-world-tree-blender.py` (`ez_limb`, `ez_children`,
+`pad_branches`) and grows the canopy boughs, their side branches and twigs baked into the tree model. Each branch
+walks in short sections, kinks by a random gnarliness that grows as it thins (1/sqrt of its
+radius) and turns toward a growth force by at most strength/radius; children sit in
+stratified, shuffled slots along and around their parent. Grove steers toward the authored
+foliage pads instead of a world axis, keeps twigs inside the pad they support, and flattens
+them the way bonsai twigs are wired. No leaves, bark textures, presets, wind or demo assets
+are imported. The full [MIT notice](licenses/ez-tree.txt) is packaged with the app.
+
 ### cortiz2894/stylized-components — MIT
 
 [Stylized Components](https://github.com/cortiz2894/stylized-components/tree/1cece0a296b29299d1380c34feb5c158b2f04500),

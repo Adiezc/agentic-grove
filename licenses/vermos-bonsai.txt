@@ -1,0 +1,15 @@
+"Bonsai" (https://skfb.ly/6XnsZ) by Vermos is licensed under Creative Commons Attribution 4.0
+International (http://creativecommons.org/licenses/by/4.0/).
+Model page: https://sketchfab.com/3d-models/8b73fd97545b468288cd9ba03c93d358
+Author: https://sketchfab.com/Vermos
+
+Used in Agentic Grove: assets/materials/vermos-bark-colour.jpg, vermos-bark-normal.jpg,
+vermos-deadwood-colour.jpg and vermos-deadwood-normal.jpg.
+
+Changes made: two rectangles were cut from the model's base colour and DirectX normal maps
+(living bark at x 30, y 560, 200 x 320 px; deadwood at x 1300, y 470, 280 x 380 px, of the
+2048 px maps), their edges cross-faded so they tile, resampled to 512 px, and the normal map
+converted to the OpenGL convention. See scripts/tile-vermos-bark.py. The model geometry,
+foliage textures and other maps are not used.
+
+No warranties are given. The licence may not give all permissions needed for an intended use.
