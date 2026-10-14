@@ -576,7 +576,7 @@ def carved(name, controls, radii, material, glow=False, phase=0, tip_glow=False,
     cords = (9 if big else 5) + int(phase * 10) % 3
     co=resample(controls, rings)
     rr=lerp_radii(radii,rings)
-    vertices=[]; faces=[]; grooves=[]; tones=[]
+    vertices=[]; faces=[]; grooves=[]; tones=[]; grains=[]
     frames=[]; twists=[]; alongs=[]
     along=0.0
     for i,(c,r) in enumerate(zip(co,rr)):
@@ -600,6 +600,7 @@ def carved(name, controls, radii, material, glow=False, phase=0, tip_glow=False,
             factor, groove, tone = cord_surface(c, a, along, twist, cords, phase)
             vertices.append(c+r*factor*(u*math.cos(a)+v*math.sin(a)))
             grooves.append(groove); tones.append(tone)
+            grains.append((a/math.tau,along,1.0 if material == MAT_DEAD else 0.0))
     for i in range(rings-1):
         for j in range(sides):
             a=i*sides+j; b=i*sides+(j+1)%sides
@@ -658,6 +659,7 @@ def carved(name, controls, radii, material, glow=False, phase=0, tip_glow=False,
             washes.append(wash)
 
     # The wood shader reads these to colour the grain exactly where the geometry carves it.
+    mesh.attributes.new('_grain','FLOAT_VECTOR','POINT').data.foreach_set('vector',[x for grain in grains for x in grain])
     mesh.attributes.new('groove','FLOAT','POINT').data.foreach_set('value',grooves)
     mesh.attributes.new('tone','FLOAT','POINT').data.foreach_set('value',tones)
     # The leading underscore is what makes the glTF exporter keep a custom attribute.
@@ -706,7 +708,8 @@ flows=[
 ]
 flows.extend([
  ([(342,488,-.3),(368,448,-.4),(385,400,-.62),(450,359,-.45),(480,325,.16),(467,287,.46),(433,259,.2),(394,228,-.15),(360,196,.3)],[.05,.085,.11,.12,.13,.12,.10,.07,.005]),
- ([(452,488,.5),(430,455,.28),(421,411,-.1),(479,374,-.36),(538,340,-.7),(572,325,-.75),(600,305,-.7),(624,286,-.65)],[.05,.09,.11,.12,.095,.07,.04,.001]),
+ # The last living strand ends inside the braid, before the pale deadwood hooks.
+ ([(452,488,.5),(430,455,.28),(421,411,-.1),(479,374,-.36),(505,350,-.60)],[.05,.09,.11,.12,.012]),
 ])
 # The trunk centre the spiral turns about: the mean of the two main living flows, untwisted.
 _axis_a = resample(plate_raw(flows[0][0]), 60)
@@ -1122,6 +1125,10 @@ scene.render.bake.use_pass_direct=False
 scene.render.bake.use_pass_indirect=False
 scene.render.bake.use_pass_color=True
 for ob in (WOOD,FINE,BRANCHES):
+    if '_grain' not in ob.data.attributes:
+        grain = ob.data.attributes.new('_grain', 'FLOAT_VECTOR', 'POINT')
+        grain.data.foreach_set('vector', [component for v in ob.data.vertices
+            for component in (math.atan2(v.co.y, v.co.x)/math.tau, v.co.z, 0.0)])
     activate(ob)
     attr=ob.data.color_attributes.new(name='BarkColor',type='BYTE_COLOR',domain='CORNER')
     ob.data.color_attributes.active_color=attr
@@ -1161,7 +1168,9 @@ for ob in (WOOD,FINE,BRANCHES):
     for polygon in ob.data.polygons:polygon.material_index=0
 scene.cycles.samples=SAMPLES
 
+RENDER_VIEWS = set(filter(None, os.environ.get('TREE_RENDER_VIEWS', '').split(',')))
 for name, (loc, rot, scale) in VIEWS.items():
+    if RENDER_VIEWS and name not in RENDER_VIEWS: continue
     CAM.location = loc
     CAM.rotation_euler = Euler(rot, "XYZ")
     if name == "top":
@@ -1187,6 +1196,7 @@ EXTRA_VIEWS = {
     "diagonal-canopy-end": (-125.0, 18.0),
 }
 for name, (azimuth, elevation) in EXTRA_VIEWS.items():
+    if RENDER_VIEWS and name not in RENDER_VIEWS: continue
     az, el = math.radians(azimuth), math.radians(elevation)
     target = Vector((CENTER_X, CENTER_Y, CENTER_Z))
     # azimuth 0 is the front camera (-Y), positive turns toward +X

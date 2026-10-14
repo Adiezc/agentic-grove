@@ -20,9 +20,124 @@
       "url": "https://github.com/Station-Sciences/bot-crossing",
       "license": "MIT",
       "notice": "core/harnesses/LICENSE-bot-crossing",
-      "source": ["server/harnesses/", "server/lib/fsutil.mjs", "server/scan.mjs"],
-      "destinations": ["core/harnesses/", "core/scan.ts"],
+      "source": [
+        "server/harnesses/",
+        "server/lib/fsutil.mjs",
+        "server/scan.mjs"
+      ],
+      "destinations": [
+        "core/harnesses/",
+        "core/scan.ts"
+      ],
       "revisionNote": "The original upstream revision was not recorded during the September 2026 port. See CREDITS.md for the source mapping and changes. Record exact revisions for future adaptations."
+    },
+    {
+      "name": "ashima/webgl-noise",
+      "url": "https://github.com/ashima/webgl-noise",
+      "license": "MIT",
+      "notice": "licenses/ashima-webgl-noise.txt",
+      "source": [
+        "src/noise3D.glsl"
+      ],
+      "destinations": [
+        "src/scene/vendor/ashima-noise3D.glsl",
+        "src/scene/woodlandMaterial.ts"
+      ],
+      "revisionNote": "Pinned revision 6abed1e77ed1e18b181627c35f688eb30c9fe75e. Exact scope and modifications recorded in CREDITS.md."
+    },
+    {
+      "name": "linusmossberg/reaction-diffusion",
+      "url": "https://github.com/linusmossberg/reaction-diffusion",
+      "license": "MIT",
+      "notice": "licenses/linus-mossberg-reaction-diffusion.txt",
+      "source": [
+        "shaders/reaction-diffusion.glsl"
+      ],
+      "destinations": [
+        "scripts/bake-woodland-mask.mjs",
+        "assets/materials/woodland-lichen.png"
+      ],
+      "revisionNote": "Pinned revision f4a7ffbbae22648a67350dd8a10d96632ca8ed61. Exact scope and modifications recorded in CREDITS.md."
+    },
+    {
+      "name": "leoawen/fluffytree-threejs",
+      "url": "https://github.com/leoawen/fluffytree-threejs",
+      "license": "MIT",
+      "notice": "licenses/fluffytree-threejs.txt",
+      "source": [
+        "index.html/createCustomCanopyMaterial"
+      ],
+      "destinations": [
+        "src/scene/foliageMaterial.ts"
+      ],
+      "revisionNote": "Pinned revision f39d9526aadecdf4026de8853e7891736c5063b3. Adapted scope and changes recorded in CREDITS.md."
+    },
+    {
+      "name": "jakobrichert/space-colonization",
+      "url": "https://github.com/jakobrichert/space-colonization",
+      "license": "MIT",
+      "notice": "licenses/space-colonization.txt",
+      "source": [
+        "src/tree.c/tree_grow_step",
+        "src/tree.c/tree_compute_thickness"
+      ],
+      "destinations": [
+        "src/scene/colonizeRoots.ts",
+        "src/scene/network.ts",
+        "src/scene/myceliumBundles.ts",
+        "src/scene/rootCord.ts",
+        "src/scene/Mycelium.tsx"
+      ],
+      "revisionNote": "Pinned revision 34966a3cece4a1d6f69f26631db93ffec200f545. Adapted scope and changes recorded in CREDITS.md."
+    },
+    {
+      "name": "pmndrs/meshline",
+      "url": "https://github.com/pmndrs/meshline",
+      "license": "MIT",
+      "notice": "licenses/meshline.txt",
+      "source": [
+        "src/MeshLineMaterial.ts",
+        "src/MeshLineGeometry.ts"
+      ],
+      "destinations": [
+        "src/scene/myceliumStrip.ts",
+        "src/scene/Mycelium.tsx"
+      ],
+      "revisionNote": "Pinned revision 4df8778398e086628076267c67552c079d39be85. Floor-space adaptation and original lineage documented in CREDITS.md."
+    },
+    {
+      "name": "owenyuwono/dryad",
+      "url": "https://github.com/owenyuwono/dryad",
+      "license": "MIT",
+      "notice": "licenses/dryad.txt",
+      "source": [
+        "src/barkMaterial.js/barkHash",
+        "src/barkMaterial.js/barkNoise",
+        "src/barkMaterial.js/ridgeOctave",
+        "src/barkMaterial.js/barkWarpFBM",
+        "src/barkMaterial.js/ridgedFBM"
+      ],
+      "destinations": [
+        "src/scene/vendor/dryad-bark.glsl",
+        "src/scene/woodlandMaterial.ts"
+      ],
+      "revisionNote": "Pinned revision e85729b779708c50b7d65ddd34d524f42da88705. Four-octave antialiased ridge field adapted to Grove authored strand coordinates for trunk and deadwood. Scope and changes recorded in CREDITS.md."
+    },
+    {
+      "name": "cortiz2894/stylized-components",
+      "url": "https://github.com/cortiz2894/stylized-components",
+      "license": "MIT",
+      "notice": "licenses/stylized-components.txt",
+      "source": [
+        "src/components/grassField/materials/pineLeafMaterial.ts",
+        "src/components/grassField/shaders/pineLeaf.ts",
+        "src/components/grassField/materials/barkMaterial.ts"
+      ],
+      "destinations": [
+        "src/scene/foliageMaterial.ts",
+        "src/scene/woodlandMaterial.ts"
+      ],
+      "revisionNote": "Pinned revision 1cece0a296b29299d1380c34feb5c158b2f04500. Adapted smooth colour-patch noise, canopy gradient and local-space wind/pendulum mask. No demo assets or textures copied. See CREDITS.md. Bark luminance/desaturation adaptation is also used for pale deadwood."
     }
   ]
 }

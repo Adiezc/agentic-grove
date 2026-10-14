@@ -13,6 +13,103 @@ metadata, that is recorded rather than silently guessed.
 
 ## Code we use
 
+### pmndrs/meshline — MIT
+
+[MeshLine](https://github.com/pmndrs/meshline/tree/4df8778398e086628076267c67552c079d39be85), read 14 October 2026. Copyright (c) 2016 Jaume Sanchez.
+
+The previous/current/next direction averaging from `src/MeshLineMaterial.ts` and paired
+side/width strip layout from `src/MeshLineGeometry.ts` are adapted in
+`src/scene/myceliumStrip.ts`. Grove expands the floor wash on the ground plane with bounded
+miter joins. Fine cores also adapt the projected previous/next expansion in `src/scene/Mycelium.tsx`
+to keep ambient unowned hairs visible at shallow camera angles; the original journey coordinates are retained.
+Project connections use physical tapered cord bodies. Their finest surface veins also use
+the projected expansion at subpixel widths so the dense web remains visible at grazing angles.
+Dash rendering, raycasting and the memcpy helper are not copied.
+Credit follows the original spite/THREE.MeshLine work and pmndrs maintainers/contributors.
+The full [MIT notice](licenses/meshline.txt) is preserved and bundled.
+
+### leoawen/fluffytree-threejs — MIT
+
+[FluffyTree](https://github.com/leoawen/fluffytree-threejs/tree/f39d9526aadecdf4026de8853e7891736c5063b3), read 13 October 2026. Copyright (c) 2025 Leonardo Soares Gonçalves.
+
+The canopy material in `index.html/createCustomCanopyMaterial` is adapted in
+`src/scene/foliageMaterial.ts`: smooth canopy gradients and soft world-up normals.
+Grove retains its authored geometry and Standard materials, uses darker colours and
+blends the normals. The initial Ashima-noise wind was subsequently replaced by the
+Cortiz wind adaptation credited below. Wind is small and disabled with ambient motion
+or reduced motion. Demo assets, the GUI and
+embedded Perlin implementation are not copied. The full [MIT notice](licenses/fluffytree-threejs.txt) is retained.
+
+### jakobrichert/space-colonization — MIT
+
+[Space Colonization](https://github.com/jakobrichert/space-colonization/tree/34966a3cece4a1d6f69f26631db93ffec200f545), read 13 October 2026. The original notice reads Copyright (c) 2026 Jakob.
+
+The nearest-node association, averaged-direction growth, attraction-point removal and
+square-root leaf-count thickness from `src/tree.c` are ported to
+`src/scene/colonizeRoots.ts`. Grove supplies seeds along existing roots, bounds the growth
+to six small fans and uses a linear nearest search rather than the original spatial grid.
+`src/scene/network.ts` turns the result into joined woody/mycelial twigs with inherited
+project ownership. The raylib app is not included. The upstream method credits Adam Runions,
+Brendan Lane and Przemyslaw Prusinkiewicz. The full [MIT notice](licenses/space-colonization.txt) is retained.
+
+The same growth and thickness port now builds three-dimensional mycelial branches in
+`src/scene/myceliumBundles.ts`; `src/scene/rootCord.ts` and `Mycelium.tsx` construct lit tapered
+slender cord bodies with smooth green emission and luminous surface veins. The geometry approach follows
+[Modeling Trees with a Space Colonization Algorithm (2007)](https://algorithmicbotany.org/papers/colonization.egwnp2007.pdf),
+including its generalized-cylinder and pipe-model explanation. It is a stylized visual adaptation,
+not a biological simulation of fungi. No paper text, figures or assets are copied.
+Grove adds its own fork-and-rejoin fan layout, sparse luminous junctions and variable bundle
+width around the credited growth system. User-supplied images guide the appearance only.
+
+### ashima/webgl-noise — MIT
+
+[ashima/webgl-noise](https://github.com/ashima/webgl-noise/tree/6abed1e77ed1e18b181627c35f688eb30c9fe75e), read 13 October 2026.
+
+Ian McEwan and Ashima Arts authored the 3D simplex noise function, maintained by Stefan Gustavson.
+`src/noise3D.glsl` is preserved verbatim in `src/scene/vendor/ashima-noise3D.glsl`.
+Grove's woodland material uses it for fine grain and irregular moss coverage on the authored tree.
+The original header and full [MIT notice](licenses/ashima-webgl-noise.txt) are retained.
+
+### owenyuwono/dryad — MIT
+
+[Dryad](https://github.com/owenyuwono/dryad/tree/e85729b779708c50b7d65ddd34d524f42da88705),
+read 14 October 2026. Copyright (c) 2026 owenyuwono.
+
+`barkHash`, `barkNoise`, `ridgeOctave`, `barkWarpFBM` and `ridgedFBM` from
+`src/barkMaterial.js` are adapted in `src/scene/vendor/dryad-bark.glsl` and used by
+`woodlandMaterial.ts` for living trunk and pale deadwood grain. Grove reduces the
+ridge field to four antialiased octaves and samples authored strand angle/arc length,
+with separate deadwood weathering and living moss. Baked colours, geometry and
+heartbeat remain Grove's. No genome, skeletal wind, SDF renderer or demo assets
+are imported. The full [MIT notice](licenses/dryad.txt) is packaged with the app.
+
+### cortiz2894/stylized-components — MIT
+
+[Stylized Components](https://github.com/cortiz2894/stylized-components/tree/1cece0a296b29299d1380c34feb5c158b2f04500),
+read 14 October 2026. Copyright (c) 2026 Christian Ortiz (Cortiz).
+
+The smooth hash/noise colour patches and height gradient from
+`src/components/grassField/materials/pineLeafMaterial.ts`, plus the squared height
+mask, world-to-local wind rotation, sway/flutter and pendulum dip from
+`src/components/grassField/shaders/pineLeaf.ts`, are adapted in `foliageMaterial.ts`.
+Grove retains its authored broad leaves, original material colours, Standard lighting
+and reduced-motion controls, with restrained amplitudes and no external assets.
+The luminance/desaturation treatment from `materials/barkMaterial.ts` is also adapted
+in `woodlandMaterial.ts` to keep the deadwood pale as grain varies. The full
+[MIT notice](licenses/stylized-components.txt) is packaged with the app.
+
+### linusmossberg/reaction-diffusion — MIT
+
+[linusmossberg/reaction-diffusion](https://github.com/linusmossberg/reaction-diffusion/tree/f4a7ffbbae22648a67350dd8a10d96632ca8ed61), read 13 October 2026. Copyright (c) 2020 Linus Mossberg.
+
+The reaction, dissipation, diffusion weights and stable time step from
+`shaders/reaction-diffusion.glsl` are adapted to an offline JavaScript generator,
+`scripts/bake-woodland-mask.mjs`. Grove uses the isotropic case of its nine-point kernel,
+periodic edges and deterministic seed patches to bake `assets/materials/woodland-lichen.png`.
+The upstream shader cites the diffusion method by Andrew Witkin and Michael Kass.
+Grove does not copy the demo UI, external libraries or images, and runs no live simulation.
+The full [MIT notice](licenses/linus-mossberg-reaction-diffusion.txt) accompanies the adaptation.
+
 ### Station-Sciences/bot-crossing — MIT
 
 <https://github.com/Station-Sciences/bot-crossing> · Copyright (c) 2026 Jarren Rocks
