@@ -10,8 +10,8 @@ deadwood-colour.jpg, deadwood-normal.jpg
   "Rough Wood" by Rob Tuytel, Poly Haven
   https://polyhaven.com/a/rough_wood (1K JPG diffuse and OpenGL normal, unmodified)
 
-leaf-colour.jpg, leaf-opacity.jpg
-  "Leaf 001" by ambientCG (Lennart Demes)
-  https://ambientcg.com/view?id=Leaf001 (1K JPG colour and opacity, unmodified)
+juniper-colour.jpg, juniper-opacity.jpg, juniper-normal.jpg
+  "Leaf Set 019" by ambientCG (Lennart Demes)
+  https://ambientcg.com/view?id=LeafSet019 (1K JPG colour, opacity and OpenGL normal, unmodified)
 
 Downloaded 14 October 2026.

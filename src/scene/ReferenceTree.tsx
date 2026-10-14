@@ -87,13 +87,14 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
   const lichen = useTexture(new URL('../../assets/materials/woodland-lichen.png', import.meta.url).href)
   lichen.wrapS = lichen.wrapT = THREE.RepeatWrapping
   // Photographed bark and leaf (Poly Haven and ambientCG, CC0; see CREDITS.md).
-  const [livingBark, livingNormal, deadBark, deadNormal, leafColour, leafOpacity] = useTexture([
+  const [livingBark, livingNormal, deadBark, deadNormal, leafColour, leafOpacity, leafNormal] = useTexture([
     new URL('../../assets/materials/bark-living-colour.jpg', import.meta.url).href,
     new URL('../../assets/materials/bark-living-normal.jpg', import.meta.url).href,
     new URL('../../assets/materials/deadwood-colour.jpg', import.meta.url).href,
     new URL('../../assets/materials/deadwood-normal.jpg', import.meta.url).href,
-    new URL('../../assets/materials/leaf-colour.jpg', import.meta.url).href,
-    new URL('../../assets/materials/leaf-opacity.jpg', import.meta.url).href,
+    new URL('../../assets/materials/juniper-colour.jpg', import.meta.url).href,
+    new URL('../../assets/materials/juniper-opacity.jpg', import.meta.url).href,
+    new URL('../../assets/materials/juniper-normal.jpg', import.meta.url).href,
   ]) as THREE.Texture[]
   const bark = useMemo(() => {
     for (const texture of [livingBark!, livingNormal!, deadBark!, deadNormal!]) {
@@ -105,11 +106,11 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
   }, [livingBark, livingNormal, deadBark, deadNormal])
   const leaf = useMemo(() => {
     // glTF texture coordinates start at the top of the image.
-    leafColour!.flipY = leafOpacity!.flipY = false
+    leafColour!.flipY = leafOpacity!.flipY = leafNormal!.flipY = false
     leafColour!.colorSpace = THREE.SRGBColorSpace
-    leafColour!.needsUpdate = leafOpacity!.needsUpdate = true
-    return { colour: leafColour!, opacity: leafOpacity! }
-  }, [leafColour, leafOpacity])
+    leafColour!.needsUpdate = leafOpacity!.needsUpdate = leafNormal!.needsUpdate = true
+    return { colour: leafColour!, opacity: leafOpacity!, normal: leafNormal! }
+  }, [leafColour, leafOpacity, leafNormal])
   // A review-only baseline switch allows identical camera/light comparisons.
   const woodland = !new URLSearchParams(window.location.search).has('baselineWood')
   const foliageUniforms = useMemo(() => ({ time: { value: 0 }, wind: { value: 0 } }), [])

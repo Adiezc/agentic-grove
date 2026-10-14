@@ -162,17 +162,18 @@
       "source": [
         "polyhaven.com/a/chinese_cedar_bark",
         "polyhaven.com/a/rough_wood",
-        "ambientcg.com/view?id=Leaf001"
+        "ambientcg.com/view?id=LeafSet019"
       ],
       "destinations": [
         "assets/materials/bark-living-colour.jpg",
         "assets/materials/bark-living-normal.jpg",
         "assets/materials/deadwood-colour.jpg",
         "assets/materials/deadwood-normal.jpg",
-        "assets/materials/leaf-colour.jpg",
-        "assets/materials/leaf-opacity.jpg"
+        "assets/materials/juniper-colour.jpg",
+        "assets/materials/juniper-opacity.jpg",
+        "assets/materials/juniper-normal.jpg"
       ],
-      "revisionNote": "1K JPG maps downloaded 14 October 2026, unmodified. Used as brightness detail, normal maps and leaf cut-out in woodlandMaterial.ts and foliageMaterial.ts."
+      "revisionNote": "1K JPG maps downloaded 14 October 2026, unmodified. Used as brightness detail, normal maps and juniper spray cut-outs in woodlandMaterial.ts and foliageMaterial.ts."
     }
   ]
 }

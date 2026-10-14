@@ -1082,51 +1082,59 @@ FINE=join_parts(fine_parts,'WorldTree Rootlets')
 GLOW=join_parts(glow_parts,'WorldTree Continuous Channels')
 BRANCHES=join_parts(branch_parts,'WorldTree Canopy Branches')
 
-# Where the photographed leaf sits in its texture (ambientCG Leaf001, left of the pair): stalk
-# end to tip along v, and across its blade along u. Read off the 1K colour map.
-# Blender's v runs up the image. Measured from the opacity map: tip at v .895, stalk end .14.
-LEAF_UV = {"stalk": (.25, .16), "tip": (.262, .895), "half_width": .19}
+# Juniper foliage: ambientCG's "Leaf Set 019" (CC0), three photographed scale-leaf sprays on one
+# atlas. Each spray is drawn on a small folded card and cut to its outline by the atlas's opacity
+# in Grove (foliageMaterial.ts). Measured from the 1K opacity map, in Blender UVs (v runs up):
+# where each spray's stalk is cut, where its tip ends, and its half-width across the spine.
+JUNIPER_SPRAYS = [
+    {"stalk": (.70, .85), "tip": (.29, .83), "half_width": .11},
+    {"stalk": (.89, .645), "tip": (.08, .58), "half_width": .155},
+    {"stalk": (.93, .21), "tip": (.05, .145), "half_width": .17},
+]
 
 
-def leaf_uv(v, aspect):
-    """Texture coordinate for a leaf-local vertex: x runs stalk (-aspect) to tip (+aspect)."""
-    t = (v.x / aspect + 1) / 2
-    (su, sv), (tu, tv) = LEAF_UV["stalk"], LEAF_UV["tip"]
-    return (su + (tu - su) * t + v.y / .38 * LEAF_UV["half_width"], sv + (tv - sv) * t)
-
-
-def leaf_shape(lobes, lobe_depth, cup, aspect, steps=6):
-    verts = [Vector((0.0, -0.15, 0.0))]
-    for i in range(steps):
-        # Starts at 0 so a vertex lands on the tip and one on the stalk end, where the
-        # photographed leaf's outline (its alpha) puts them.
-        a = math.pi * 2.0 * i / steps
-        r = 1.0 + 0.035 * math.cos(lobes * (a + math.pi * 0.5))
-        x = math.cos(a) * r * aspect
-        y = math.sin(a) * r * .38
-        verts.append(Vector((x, y, -cup * (x * x + y * y * 0.4))))
-    faces = [[0, i + 1, (i + 1) % steps + 1] for i in range(steps)]
-    return verts, faces, [leaf_uv(v, aspect) for v in verts]
+def juniper_spray(spray, length, cup, droop):
+    """A spray card: stalk at the origin, tip at +x, folded along its spine so it has depth."""
+    (su, sv), (tu, tv) = spray["stalk"], spray["tip"]
+    du, dv = tu - su, tv - sv
+    span = math.hypot(du, dv)
+    nu, nv = -dv / span, du / span
+    half = length * spray["half_width"] / span
+    verts, uvs = [], []
+    for t in (0.0, .5, 1.0):
+        for side in (-1.0, 0.0, 1.0):
+            # The spine stands up and the edges fall away; the tip droops under its own weight.
+            verts.append(Vector((length * t, side * half * (.55 + .45 * t), cup * (1 - side * side) - droop * t * t)))
+            uvs.append((su + du * t + nu * side * spray["half_width"], sv + dv * t + nv * side * spray["half_width"]))
+    faces = []
+    for row in range(2):
+        for col in range(2):
+            a = row * 3 + col
+            faces.extend([[a, a + 1, a + 4], [a, a + 4, a + 3]])
+    return verts, faces, uvs
 
 
 def sprig_templates(count=16):
+    """Juniper tufts: four to six sprays fanning out and up from one point, like the dense
+    tufts a juniper bonsai carries at its twig ends."""
     out = []
     for _ in range(count):
         verts, faces, uvs = [], [], []
-        leaves = rng.randint(5, 8)
-        for k in range(leaves):
-            lv, lf, lu = leaf_shape(rng.choice((3, 5, 5, 7)), rng.uniform(0.22, 0.40),
-                                rng.uniform(0.10, 0.26), rng.uniform(0.95, 1.35))
-            spin = rng.uniform(0, math.tau) if k == 0 else (k / leaves) * math.tau + rng.uniform(-0.3, 0.3)
+        sprays = rng.randint(6, 8)
+        for k in range(sprays):
+            spray = JUNIPER_SPRAYS[rng.choice((0, 1, 1, 2, 2))]
+            sv, sf, su = juniper_spray(spray, rng.uniform(1.6, 2.3), rng.uniform(.06, .14), rng.uniform(.1, .28))
+            spin = (k / sprays) * math.tau + rng.uniform(-0.35, 0.35)
             mtx = (Matrix.Rotation(spin, 4, "Z")
-                   @ Matrix.Translation(Vector((rng.uniform(0.35, 0.95), 0.0, rng.uniform(-0.18, 0.18))))
-                   @ Matrix.Rotation(rng.uniform(0.15, 0.85), 4, "Y")
-                   @ Matrix.Rotation(rng.uniform(-0.4, 0.4), 4, "X")
-                   @ Matrix.Diagonal((0.55, 0.55, 0.55, 1.0)))
+                   @ Matrix.Translation(Vector((rng.uniform(0.0, 0.2), 0.0, rng.uniform(-0.1, 0.1))))
+                   # Raised from the pad's surface, so the tuft is a cushion rather than a flat star.
+                   @ Matrix.Rotation(-rng.uniform(0.25, 0.75), 4, "Y")
+                   @ Matrix.Rotation(rng.uniform(-0.6, 0.6), 4, "X")
+                   @ Matrix.Diagonal((0.62, 0.62, 0.62, 1.0)))
             base = len(verts)
-            verts.extend([mtx @ v for v in lv])
-            uvs.extend(lu)
-            faces.extend([[base + i for i in f] for f in lf])
+            verts.extend([mtx @ v for v in sv])
+            uvs.extend(su)
+            faces.extend([[base + i for i in f] for f in sf])
         out.append((verts, faces, uvs))
     return out
 
@@ -1141,7 +1149,7 @@ TEMPLATES = sprig_templates()
 # gaps between them and underneath. So each pad is now a set of flattened spheres, domed higher
 # in the middle, and the sprigs sit on the surface of each sphere facing outward. The bumps
 # are what make the pad read as a solid mass from the side.
-SPRIG_BUDGET = 5600        # total sprigs; the foliage cost scales with this, ~39 triangles each
+SPRIG_BUDGET = 6000        # total sprigs (juniper tufts); ~56 triangles each
 CLUMP_RADIUS = (.19, .31)  # metres
 CLUMP_SQUASH = .72         # clumps are wider than tall, like the reference
 PAD_DOME = .26             # how much higher the centre clumps sit than the rim ones

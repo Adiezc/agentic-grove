@@ -88,11 +88,11 @@ are imported. The full [MIT notice](licenses/dryad.txt) is packaged with the app
 Photographed textures in `assets/materials/`, downloaded 14 October 2026 and unmodified:
 [Chinese Cedar Bark](https://polyhaven.com/a/chinese_cedar_bark) by Charlotte Baglioni and
 [Rough Wood](https://polyhaven.com/a/rough_wood) by Rob Tuytel (Poly Haven), and
-[Leaf 001](https://ambientcg.com/view?id=Leaf001) by ambientCG (Lennart Demes). All are CC0, so
+[Leaf Set 019](https://ambientcg.com/view?id=LeafSet019), photographed juniper-like scale-leaf sprays, by ambientCG (Lennart Demes). All are CC0, so
 no credit is required; it is given anyway. `woodlandMaterial.ts` wraps the bark and deadwood
 round every strand along its carved grain and uses them as brightness detail and normal maps,
-keeping the baked palette; `foliageMaterial.ts` cuts each leaf to the photographed outline and
-takes its veins as brightness. Sources are listed in [licenses/cc0-textures.txt](licenses/cc0-textures.txt).
+keeping the baked palette; `foliageMaterial.ts` cuts each spray card to the photographed outline and
+takes its scale pattern as brightness and its normal map as lighting. Sources are listed in [licenses/cc0-textures.txt](licenses/cc0-textures.txt).
 
 ### dgreenheck/ez-tree — MIT
 
