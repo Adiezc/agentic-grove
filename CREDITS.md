@@ -83,6 +83,17 @@ with separate deadwood weathering and living moss. Baked colours, geometry and
 heartbeat remain Grove's. No genome, skeletal wind, SDF renderer or demo assets
 are imported. The full [MIT notice](licenses/dryad.txt) is packaged with the app.
 
+### Poly Haven and ambientCG — CC0
+
+Photographed textures in `assets/materials/`, downloaded 14 October 2026 and unmodified:
+[Chinese Cedar Bark](https://polyhaven.com/a/chinese_cedar_bark) by Charlotte Baglioni and
+[Rough Wood](https://polyhaven.com/a/rough_wood) by Rob Tuytel (Poly Haven), and
+[Leaf 001](https://ambientcg.com/view?id=Leaf001) by ambientCG (Lennart Demes). All are CC0, so
+no credit is required; it is given anyway. `woodlandMaterial.ts` wraps the bark and deadwood
+round every strand along its carved grain and uses them as brightness detail and normal maps,
+keeping the baked palette; `foliageMaterial.ts` cuts each leaf to the photographed outline and
+takes its veins as brightness. Sources are listed in [licenses/cc0-textures.txt](licenses/cc0-textures.txt).
+
 ### dgreenheck/ez-tree — MIT
 
 [EZ-Tree](https://github.com/dgreenheck/ez-tree/tree/dcf309bd86bd521083d9c70f01f2de45fdc7c457),
@@ -90,7 +101,7 @@ read 14 October 2026. Copyright (c) 2024 Daniel Greenheck.
 
 The branch-growth method in `src/lib/tree.js` (`#growBranch` and `generateChildBranches`)
 is ported to Python in `scripts/build-world-tree-blender.py` (`ez_limb`, `ez_children`,
-`pad_branches`) and grows the canopy boughs and twigs baked into the tree model. Each branch
+`pad_branches`) and grows the canopy boughs, their side branches and twigs baked into the tree model. Each branch
 walks in short sections, kinks by a random gnarliness that grows as it thins (1/sqrt of its
 radius) and turns toward a growth force by at most strength/radius; children sit in
 stratified, shuffled slots along and around their parent. Grove steers toward the authored

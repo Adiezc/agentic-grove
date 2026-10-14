@@ -12,6 +12,8 @@ export interface BarkVertex {
   glow: number
   island: number
   grain?: THREE.Vector3
+  /** Copies of the bark texture round the authored root, carried on so the texture continues. */
+  bark?: number
 }
 
 const islandCache = new WeakMap<THREE.BufferGeometry, Int32Array>()
@@ -70,7 +72,7 @@ export function weldedRoot(strand: Strand, boundary: BarkVertex[]): THREE.Buffer
   const initial = strand.curve.getTangentAt(0)
   const u = new THREE.Vector3().crossVectors(initial, new THREE.Vector3(0, 1, 0)).normalize()
   const v = new THREE.Vector3().crossVectors(initial, u).normalize()
-  const positions: number[] = [], colours: number[] = [], blends: number[] = [], glows: number[] = [], journeys: number[] = [], grains: number[] = [], uv: number[] = [], indices: number[] = []
+  const positions: number[] = [], colours: number[] = [], blends: number[] = [], glows: number[] = [], journeys: number[] = [], grains: number[] = [], barks: number[] = [], uv: number[] = [], indices: number[] = []
   const colour = boundary[0]?.colour ?? new THREE.Color('#6a5d49')
   const rotation = new THREE.Quaternion()
   for (let i = 0; i <= segments; i++) {
@@ -95,6 +97,7 @@ export function weldedRoot(strand: Strand, boundary: BarkVertex[]): THREE.Buffer
       glows.push(sample?.glow ?? 1.6)
       const along = sample?.grain?.y ?? 0
       grains.push(sample?.grain?.x ?? j / sides, along + distance * (along < 0.01 ? -1 : 1), sample?.grain?.z ?? 0)
+      barks.push(sample?.bark ?? 1)
       journeys.push(THREE.MathUtils.lerp(strand.from, strand.to, t))
       uv.push(j / sides, t)
       if (i < segments) {
@@ -110,6 +113,7 @@ export function weldedRoot(strand: Strand, boundary: BarkVertex[]): THREE.Buffer
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
   geometry.setAttribute('_grain', new THREE.Float32BufferAttribute(grains, 3))
   geometry.setAttribute('_glow', new THREE.Float32BufferAttribute(glows, 1))
+  geometry.setAttribute('_bark', new THREE.Float32BufferAttribute(barks, 1))
   geometry.setAttribute('rootBlend', new THREE.Float32BufferAttribute(blends, 1))
   geometry.setAttribute('rootJourney', new THREE.Float32BufferAttribute(journeys, 1))
   geometry.computeVertexNormals()

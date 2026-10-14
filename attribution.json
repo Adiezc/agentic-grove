@@ -153,6 +153,26 @@
         "assets/models/world-tree-blender.glb"
       ],
       "revisionNote": "Pinned revision dcf309bd86bd521083d9c70f01f2de45fdc7c457. Section-walk gnarliness (scaled by 1/sqrt(radius)), radius-limited growth force and stratified, shuffled child placement ported to Python for the canopy boughs and twigs, steered toward authored foliage pads. Scope and changes recorded in CREDITS.md."
+    },
+    {
+      "name": "Poly Haven and ambientCG textures",
+      "url": "https://polyhaven.com",
+      "license": "CC0-1.0",
+      "notice": "licenses/cc0-textures.txt",
+      "source": [
+        "polyhaven.com/a/chinese_cedar_bark",
+        "polyhaven.com/a/rough_wood",
+        "ambientcg.com/view?id=Leaf001"
+      ],
+      "destinations": [
+        "assets/materials/bark-living-colour.jpg",
+        "assets/materials/bark-living-normal.jpg",
+        "assets/materials/deadwood-colour.jpg",
+        "assets/materials/deadwood-normal.jpg",
+        "assets/materials/leaf-colour.jpg",
+        "assets/materials/leaf-opacity.jpg"
+      ],
+      "revisionNote": "1K JPG maps downloaded 14 October 2026, unmodified. Used as brightness detail, normal maps and leaf cut-out in woodlandMaterial.ts and foliageMaterial.ts."
     }
   ]
 }

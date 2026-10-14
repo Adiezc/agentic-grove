@@ -86,6 +86,30 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
   const { scene: sourceTree } = useGLTF(modelUrl, false, false)
   const lichen = useTexture(new URL('../../assets/materials/woodland-lichen.png', import.meta.url).href)
   lichen.wrapS = lichen.wrapT = THREE.RepeatWrapping
+  // Photographed bark and leaf (Poly Haven and ambientCG, CC0; see CREDITS.md).
+  const [livingBark, livingNormal, deadBark, deadNormal, leafColour, leafOpacity] = useTexture([
+    new URL('../../assets/materials/bark-living-colour.jpg', import.meta.url).href,
+    new URL('../../assets/materials/bark-living-normal.jpg', import.meta.url).href,
+    new URL('../../assets/materials/deadwood-colour.jpg', import.meta.url).href,
+    new URL('../../assets/materials/deadwood-normal.jpg', import.meta.url).href,
+    new URL('../../assets/materials/leaf-colour.jpg', import.meta.url).href,
+    new URL('../../assets/materials/leaf-opacity.jpg', import.meta.url).href,
+  ]) as THREE.Texture[]
+  const bark = useMemo(() => {
+    for (const texture of [livingBark!, livingNormal!, deadBark!, deadNormal!]) {
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+      texture.anisotropy = 8
+    }
+    livingBark!.colorSpace = deadBark!.colorSpace = THREE.SRGBColorSpace
+    return { living: livingBark!, livingNormal: livingNormal!, dead: deadBark!, deadNormal: deadNormal! }
+  }, [livingBark, livingNormal, deadBark, deadNormal])
+  const leaf = useMemo(() => {
+    // glTF texture coordinates start at the top of the image.
+    leafColour!.flipY = leafOpacity!.flipY = false
+    leafColour!.colorSpace = THREE.SRGBColorSpace
+    leafColour!.needsUpdate = leafOpacity!.needsUpdate = true
+    return { colour: leafColour!, opacity: leafOpacity! }
+  }, [leafColour, leafOpacity])
   // A review-only baseline switch allows identical camera/light comparisons.
   const woodland = !new URLSearchParams(window.location.search).has('baselineWood')
   const foliageUniforms = useMemo(() => ({ time: { value: 0 }, wind: { value: 0 } }), [])
@@ -111,13 +135,13 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
         } else if (material.name.includes('Leaf')) {
           material.side = THREE.DoubleSide
           material.emissive.copy(material.color)
-          if (woodland) addFoliageSurface(material, foliageUniforms)
+          if (woodland) addFoliageSurface(material, foliageUniforms, leaf)
           foliageMaterials.push(material)
         } else {
           // A small ambient floor keeps the baked grain visible without flattening its shadows.
           material.emissive.set('#11180f')
           if (object.geometry.hasAttribute('_glow')) addBarkGlow(material, barkGlow, barkGlowColour, hyphaTip)
-          if (woodland && material.name.includes('Bark')) addWoodlandSurface(material, lichen)
+          if (woodland && material.name.includes('Bark')) addWoodlandSurface(material, lichen, bark)
           woodMaterials.push(material)
         }
       }
@@ -140,6 +164,7 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
       const normals = object.geometry.getAttribute('normal')
       const glow = object.geometry.getAttribute('_glow')
       const grain = object.geometry.getAttribute('_grain')
+      const repeats = object.geometry.getAttribute('_bark')
       const normalMatrix = new THREE.Matrix3().getNormalMatrix(object.matrixWorld)
       if (!colours) return
       for (let i = 0; i < positions.count; i++) {
@@ -149,12 +174,13 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
         barkSamples.push({ at, island: islands[i]!, colour: new THREE.Color().fromBufferAttribute(colours, i),
           normal: new THREE.Vector3().fromBufferAttribute(normals, i).applyNormalMatrix(normalMatrix).applyAxisAngle(new THREE.Vector3(0, 1, 0), TREE_YAW),
           glow: glow?.getX(i) ?? ROOT_TIP_GLOW,
-          grain: grain ? new THREE.Vector3().fromBufferAttribute(grain, i) : undefined })
+          grain: grain ? new THREE.Vector3().fromBufferAttribute(grain, i) : undefined,
+          bark: repeats?.getX(i) })
       }
     })
     const veinColours = energyMaterials.map((material) => material.emissive.clone())
-    return { tree: clone, energyMaterials, foliageMaterials, woodMaterials, barkGlow, barkGlowColour, hyphaTip, veinColours, barkSamples }
-  }, [sourceTree, lichen, woodland, foliageUniforms])
+    return { tree: clone, energyMaterials, foliageMaterials, woodMaterials, barkGlow, barkGlowColour, hyphaTip, veinColours, barkSamples, bark }
+  }, [sourceTree, lichen, woodland, foliageUniforms, bark, leaf])
 
   useEffect(() => () => {
     for (const material of [...model.energyMaterials, ...model.foliageMaterials, ...model.woodMaterials]) {
@@ -186,7 +212,7 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
       const material = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true,
         roughness: 0.78, emissive: '#11180f', emissiveIntensity: 0.15 })
       addBarkGlow(material, model.barkGlow, model.barkGlowColour, model.hyphaTip)
-      if (woodland) addWoodlandSurface(material, lichen)
+      if (woodland) addWoodlandSurface(material, lichen, model.bark)
       const previous = material.onBeforeCompile, key = material.customProgramCacheKey()
       material.onBeforeCompile = (shader, renderer) => {
         previous.call(material, shader, renderer)

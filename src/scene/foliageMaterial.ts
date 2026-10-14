@@ -21,11 +21,28 @@ export interface FoliageUniforms {
   wind: { value: number }
 }
 
-export function addFoliageSurface(material: THREE.MeshStandardMaterial, uniforms: FoliageUniforms) {
+/**
+ * ambientCG's "Leaf001" (CC0): its opacity cuts each leaf to the photographed outline, and its
+ * colour supplies veins and edge shading as brightness around 1, so the canopy keeps Grove's own
+ * three leaf greens. The model's leaf UVs point at the left leaf of the pair.
+ */
+export interface LeafTextures {
+  colour: THREE.Texture
+  opacity: THREE.Texture
+}
+
+/** Mean linear brightness of the photographed leaf, measured over its opaque pixels. */
+const LEAF_MEAN_LUMA = 0.211
+
+export function addFoliageSurface(material: THREE.MeshStandardMaterial, uniforms: FoliageUniforms, leaf: LeafTextures) {
   material.roughness = 0.88
+  // Standard alpha cut-out; three's alpha map reads the green channel of the opacity image.
+  material.alphaMap = leaf.opacity
+  material.alphaTest = 0.42
   material.onBeforeCompile = (shader) => {
     shader.uniforms.foliageTime = uniforms.time
     shader.uniforms.foliageWind = uniforms.wind
+    shader.uniforms.leafColour = { value: leaf.colour }
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
 varying vec3 vFoliagePosition;
@@ -53,6 +70,7 @@ vFoliageWorld = leafWorld;
       .replace('#include <common>', `#include <common>
 varying vec3 vFoliagePosition;
 varying vec3 vFoliageWorld;
+uniform sampler2D leafColour;
       float _lfHash(vec3 p) {
         p = fract( p * vec3( 127.1, 311.7, 74.7 ) );
         p += dot( p, p.yzx + 19.19 );
@@ -79,6 +97,9 @@ vec3 leaf = diffuseColor.rgb * mix(canopyShadow, canopyLit, canopyGradient);
 float leafPatch = _lfNoise(vFoliageWorld * 2.2) - 0.5;
 leaf += (leaf * vec3(1.35, 1.16, 0.72) - leaf) * leafPatch * 1.3;
 diffuseColor.rgb = max(leaf, vec3(0.0));
+// Veins and the paler margin of the photographed leaf, as brightness only.
+float leafLuma = dot(texture2D(leafColour, vAlphaMapUv).rgb, vec3(0.2126, 0.7152, 0.0722));
+diffuseColor.rgb *= clamp(mix(1.0, leafLuma / ${LEAF_MEAN_LUMA}, 0.75), 0.4, 1.6);
 `)
       .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
 // Blend FluffyTree's world-up foliage normals with the authored leaf normals.
@@ -86,5 +107,5 @@ vec3 foliageUp = normalize(mat3(viewMatrix) * vec3(0.0, 1.0, 0.0));
 normal = normalize(mix(normal, foliageUp, 0.22));
 `)
   }
-  material.customProgramCacheKey = () => 'grove-fluffytree-cortiz-v2'
+  material.customProgramCacheKey = () => 'grove-fluffytree-cortiz-leaf-v1'
 }

@@ -1,0 +1,17 @@
+Photographed textures in assets/materials/, all dedicated to the public domain under
+Creative Commons CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/).
+No attribution is required; Agentic Grove credits the authors anyway.
+
+bark-living-colour.jpg, bark-living-normal.jpg
+  "Chinese Cedar Bark" by Charlotte Baglioni, Poly Haven
+  https://polyhaven.com/a/chinese_cedar_bark (1K JPG diffuse and OpenGL normal, unmodified)
+
+deadwood-colour.jpg, deadwood-normal.jpg
+  "Rough Wood" by Rob Tuytel, Poly Haven
+  https://polyhaven.com/a/rough_wood (1K JPG diffuse and OpenGL normal, unmodified)
+
+leaf-colour.jpg, leaf-opacity.jpg
+  "Leaf 001" by ambientCG (Lennart Demes)
+  https://ambientcg.com/view?id=Leaf001 (1K JPG colour and opacity, unmodified)
+
+Downloaded 14 October 2026.
