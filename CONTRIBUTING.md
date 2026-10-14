@@ -33,6 +33,27 @@ Windows too; they are the quickest way to see what breaks. Please keep these rul
 
 A Linux version is welcome too, and is probably smaller, since most of the Mac code carries over.
 
+## Also wanted: running the Grove offline, on local models
+
+**We welcome work that lets the Grove run fully offline**, on models people run on their own
+machines (Ollama, LM Studio, llama.cpp, MLX and the like), for anyone who would rather not send
+their work to a cloud provider. Today the Grove watches and starts Claude Code and Codex, which
+need an account and a network connection. A local setup would let PM, Researcher and Builder
+work with no account and nothing leaving the machine.
+
+What it involves, as far as we know it:
+
+| Area | Where | What is needed |
+| --- | --- | --- |
+| Seeing local runs | `core/harnesses/` | An adapter that reports sessions from a local agent tool, following the contract in that folder's README. |
+| Starting local runs | `core/spawn/` | A launcher for a local agent runner. Passing a local model's name to Claude Code or Codex is not enough: it needs a runner that actually talks to the local model. |
+| Usage | `core/usage/` | Local models have no rate limits. The crystal and provider marks should say so plainly instead of showing a number. |
+| Setup | `core/setup.ts`, `core/readiness.ts` | Detect a running local model server and offer it in the first-launch walkthrough and Settings. |
+
+Open an issue first so we can agree on which local tool to start with. The usual rules apply, and
+matter even more here: no telemetry, no network calls the user did not ask for, read-only towards
+other tools, and never invent a number.
+
 ## Also wanted: ideas from Odysseus
 
 These came from reading [Odysseus](https://github.com/odysseus-dev/odysseus), the self-hosted AI
