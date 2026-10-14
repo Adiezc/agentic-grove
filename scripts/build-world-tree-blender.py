@@ -313,6 +313,12 @@ def curve_grain(obj):
     points = np.empty(count * 3); obj.data.vertices.foreach_get('co', points)
     points = points.reshape(-1, 3)
     nearest = np.argmin(((points[:, None, :] - path[None, :, :]) ** 2).sum(-1), axis=1)
+    # A thin branch fits only one copy of the bark round it, a few centimetres wide, while copies
+    # along it stay BARK_TILE long: the photograph was squeezed sideways and stretched lengthways
+    # into stripes that repeat visibly down every twig. Shorten the copies along the branch to
+    # match, so each one stays roughly square.
+    repeats = bark_repeats(max(rad))
+    stretch = min(8.0, max(1.0, BARK_TILE * repeats / (math.tau * max(max(rad), 1e-4))))
     grains = []
     for p, k in zip(points, nearest):
         tangent = Vector(path[min(k + 1, len(path) - 1)] - path[max(k - 1, 0)]).normalized()
@@ -320,9 +326,9 @@ def curve_grain(obj):
         if u.length < .05: u = tangent.cross(Vector((1, 0, 0)))
         u.normalize(); w = tangent.cross(u)
         d = Vector(p) - Vector(path[k])
-        grains.extend(((math.atan2(d.dot(w), d.dot(u)) / math.tau) % 1.0, along[k] + d.dot(tangent), 0.0))
+        grains.extend(((math.atan2(d.dot(w), d.dot(u)) / math.tau) % 1.0, (along[k] + d.dot(tangent)) * stretch, 0.0))
     obj.data.attributes.new('_grain', 'FLOAT_VECTOR', 'POINT').data.foreach_set('vector', grains)
-    obj.data.attributes.new('_bark', 'FLOAT', 'POINT').data.foreach_set('value', [bark_repeats(max(rad))] * count)
+    obj.data.attributes.new('_bark', 'FLOAT', 'POINT').data.foreach_set('value', [repeats] * count)
 
 
 def jitter(points, amount, freq=1.0, offset=0.0, taper_ends=True):
@@ -452,12 +458,14 @@ MAT_DEAD = wood_material(
     pale=(0.93, 0.91, 0.84), mid=(0.62, 0.59, 0.50), crevice=(0.09, 0.075, 0.05),
     roughness=0.68, cavity_strength=0.38, spec=0.24, tone_offset=0.82,
 )
-# Canopy branches are thin and dark in the reference, mostly hidden in the leaves. Sharing the
-# trunk material made them read as pale horns sticking out of the pads.
+# Canopy branches are the trunk's own wood: in the reference the limbs carry the same grey-taupe
+# bark out into the pads, a shade darker where the leaves shade them. The earlier dark brown read
+# as a different plant grafted on; it only had to be dark while the branches were thin pale
+# horns, which they no longer are.
 MAT_BRANCH = wood_material(
     "WT Branch Wood",
-    pale=(0.26, 0.20, 0.13), mid=(0.07, 0.05, 0.03), crevice=(0.015, 0.010, 0.006),
-    roughness=0.65, cavity_strength=0.8,
+    pale=(0.50, 0.43, 0.31), mid=(0.10, 0.068, 0.036), crevice=(0.016, 0.010, 0.005),
+    roughness=0.62, cavity_strength=0.88,
 )
 MAT_GLOW = glow_material("WT Heart Glow", (0.110, 1.000, 0.290), 46.0)
 MAT_GLOW_SOFT = glow_material("WT Root Glow", (0.005, 0.980, 0.100), 5.0)
@@ -910,7 +918,9 @@ def ez_limb(start, target, radius, tip_radius, sections, gnarliness, strength, l
     at = start.copy()
     for i in range(1, sections + 1):
         t = i / sections
-        r = radius + (tip_radius - radius) * t
+        # Thick for its first stretch, then thinning fast: a limb that thins evenly reads as a
+        # stick, and the reference's boughs are heavy where they leave the trunk.
+        r = tip_radius + (radius - tip_radius) * (1 - t) ** 1.6
         at = at + heading * step
         points.append(at.copy()); radii.append(r)
         # EZ-Tree's gnarliness: a random kink, larger as the branch thins.
@@ -967,14 +977,29 @@ def pad_branches(attach, c, rx, ry, bough_radius, twig_count, local):
     and each of those divides again into short twigs. The foliage is grown on the twig ends
     (`PAD_TIPS`), so every cushion of leaves sits on wood that leads back to the trunk, instead of
     a cloud with a fan of spokes hidden under it. Returns the twig tips."""
+    # Boughs that shared one attach point left the trunk as a fan of spokes. Spread them down the
+    # trunk a little, and start each one inside the wood so the joint is buried.
+    # Only downward: the topmost boughs already leave the trunk's crown, and lifting them put
+    # their cut ends in the air above it.
+    z = attach.z + local.uniform(-.2, .02)
+    centre = axis_at(z)
+    attach = Vector((attach.x, attach.y, z)).lerp(Vector((centre.x, centre.y, z)), .3)
     out = Vector((c.x - attach.x, c.y - attach.y, 0))
     out = out.normalized() if out.length > 1e-4 else Vector((1, 0, 0))
     far = c + out * rx * .2 - Vector((0, 0, .1))
     sections = max(6, int((far - attach).length / .09))
     # Leave the trunk slightly downward, as the authored boughs did, before rising to the pad.
     initial = (far - attach).normalized() - Vector((0, 0, .35))
-    pts, rr = ez_limb(attach, far, bough_radius, .008, sections, .075, .03, local, initial)
-    branch_parts.append(make_curve('Supporting bough', pts, rr, MAT_BRANCH, samples=max(30, sections * 6), res_v=3))
+    pts, rr = ez_limb(attach, far, bough_radius, .018, sections, .075, .03, local, initial)
+    # The reference's limbs snake like the trunk does: one slow S sideways along their length.
+    # EZ-Tree's kinks alone give a wandering but basically straight line.
+    side = Vector((-out.y, out.x, 0)) * local.choice((-1, 1))
+    span = (far - attach).length
+    for k in range(len(pts)):
+        t = k / (len(pts) - 1)
+        pts[k] = pts[k] + side * span * .09 * math.sin(math.tau * t) * math.sin(math.pi * t) ** .5 \
+            + Vector((0, 0, span * .05 * math.sin(math.pi * t)))
+    branch_parts.append(make_curve('Supporting bough', pts, rr, MAT_BRANCH, samples=max(30, sections * 6), res_v=4))
 
     def inside(p):
         # Keep twig tips within the pad's footprint and below its top, so none show through.
@@ -1021,7 +1046,7 @@ for i,(x,z,width,height,y) in enumerate(pad_specs):
     # Twigs spread from just under the pad's own centre and stop well inside its rim, so they
     # sit hidden in the underside. Starting them back along the bough made a fan of parallel
     # sticks hanging out below the foliage.
-    PAD_TIPS.append(pad_branches(attach, c, rx, ry, .05, 9, _branches))
+    PAD_TIPS.append(pad_branches(attach, c, rx, ry, .085, 9, _branches))
 
 # Pads all round the trunk. The traced tiers all hang to one side, which is right from the
 # front and wrong from anywhere else: turn the tree and the canopy vanished behind the trunk.
@@ -1053,7 +1078,7 @@ for attach_px, direction, distance, lift, rx in extra_pads:
     c=attach+direction*distance+Vector((0,0,lift))
     ry=rx*PAD_DEPTH_RATIO
     PADS.append((c,rx,ry,.1,.72))
-    PAD_TIPS.append(pad_branches(attach, c, rx, ry, .055, 7, _branches))
+    PAD_TIPS.append(pad_branches(attach, c, rx, ry, .075, 7, _branches))
 
 # A solid core of wood up the inside of the braid. The strands wander apart as they twist, and
 # the gaps between them used to show a glowing core as flat green panels. Filling them with wood
@@ -1192,7 +1217,7 @@ for (c, rx, ry, th, dens), tips in zip(PADS, PAD_TIPS):
     pad_sets.append(pad_clumps(c, rx, ry, tips))
 surface = sum(r * r * (.35 + .65 * height) for clumps in pad_sets for _, r, height in clumps)
 
-all_v, all_f, all_m, all_uv = [], [], [], []
+all_v, all_f, all_m, all_uv, all_shade = [], [], [], [], []
 for clumps in pad_sets:
     for centre, radius, height in clumps:
         n = max(3, int(SPRIG_BUDGET * radius * radius * (.35 + .65 * height) / surface))
@@ -1221,6 +1246,13 @@ for clumps in pad_sets:
             # under or sits in the underside layer. That split is what draws each bump.
             light = .6 * nz + .5 * height + rng.uniform(-.18, .18)
             mi = 2 if light > .78 else (1 if light > .32 else 0)
+            # The same split as a smooth value for Grove (`_shade`, 0 deep inside to 1 sunlit top).
+            # Three material steps were all the light the pads had, and Grove's lights are too few
+            # and too soft to draw the clumps on their own, so every pad came out one flat green.
+            # Falls off fast down each clump's side, so the clumps read as separate rounded bumps
+            # even from above, where the dark underside layer cannot be seen.
+            shade = min(1.0, max(0.0, .03 + .52 * max(0.0, nz) ** .7 + .45 * height + rng.uniform(-.08, .08)))
+            all_shade.extend([shade] * len(verts))
             for f in faces:
                 all_f.append([base + k for k in f])
                 all_m.append(mi)
@@ -1238,6 +1270,7 @@ for polygon in leaf_mesh.polygons:
 _leaf_uv = leaf_mesh.uv_layers.new(name="UVMap")
 for loop in leaf_mesh.loops:
     _leaf_uv.data[loop.index].uv = all_uv[loop.vertex_index]
+leaf_mesh.attributes.new('_shade', 'FLOAT', 'POINT').data.foreach_set('value', all_shade)
 FOLIAGE = link(bpy.data.objects.new("WorldTree Foliage", leaf_mesh))
 
 # ---- floor -------------------------------------------------------------------------
