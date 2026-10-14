@@ -1141,11 +1141,12 @@ def juniper_spray(spray, length, cup, droop):
 
 def sprig_templates(count=16):
     """Juniper tufts: four to six sprays fanning out and up from one point, like the dense
-    tufts a juniper bonsai carries at its twig ends."""
+    tufts a juniper bonsai carries at its twig ends. Five to seven, not six to eight: the pads now
+    use more than twice as many, smaller tufts, and fewer sprays each keeps the triangle count in hand."""
     out = []
     for _ in range(count):
         verts, faces, uvs = [], [], []
-        sprays = rng.randint(6, 8)
+        sprays = rng.randint(5, 7)
         for k in range(sprays):
             spray = JUNIPER_SPRAYS[rng.choice((0, 1, 1, 2, 2))]
             sv, sf, su = juniper_spray(spray, rng.uniform(1.6, 2.3), rng.uniform(.06, .14), rng.uniform(.1, .28))
@@ -1174,7 +1175,9 @@ TEMPLATES = sprig_templates()
 # gaps between them and underneath. So each pad is now a set of flattened spheres, domed higher
 # in the middle, and the sprigs sit on the surface of each sphere facing outward. The bumps
 # are what make the pad read as a solid mass from the side.
-SPRIG_BUDGET = 6000        # total sprigs (juniper tufts); ~56 triangles each
+# Many small tufts rather than a few big ones: at the old size a single spray was a hand's
+# width across a pad, and up close the pads read as broad leaves instead of fine juniper.
+SPRIG_BUDGET = 14500       # total sprigs (juniper tufts); ~48 triangles each
 CLUMP_RADIUS = (.19, .31)  # metres
 CLUMP_SQUASH = .72         # clumps are wider than tall, like the reference
 PAD_DOME = .26             # how much higher the centre clumps sit than the rim ones
@@ -1232,7 +1235,7 @@ for clumps in pad_sets:
             offset.z *= CLUMP_SQUASH
             p = centre + offset
             p += noise.noise_vector(p * 3.1) * .025
-            s = rng.uniform(.050, .080)
+            s = rng.uniform(.037, .058)
             orient = normal.to_track_quat("Z", "Y").to_matrix().to_4x4()
             mtx = (Matrix.Translation(p) @ orient
                    @ Matrix.Rotation(rng.uniform(0, math.tau), 4, "Z")
