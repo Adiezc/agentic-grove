@@ -1,15 +1,16 @@
-import { useGLTF } from '@react-three/drei'
+import { useGLTF, useTexture } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { palette } from '../theme/palette'
-import { mergeAll, taperedTube } from './geometry'
+import { mergeAll } from './geometry'
 import { heartbeatFrame } from './heartbeat'
 import type { Network } from './network'
-import { DAIS_INNER_TOP, TREE_YAW } from './stage'
-
-/** How far the wood carries on along the network past each root tip, in grove units. */
-const ROOT_CONTINUATION = 0.55
+import { DAIS_INNER_TOP, TREE_YAW, TREE_SCALE } from './stage'
+import { addWoodlandSurface } from './woodlandMaterial'
+import { addFoliageSurface } from './foliageMaterial'
+import { rootBoundary, weldedRoot, barkIslands, type BarkVertex } from './rootWeld'
+import type { MyceliumSignal } from './myceliumFlow'
 
 /** `_glow` at a root tip in the model. Must match ROOT_TIP_GLOW in the Blender build script. */
 const ROOT_TIP_GLOW = 1.6
@@ -17,18 +18,10 @@ const ROOT_TIP_GLOW = 1.6
 interface ReferenceTreeProps {
   activity: number
   animate: boolean
+  foliageMotion?: boolean
   attention: boolean
   network: Network
-}
-
-function sampleStart(curve: THREE.CatmullRomCurve3, portion: number, lift = 0) {
-  return new THREE.CatmullRomCurve3(
-    Array.from({ length: 21 }, (_, index) => {
-      const point = curve.getPointAt((index / 20) * portion).clone()
-      point.y += lift
-      return point
-    })
-  )
+  signals: React.RefObject<Map<string | null, MyceliumSignal>>
 }
 
 /**
@@ -70,14 +63,19 @@ function addBarkGlow(
  * The concept tree, kept still, with live roots grown from the exact same curves as Mycelium.
  *
  * The Blender GLB follows the four reference plates and carries baked bark vertex colours.
- * Its roots overlap the first sections of the live network, so physical wood narrows into a
+ * Its exact root boundaries continue into the live network, so physical wood narrows into a
  * luminous mycelial strand rather than stopping at the edge of the model.
  */
-export function ReferenceTree({ activity, attention, animate, network }: ReferenceTreeProps) {
+export function ReferenceTree({ activity, attention, animate, foliageMotion = false, network, signals }: ReferenceTreeProps) {
   const modelUrl = new URL('../../assets/models/world-tree-blender.glb', import.meta.url).href
   // No Draco and no meshopt: the model uses neither, and the meshopt decoder is WebAssembly that
   // the page's security policy (`electron/page-rules.ts`) rightly refuses to compile.
   const { scene: sourceTree } = useGLTF(modelUrl, false, false)
+  const lichen = useTexture(new URL('../../assets/materials/woodland-lichen.png', import.meta.url).href)
+  lichen.wrapS = lichen.wrapT = THREE.RepeatWrapping
+  // A review-only baseline switch allows identical camera/light comparisons.
+  const woodland = !new URLSearchParams(window.location.search).has('baselineWood')
+  const foliageUniforms = useMemo(() => ({ time: { value: 0 }, wind: { value: 0 } }), [])
   const model = useMemo(() => {
     const clone = sourceTree.clone(true)
     const energyMaterials: THREE.MeshStandardMaterial[] = []
@@ -99,11 +97,13 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
         } else if (material.name.includes('Leaf')) {
           material.side = THREE.DoubleSide
           material.emissive.copy(material.color)
+          if (woodland) addFoliageSurface(material, foliageUniforms)
           foliageMaterials.push(material)
         } else {
           // A small ambient floor keeps the baked grain visible without flattening its shadows.
           material.emissive.set('#11180f')
           if (object.geometry.hasAttribute('_glow')) addBarkGlow(material, barkGlow, barkGlowColour)
+          if (woodland && material.name.includes('Bark')) addWoodlandSurface(material, lichen)
           woodMaterials.push(material)
         }
       }
@@ -113,11 +113,34 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
     // little below the floor on purpose, so their ends never show. The Blender build uses the same
     // rule for the root tips it writes out.
     const bounds = new THREE.Box3().setFromObject(clone)
-    const scale = 4.25 / bounds.getSize(new THREE.Vector3()).y
+    const scale = 4.25 * TREE_SCALE / bounds.getSize(new THREE.Vector3()).y
     clone.scale.setScalar(scale)
+    clone.updateMatrixWorld(true)
+    const barkSamples: BarkVertex[] = []
+    clone.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return
+      if (!object.name.includes('Carved_Anatomy')) return
+      const islands = barkIslands(object.geometry)
+      const positions = object.geometry.getAttribute('position')
+      const colours = object.geometry.getAttribute('color')
+      const normals = object.geometry.getAttribute('normal')
+      const glow = object.geometry.getAttribute('_glow')
+      const grain = object.geometry.getAttribute('_grain')
+      const normalMatrix = new THREE.Matrix3().getNormalMatrix(object.matrixWorld)
+      if (!colours) return
+      for (let i = 0; i < positions.count; i++) {
+        const at = new THREE.Vector3().fromBufferAttribute(positions, i).applyMatrix4(object.matrixWorld)
+        if (at.y > 0.12) continue
+        at.applyAxisAngle(new THREE.Vector3(0, 1, 0), TREE_YAW)
+        barkSamples.push({ at, island: islands[i]!, colour: new THREE.Color().fromBufferAttribute(colours, i),
+          normal: new THREE.Vector3().fromBufferAttribute(normals, i).applyNormalMatrix(normalMatrix).applyAxisAngle(new THREE.Vector3(0, 1, 0), TREE_YAW),
+          glow: glow?.getX(i) ?? ROOT_TIP_GLOW,
+          grain: grain ? new THREE.Vector3().fromBufferAttribute(grain, i) : undefined })
+      }
+    })
     const veinColours = energyMaterials.map((material) => material.emissive.clone())
-    return { tree: clone, energyMaterials, foliageMaterials, woodMaterials, barkGlow, barkGlowColour, veinColours }
-  }, [sourceTree])
+    return { tree: clone, energyMaterials, foliageMaterials, woodMaterials, barkGlow, barkGlowColour, veinColours, barkSamples }
+  }, [sourceTree, lichen, woodland, foliageUniforms])
 
   useEffect(() => () => {
     for (const material of [...model.energyMaterials, ...model.foliageMaterials, ...model.woodMaterials]) {
@@ -131,74 +154,49 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
     [network]
   )
 
-  /*
-   * The wood carried on past each root tip.
-   *
-   * It starts at exactly the model's tip radius, on exactly the tip, heading the same way — the
-   * network is grown from those tips — and thins to nothing over the next half metre. So a root
-   * narrows into a line of light instead of stopping beside one. The light core running inside it
-   * comes out of the wood as the wood runs out, which is what the concept art shows.
-   */
-  const rootWood = useMemo(
-    () =>
-      mergeAll(
-        rootBorn.map((strand) => {
-          const portion = Math.min(1, ROOT_CONTINUATION / strand.curve.getLength())
-          const curve = sampleStart(strand.curve, portion, -DAIS_INNER_TOP)
-          const start = strand.rootRadius ?? 0.012
-          const tube = taperedTube(curve, (t) => start * (1 - t) ** 1.25 + 0.0008, 28, 7)
-          // The same `_glow` the model's root ends carry, rising along the stretch, so the
-          // bark shader lights this wood exactly as bright as the root it continues, and
-          // brighter as it thins into the mycelium core.
-          const uv = tube.getAttribute('uv') as THREE.BufferAttribute
-          const glow = new Float32Array(uv.count)
-          for (let i = 0; i < uv.count; i++) glow[i] = ROOT_TIP_GLOW + uv.getY(i) * 1.4
-          tube.setAttribute('_glow', new THREE.BufferAttribute(glow, 1))
-          return tube
-        })
-      ),
-    [rootBorn]
-  )
-
-  /* A brighter vein along the same stretch, sitting on top of the wood, so the light is seen to
-   * run out of the root rather than starting where the wood ends. */
-  const rootLight = useMemo(
-    () =>
-      mergeAll(
-        rootBorn.map((strand) => {
-          const portion = Math.min(1, (ROOT_CONTINUATION * 1.4) / strand.curve.getLength())
-          const curve = sampleStart(strand.curve, portion, -DAIS_INNER_TOP + (strand.rootRadius ?? 0.012) * 0.55)
-          return taperedTube(curve, (t) => 0.0042 * (1 - t) ** 0.8 + 0.0012, 32, 5)
-        })
-      ),
-    [rootBorn]
-  )
-
-  // Matched to the model's baked living-wood bark as it renders under this group's lights, and
-  // lit by the same heartbeat-driven bark glow.
-  const woodMaterial = useMemo(() => {
-    const material = new THREE.MeshStandardMaterial({
-      color: '#6a5d49',
-      roughness: 0.78,
-      metalness: 0.0,
-      emissive: new THREE.Color('#11180f'),
-      emissiveIntensity: 0.15,
+  // Each owner retains its original growth/attention signal, while the root body
+  // remains one uninterrupted mesh all the way from the authored ring to the network.
+  const roots = useMemo(() => {
+    const byOwner = new Map<string | null, THREE.BufferGeometry[]>()
+    for (const strand of rootBorn) {
+      const geometry = weldedRoot(strand, rootBoundary(strand, model.barkSamples))
+      const list = byOwner.get(strand.owner) ?? []
+      list.push(geometry)
+      byOwner.set(strand.owner, list)
+    }
+    return [...byOwner].map(([owner, pieces]) => {
+      const geometry = mergeAll(pieces)
+      if (pieces.length > 1) pieces.forEach(piece => piece.dispose())
+      const emission = { value: new THREE.Color('#55f58c') }
+      const growth = { value: 1 }
+      const material = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true,
+        roughness: 0.78, emissive: '#11180f', emissiveIntensity: 0.15 })
+      addBarkGlow(material, model.barkGlow, model.barkGlowColour)
+      if (woodland) addWoodlandSurface(material, lichen)
+      const previous = material.onBeforeCompile, key = material.customProgramCacheKey()
+      material.onBeforeCompile = (shader, renderer) => {
+        previous.call(material, shader, renderer)
+        shader.uniforms.hyphaEmission = emission
+        shader.uniforms.rootGrowth = growth
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', '#include <common>\nattribute float rootBlend; attribute float rootJourney; varying float vRootBlend; varying float vRootJourney;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRootBlend = rootBlend; vRootJourney = rootJourney;')
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', '#include <common>\nvarying float vRootBlend; varying float vRootJourney; uniform vec3 hyphaEmission; uniform float rootGrowth;')
+          .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif (vRootBlend >= 1.0 && vRootJourney > rootGrowth * 1.2) discard;')
+          .replace('#include <metalnessmap_fragment>', `
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(${new THREE.Color('#69c58b').toArray().join(',')}), vRootBlend);
+            roughnessFactor = mix(roughnessFactor, 0.58, vRootBlend);
+            #include <metalnessmap_fragment>`)
+          .replace('#include <lights_physical_fragment>', `
+            totalEmissiveRadiance = mix(totalEmissiveRadiance, hyphaEmission, vRootBlend);
+            #include <lights_physical_fragment>`)
+      }
+      material.customProgramCacheKey = () => key + ':welded-root'
+      return { owner, geometry, material, emission, growth }
     })
-    addBarkGlow(material, model.barkGlow, model.barkGlowColour)
-    return material
-  }, [model])
-
-  const rootLightMaterial = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        color: palette.live,
-        transparent: true,
-        opacity: 0.88,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    []
-  )
+  }, [rootBorn, model, woodland, lichen])
+  useEffect(() => () => roots.forEach(root => { root.geometry?.dispose(); root.material.dispose() }), [roots])
 
   const auraLight = useRef<THREE.PointLight>(null)
   const smoothedActivity = useRef(0)
@@ -207,6 +205,8 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
   const energyColour = useMemo(() => new THREE.Color(palette.energy), [])
 
   useFrame((state, delta) => {
+    foliageUniforms.time.value = state.clock.elapsedTime
+    foliageUniforms.wind.value = animate && foliageMotion ? 0.014 : 0
     smoothedActivity.current = THREE.MathUtils.damp(smoothedActivity.current, activity, 1.7, delta)
     const workload = smoothedActivity.current
     const pulse = animate ? heartbeatFrame(state.clock.elapsedTime, workload, attention).pulse : 0.28
@@ -214,14 +214,20 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
 
     // The surface lines are meant to be faint now that most of the light is in the grooves.
     for (const material of model.energyMaterials) material.emissiveIntensity = 1.2 + workload * 0.9 + beat * 2.2
-    for (const material of model.foliageMaterials) material.emissiveIntensity = 0.14 + workload * 0.10 + beat * 0.20
+    for (const material of model.foliageMaterials) material.emissiveIntensity = 0.06 + workload * 0.04 + beat * 0.08
     for (const material of model.woodMaterials) material.emissiveIntensity = 0.12 + beat * 0.10
     // Kept under the bloom threshold at rest, so only the veins themselves blow out and the bark
     // around them reads as lit wood; each beat pushes it briefly over.
     // Raised when the glow moved from painted lines into the grooves: the grooves are narrow and
     // mostly in shadow, so they need more light per pixel to read as lit from inside.
     model.barkGlow.value = 0.36 + workload * 0.18 + beat * 0.45
-    rootLightMaterial.opacity = 0.64 + workload * 0.12 + beat * 0.22
+    for (const root of roots) {
+      const signal = signals.current.get(root.owner)
+      root.growth.value = signal?.grow ?? 1
+      root.material.emissiveIntensity = 0.12 + beat * 0.10
+      root.emission.value.set('#55f58c').lerp(amberColour, (signal?.attention ?? 0) * 0.25)
+        .multiplyScalar(0.85 + pulse * 0.3)
+    }
 
     // Something needs you: the tree's light leans amber, and leans furthest on each beat. The
     // veins are one heartbeat with the mycelium, so they change colour together with it.
@@ -247,8 +253,8 @@ export function ReferenceTree({ activity, attention, animate, network }: Referen
           asked what it was). Removed: the point light below still carries the heartbeat's glow
           onto the wood, and the home view looked the same without it. */}
 
-      {rootWood ? <mesh geometry={rootWood} material={woodMaterial} renderOrder={1} /> : null}
-      {rootLight ? <mesh geometry={rootLight} material={rootLightMaterial} renderOrder={3} /> : null}
+      {roots.map(root => root.geometry ? <mesh key={root.owner ?? 'ambient'} geometry={root.geometry}
+        material={root.material} receiveShadow /> : null)}
 
       <group rotation={[0, TREE_YAW, 0]}>
         <primitive object={model.tree} />

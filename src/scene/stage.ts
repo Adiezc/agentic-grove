@@ -61,3 +61,7 @@ export const TREE_HEIGHT = 3.85
  * leaves from are turned by the same amount (`network.ts`), so the two stay joined.
  */
 export const TREE_YAW = Math.PI / 4
+
+/** Enlarge the authored tree once, including exported attachment positions and radii.
+ * Runtime root/network meshes remain in world space and must not inherit this scale again. */
+export const TREE_SCALE = 1.12

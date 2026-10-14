@@ -21,6 +21,7 @@ import { camera as cameraSpec, palette } from '../theme/palette'
 import { Ground } from './Ground'
 import { Motes } from './Motes'
 import { Mycelium } from './Mycelium'
+import type { MyceliumSignal } from './myceliumFlow'
 import { growNetwork, type NetworkTarget } from './network'
 import { Runestone, type StoneSpec } from './Runestone'
 import { ReferenceTree } from './ReferenceTree'
@@ -368,6 +369,7 @@ export function GroveScene({
   drift = false,
   onContextLost,
 }: GroveSceneProps) {
+  const myceliumSignals = useRef<Map<string | null, MyceliumSignal>>(new Map())
   const { alwaysShowNames, ambientMotion } = useSettings()
   // Stones with a note waiting to be read keep their name up, the quietest way to say "look here".
   const notes = useGrove((state) => state.snapshot?.notes)
@@ -507,13 +509,8 @@ export function GroveScene({
 
       <Ground reflect={settings.reflect} reflectionResolution={settings.reflectionRes} />
       <Veil activity={activity} animate={animate && ambientMotion} />
-      <Mycelium network={network} arriving={arriving} active={active} attention={attention} failed={failed} activity={activity} animate={animate} />
-      {/* Scaled up a touch. Measured against the art the tree should fill rather more of the
-          frame than a one-to-one build of the coordinates gives, because the art's camera is
-          slightly closer than the ring ellipse alone implies. */}
-      <group scale={1.12}>
-        <ReferenceTree activity={activity} attention={attention.size > 0 || failed.size > 0} network={network} animate={animate} />
-      </group>
+      <Mycelium signals={myceliumSignals} network={network} arriving={arriving} active={active} attention={attention} failed={failed} activity={activity} animate={animate} />
+      <ReferenceTree signals={myceliumSignals} activity={activity} attention={attention.size > 0 || failed.size > 0} network={network} animate={animate} foliageMotion={animate && ambientMotion} />
       {view === 'home' || view === 'stone' || view === 'run' ? <TreeHitbox onOpen={openAgents} /> : null}
 
       {stones.map((stone) => (

@@ -35,8 +35,12 @@
  */
 import * as THREE from 'three'
 import treeRoots from '../../assets/models/world-tree-roots.json'
-import { DAIS_INNER_RADIUS, DAIS_INNER_TOP, DAIS_RADIUS, heightAt, TREE_YAW } from './stage'
+import { DAIS_INNER_RADIUS, DAIS_INNER_TOP, DAIS_RADIUS, heightAt, TREE_YAW, TREE_SCALE } from './stage'
 import { seededRandom } from './geometry'
+import { colonizeRoots } from './colonizeRoots'
+import { bundleHyphae } from './myceliumBundles'
+import { NetworkCurve } from './networkCurve'
+import { cordRadius } from './rootCord'
 
 export interface Strand {
   curve: THREE.CatmullRomCurve3
@@ -55,6 +59,19 @@ export interface Strand {
    * draws the wood on along the strand from that radius down to nothing.
    */
   rootRadius?: number
+  /** A local join between filaments of one project, rather than a terminal hair. */
+  bridge?: boolean
+  /** A terminal end that has fused into another filament, so it should not fade out. */
+  connectedTip?: boolean
+  /** A close-running fibre in a shared connection bundle. */
+  bundle?: boolean
+  /** Physical radii of a grown root cord, separate from its thin luminous vein. */
+  cordR0?: number
+  cordR1?: number
+  /** A free bundle tip, which fades to a hair rather than ending at full brightness. */
+  terminal?: boolean
+  /** Static brightness hierarchy within a web, independent of project activity. */
+  glow?: number
 }
 
 export interface NetworkNode {
@@ -80,7 +97,7 @@ export interface NetworkTarget {
 /** One root tip of the tree model, in grove coordinates. */
 interface RootTip {
   at: THREE.Vector3
-  /** Flat on the ground: the way the root was heading as it ended. */
+  /** The model's outgoing tangent, including its gentle downward slope. */
   direction: THREE.Vector3
   radius: number
   angle: number
@@ -95,11 +112,11 @@ const UP = new THREE.Vector3(0, 1, 0)
 const ROOT_TIPS: RootTip[] = treeRoots.tips.map((tip) => {
   const [x = 0, y = 0, z = 0] = tip.at
   const [dx = 1, , dz = 0] = tip.direction
-  const at = new THREE.Vector3(x, y + DAIS_INNER_TOP, z).applyAxisAngle(UP, TREE_YAW)
+  const at = new THREE.Vector3(x, y, z).multiplyScalar(TREE_SCALE).add(new THREE.Vector3(0, DAIS_INNER_TOP, 0)).applyAxisAngle(UP, TREE_YAW)
   return {
     at,
-    direction: new THREE.Vector3(dx, 0, dz).applyAxisAngle(UP, TREE_YAW).normalize(),
-    radius: tip.radius,
+    direction: new THREE.Vector3(dx, tip.direction[1] ?? 0, dz).applyAxisAngle(UP, TREE_YAW).normalize(),
+    radius: tip.radius * TREE_SCALE,
     angle: Math.atan2(at.z, at.x),
   }
 })
@@ -109,7 +126,7 @@ const ROOTLET_TIPS: { at: THREE.Vector3; direction: THREE.Vector3 }[] = (treeRoo
   const [x = 0, y = 0, z = 0] = tip.at
   const [dx = 1, , dz = 0] = tip.direction
   return {
-    at: new THREE.Vector3(x, y + DAIS_INNER_TOP, z).applyAxisAngle(UP, TREE_YAW),
+    at: new THREE.Vector3(x, y, z).multiplyScalar(TREE_SCALE).add(new THREE.Vector3(0, DAIS_INNER_TOP, 0)).applyAxisAngle(UP, TREE_YAW),
     direction: new THREE.Vector3(dx, 0, dz).applyAxisAngle(UP, TREE_YAW).normalize(),
   }
 })
@@ -159,8 +176,8 @@ export function growNetwork(targets: NetworkTarget[], seed = 404): Network {
       from: 0,
       to: 1,
       // A fifth thicker than the first pass, which read as thin on a large screen (30 September 2026).
-      r0: 0.0145,
-      r1: 0.0072,
+      r0: Math.min(0.0045, tip.radius * 0.35),
+      r1: 0.0032,
       rootRadius: tip.radius,
     })
 
@@ -176,7 +193,7 @@ export function growNetwork(targets: NetworkTarget[], seed = 404): Network {
     const companionTip = rootFor(target.at, uses)
     uses.set(companionTip, (uses.get(companionTip) ?? 0) + 1)
     const companion = pathToStone(target.at, companionTip, random)
-    strands.push({ curve: companion, depth: 1, owner: target.id, from: 0, to: 1, r0: 0.0075, r1: 0.004, rootRadius: companionTip.radius })
+    strands.push({ curve: companion, depth: 1, owner: target.id, from: 0, to: 1, r0: Math.min(0.0038, companionTip.radius * 0.3), r1: 0.0025, rootRadius: companionTip.radius })
     growForks(companion, target.id, 1, 0, 1, random, strands, nodes)
   }
 
@@ -184,23 +201,35 @@ export function growNetwork(targets: NetworkTarget[], seed = 404): Network {
   // the model just stops. These belong to nobody.
   for (const tip of ROOT_TIPS) {
     if (uses.has(tip)) continue
-    const reach = Math.min(tip.at.length() + 0.35 + random() * 0.55, DAIS_RADIUS - 0.05)
+    const reach = Math.min(tip.at.length() + 0.6 + random() * 0.25, DAIS_RADIUS - 0.05)
     const curve = leaveRoot(tip, polar(tip.angle + (random() - 0.5) * 0.35, reach), random)
-    strands.push({ curve, depth: 1, owner: null, from: 0, to: 0, r0: 0.009, r1: 0.002, rootRadius: tip.radius })
+    strands.push({ curve, depth: 1, owner: null, from: 0, to: 0, r0: Math.min(0.0038, tip.radius * 0.3), r1: 0.0015, rootRadius: tip.radius })
     growForks(curve, null, 1, 0, 0, random, strands, nodes)
   }
 
-  // Every rootlet of the model carries on as a hair of light. The rootlets brighten towards their
-  // ends in the model, so the hair starts at the same brightness the wood finishes at.
+  // Fine authored rootlets fuse into a nearby outgoing root, rather than ending
+  // as detached luminous stubs. Keep their attachment and pulse in the same owner.
+  const outgoing = strands.filter(strand => strand.rootRadius !== undefined)
   for (const tip of ROOTLET_TIPS) {
-    const length = 0.22 + random() * 0.45
-    const end = tip.at.clone().addScaledVector(tip.direction, length)
-    const side = new THREE.Vector3(-tip.direction.z, 0, tip.direction.x)
-    end.addScaledVector(side, (random() - 0.5) * length * 0.6)
-    end.y = heightAt(Math.hypot(end.x, end.z)) + CORE_LIFT
-    const curve = leaveRoot({ ...tip, radius: 0, angle: 0 }, end, random, 0.05)
-    strands.push({ curve, depth: 2, owner: null, from: 0, to: 0, r0: 0.0034, r1: 0.0007 })
-    growForks(curve, null, 2, 0, 0, random, strands, nodes)
+    let attachment: { strand: Strand; at: THREE.Vector3; t: number; score: number } | undefined
+    for (const strand of outgoing) for (let i = 1; i <= 32; i++) {
+      const t = i / 32, at = strand.curve.getPointAt(t)
+      const delta = at.clone().sub(tip.at)
+      const progress = delta.dot(tip.direction)
+      if (progress < 0.025 || delta.length() > 0.85 * TREE_SCALE) continue
+      const score = delta.lengthSq() + (delta.length() - progress) * 0.4
+      if (!attachment || score < attachment.score) attachment = { strand, at, t, score }
+    }
+    if (!attachment) continue // Never create a floating endpoint when there is no nearby web.
+    const { strand, at, t } = attachment
+    // Enter the physical body's surface; the endpoint is buried slightly so the
+    // junction has no visible gap when viewed from the other side.
+    at.y += cordRadius(strand, t) * 0.65
+    const lead = tip.at.clone().addScaledVector(tip.direction, Math.min(0.06, tip.at.distanceTo(at) * 0.3))
+    const curve = new NetworkCurve([tip.at.clone(), lead, at.clone()])
+    strands.push({ curve, depth: 2, owner: strand.owner, from: strand.from,
+      to: THREE.MathUtils.lerp(strand.from, strand.to, t), r0: 0.0007, r1: 0.0004,
+      cordR0: 0.0012, cordR1: 0.0008, connectedTip: true })
   }
 
   // The web under the tree: short, fine, and belonging to nobody. In the art the ground right
@@ -208,7 +237,7 @@ export function growNetwork(targets: NetworkTarget[], seed = 404): Network {
   // out of the base and dying before the dais edge.
   for (let i = 0; i < 16; i++) {
     const angle = (i / 16) * Math.PI * 2 + random() * 0.3
-    const reach = 0.7 + random() * (DAIS_INNER_RADIUS - 0.6)
+    const reach = 0.65 + random() * 0.7
     const curve = wrinkle(
       groundPath(polar(angle, BASE_RADIUS), polar(angle + (random() - 0.5) * 0.5, reach), random, 0.22),
       random,
@@ -219,7 +248,99 @@ export function growNetwork(targets: NetworkTarget[], seed = 404): Network {
     growForks(curve, null, 1, 0, 0, random, strands, nodes)
   }
 
+  growRootColonies(strands, seed)
+  joinHyphae(strands, nodes)
+  strands.push(...bundleHyphae(strands, nodes))
   return { strands, nodes }
+}
+
+/** Local fusion makes a web without inventing links between unrelated projects. */
+function joinHyphae(strands: Strand[], nodes: NetworkNode[]): void {
+  const candidates = strands.filter((s) => s.owner !== null && s.depth === 1 && s.rootRadius === undefined)
+  const budgets = new Map<string, number>()
+  const occupied: THREE.Vector3[] = []
+  for (const branch of candidates) {
+    const owner = branch.owner!
+    if ((budgets.get(owner) ?? 0) >= 4) continue
+    const end = branch.curve.getPointAt(1)
+    if (occupied.some((at) => at.distanceTo(end) < 0.45)) continue
+    let nearest: Strand | undefined, at01 = 0, distance = 0.32
+    for (const other of candidates) {
+      if (other === branch || other.owner !== owner) continue
+      for (const t of [0.3, 0.55, 0.8]) {
+        const at = other.curve.getPointAt(t), d = end.distanceTo(at)
+        if (d > 0.08 && d < distance) { nearest = other; at01 = t; distance = d }
+      }
+    }
+    if (!nearest) continue
+    branch.connectedTip = true
+    const point = nearest.curve.getPointAt(at01)
+    const destination = nearest.from + (nearest.to - nearest.from) * at01
+    const forward = destination >= branch.to
+    const start = forward ? end : point, finish = forward ? point : end
+    const midpoint = start.clone().lerp(finish, 0.5)
+    midpoint.y = heightAt(Math.hypot(midpoint.x, midpoint.z)) + CORE_LIFT
+    const curve = new NetworkCurve([start, midpoint, finish])
+    strands.push({ curve, owner, depth: 2, bridge: true, from: Math.min(destination, branch.to),
+      to: Math.max(destination, branch.to), r0: 0.0018, r1: 0.0013 })
+    nodes.push({ at: point.clone(), owner, at01: destination, size: 0.012 })
+    occupied.push(end, point)
+    budgets.set(owner, (budgets.get(owner) ?? 0) + 1)
+  }
+}
+
+/** A few bounded root fans grown from the actual network, never from detached origins. */
+function growRootColonies(strands: Strand[], seed: number): void {
+  const random = seededRandom(seed + 713)
+  const trunks = strands.filter((strand) => strand.rootRadius !== undefined)
+  const used = new Set<string>()
+  let fans = 0
+  for (const trunk of trunks) {
+    const origin = trunk.curve.getPointAt(0)
+    const key = `${origin.x.toFixed(3)}:${origin.z.toFixed(3)}`
+    if (used.has(key)) continue
+    used.add(key)
+    if (fans++ >= 6) break
+    const portion = Math.min(0.4, 0.55 / trunk.curve.getLength())
+    const seeds = [0.15, 0.35, 0.55, 0.75].map((t) => trunk.curve.getPointAt(portion * t))
+    const attractions: THREE.Vector3[] = []
+    for (const start of seeds) {
+      for (let i = 0; i < 5; i++) {
+        const angle = random() * Math.PI * 2
+        const reach = 0.13 + random() * 0.24
+        const point = start.clone().add(new THREE.Vector3(Math.cos(angle) * reach, 0, Math.sin(angle) * reach))
+        const radius = Math.hypot(point.x, point.z)
+        if (radius > DAIS_INNER_RADIUS - 0.1 || radius < 0.45) continue
+        point.y = heightAt(radius) + CORE_LIFT
+        attractions.push(point)
+      }
+    }
+    const colony = colonizeRoots(seeds, attractions)
+    const along = colony.map(() => 0)
+    for (let i = 0; i < seeds.length; i++) along[i] = trunk.from + (trunk.to - trunk.from) * portion * (0.15 + i * 0.2)
+    for (let i = seeds.length; i < colony.length; i++) {
+      const node = colony[i]!, parent = colony[node.parent]!
+      along[i] = Math.min(1, along[node.parent]! + node.at.distanceTo(parent.at) / Math.max(1, trunk.curve.getLength()))
+    }
+    const children = colony.map(() => [] as number[])
+    colony.forEach((node, index) => { if (node.parent >= 0) children[node.parent]!.push(index) })
+    const radiusAt = (index: number) => Math.min(0.006, 0.001 + colony[index]!.thickness * 0.0013)
+    for (let index = seeds.length; index < colony.length; index++) {
+      const node = colony[index]!, parent = colony[node.parent]!
+      // Merge single-child segments into one curved twig rather than hundreds of meshes.
+      if (parent.parent >= 0 && children[node.parent]!.length === 1) continue
+      const points = [parent.at.clone(), node.at.clone()]
+      let end = index
+      while (children[end]!.length === 1) {
+        end = children[end]![0]!
+        points.push(colony[end]!.at.clone())
+      }
+      const curve = new NetworkCurve(points)
+      strands.push({ curve, owner: trunk.owner, depth: 2, from: along[node.parent]!,
+        to: along[end]!, r0: radiusAt(node.parent) * 0.5,
+        r1: radiusAt(end) * 0.45, rootRadius: radiusAt(node.parent) })
+    }
+  }
 }
 
 /**
@@ -284,7 +405,8 @@ function polar(angle: number, radius: number): THREE.Vector3 {
 /** The first two points of any strand leaving a root: the tip itself, then a step on along it. */
 function handoff(tip: RootTip, distance = HANDOFF): THREE.Vector3[] {
   const onward = tip.at.clone().addScaledVector(tip.direction, distance)
-  onward.y = heightAt(Math.hypot(onward.x, onward.z)) + CORE_LIFT
+  // Preserve the model's downward tangent until it reaches the ground surface.
+  onward.y = Math.max(onward.y, heightAt(Math.hypot(onward.x, onward.z)) + CORE_LIFT)
   return [tip.at.clone(), onward]
 }
 
@@ -298,7 +420,7 @@ function leaveRoot(
   const [start, onward] = handoff(tip, step)
   const mid = onward!.clone().lerp(to, 0.5)
   mid.y = heightAt(Math.hypot(mid.x, mid.z)) + CORE_LIFT
-  return wrinkle(new THREE.CatmullRomCurve3([start!, onward!, mid, to]), random, 0.025, 2)
+  return wrinkle(new NetworkCurve([start!, onward!, mid, to]), random, 0.025, 2)
 }
 
 /**
@@ -318,17 +440,19 @@ function pathToStone(to: [number, number], tip: RootTip, random: () => number): 
 
   const points = handoff(tip)
   const clear = Math.hypot(points[1]!.x, points[1]!.z) + 0.25
-  const stops = [0.3, 0.45, DAIS_RADIUS / distance, 0.72, 0.88]
+  const stops = [0.3, 0.45, DAIS_RADIUS / distance, 0.72, 0.88].sort((a, b) => a - b)
+  let previousRadius = clear
   for (const t of stops) {
     const radius = distance * t
-    if (t <= 0 || t >= 1 || radius < clear) continue
+    if (t <= 0 || t >= 1 || radius < previousRadius + 0.08) continue
+    previousRadius = radius
     // Turn from the root's heading to the stone's bearing over the first stretch.
     const eased = THREE.MathUtils.smoothstep(t, 0.2, 0.7)
     const angle = tip.angle + turn * eased
     // The wander is strongest in the middle and settles as the strand nears its stone, because a
     // root that arrives sideways looks like it missed.
     const settle = Math.sin(t * Math.PI) ** 0.8
-    const sway = (random() - 0.5) * distance * 0.26 * settle
+    const sway = (random() - 0.5) * distance * 0.12 * settle
     const point = polar(angle, radius)
     point.x += -Math.sin(angle) * sway
     point.z += Math.cos(angle) * sway
@@ -336,7 +460,7 @@ function pathToStone(to: [number, number], tip: RootTip, random: () => number): 
     points.push(point)
   }
   points.push(target.setY(CORE_LIFT))
-  return wrinkle(new THREE.CatmullRomCurve3(points), random, 0.04, 2)
+  return wrinkle(new NetworkCurve(points), random, 0.022, 2)
 }
 
 /**
@@ -382,7 +506,7 @@ function wrinkle(
     }
     points.push(point)
   }
-  return new THREE.CatmullRomCurve3(points)
+  return new NetworkCurve(points)
 }
 
 /** A short wandering run between two points already sitting on the ground. */
@@ -401,19 +525,19 @@ function groundPath(
     .addScaledVector(side, (random() - 0.5) * length * wander)
   const midRadius = Math.hypot(mid.x, mid.z)
   mid.y = heightAt(midRadius) + CORE_LIFT
-  return new THREE.CatmullRomCurve3([from, mid, to])
+  return new NetworkCurve([from, mid, to])
 }
 
 /**
  * Hang forks off a strand, and forks off those.
  *
- * Recursion depth three, thinning hard each generation. Most of these lead nowhere and stop, and
+ * Two compact fork generations, thinning hard each time. Most lead nowhere and stop, and
  * that is the point — a network where every branch arrives somewhere is a wiring diagram. Real
  * mycelium is mostly dead ends, and putting them in is the single cheapest thing that makes the
  * floor read as grown rather than drawn.
  *
  * `from01` and `to01` are the parent's position along its owner's journey, carried down so a
- * fork three generations deep still knows when the pulse will reach it.
+ * fine fork still knows when the pulse will reach it.
  */
 function growForks(
   parent: THREE.CatmullRomCurve3,
@@ -425,10 +549,9 @@ function growForks(
   strands: Strand[],
   nodes: NetworkNode[]
 ): void {
-  if (depth >= 3) return
+  if (depth >= 2) return
 
-  // More forks than the first pass had, spread along the whole run: the art's strands are hairy
-  // from end to end, not bare cables with a tuft at each end.
+  // Keep the branches distributed along the path, with short secondary ends rather than a fringe.
   const count = depth === 0 ? 10 : depth === 1 ? 3 : 1
   for (let i = 0; i < count; i++) {
     const t = 0.1 + (i + random() * 0.8) / (count + 0.3)
@@ -439,7 +562,7 @@ function growForks(
     const side = new THREE.Vector3(-tangent.z, 0, tangent.x).multiplyScalar(random() < 0.5 ? 1 : -1)
 
     // A fork leaves at a shallow angle and curves away, rather than branching at ninety degrees.
-    const reach = (depth === 0 ? 0.7 : 0.38) * (0.45 + random() * 0.85)
+    const reach = (depth === 0 ? 0.5 : 0.22) * (0.55 + random() * 0.6)
     const spread = 0.35 + random() * 0.5
     const end = origin
       .clone()
@@ -448,7 +571,7 @@ function growForks(
     const endRadius = Math.hypot(end.x, end.z)
     end.y = heightAt(endRadius) + CORE_LIFT
 
-    const curve = wrinkle(groundPath(origin.clone(), end, random, 0.3), random, 0.018, 1)
+    const curve = wrinkle(groundPath(origin.clone(), end, random, 0.18), random, 0.01, 1)
     // A fork occupies a short window of its owner's journey rather than a point, so the light
     // runs out along it instead of the whole thing flashing at once.
     const from01 = parentFrom + (parentTo - parentFrom) * t
