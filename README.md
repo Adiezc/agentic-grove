@@ -7,6 +7,10 @@ see what is working and what is waiting, and look away again.
 It is not a chat app. Your agents still run in Claude Code and Codex; the Grove shows you all of
 them at once and sends them where they are needed.
 
+The look comes from druidic tradition: the sacred grove where druids met, a great tree at its
+heart, standing stones carved with ogham-like marks, and roots joining everything underground.
+The Grove keeps that feeling and gives it a quiet, sci-fi glow.
+
 ![Three stages of a grove: day one with two projects and PM at work, a few weeks in with six projects and a reviewer added, and a full grove of nineteen stones with a team of agents under load](assets/screenshots/grove-demo.webp)
 
 *The grove growing, in demo mode: day one, a few weeks in, and a full grove under load. A real
