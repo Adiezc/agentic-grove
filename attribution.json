@@ -155,25 +155,37 @@
       "revisionNote": "Pinned revision dcf309bd86bd521083d9c70f01f2de45fdc7c457. Section-walk gnarliness (scaled by 1/sqrt(radius)), radius-limited growth force and stratified, shuffled child placement ported to Python for the canopy boughs and twigs, steered toward authored foliage pads. Scope and changes recorded in CREDITS.md."
     },
     {
-      "name": "Poly Haven and ambientCG textures",
-      "url": "https://polyhaven.com",
+      "name": "ambientCG juniper foliage",
+      "url": "https://ambientcg.com/view?id=LeafSet019",
       "license": "CC0-1.0",
       "notice": "licenses/cc0-textures.txt",
       "source": [
-        "polyhaven.com/a/chinese_cedar_bark",
-        "polyhaven.com/a/rough_wood",
         "ambientcg.com/view?id=LeafSet019"
       ],
       "destinations": [
-        "assets/materials/bark-living-colour.jpg",
-        "assets/materials/bark-living-normal.jpg",
-        "assets/materials/deadwood-colour.jpg",
-        "assets/materials/deadwood-normal.jpg",
         "assets/materials/juniper-colour.jpg",
         "assets/materials/juniper-opacity.jpg",
         "assets/materials/juniper-normal.jpg"
       ],
-      "revisionNote": "1K JPG maps downloaded 14 October 2026, unmodified. Used as brightness detail, normal maps and juniper spray cut-outs in woodlandMaterial.ts and foliageMaterial.ts."
+      "revisionNote": "1K JPG colour, opacity and OpenGL normal maps downloaded 14 October 2026, unmodified. Juniper spray cut-outs in foliageMaterial.ts."
+    },
+    {
+      "name": "Vermos/Bonsai",
+      "url": "https://sketchfab.com/3d-models/8b73fd97545b468288cd9ba03c93d358",
+      "license": "CC-BY-4.0",
+      "notice": "licenses/vermos-bonsai.txt",
+      "source": [
+        "textures/Bonsai_Base_Color.jpg",
+        "textures/Bonsai_Normal_DirectX.jpg"
+      ],
+      "destinations": [
+        "assets/materials/vermos-bark-colour.jpg",
+        "assets/materials/vermos-bark-normal.jpg",
+        "assets/materials/vermos-deadwood-colour.jpg",
+        "assets/materials/vermos-deadwood-normal.jpg",
+        "scripts/tile-vermos-bark.py"
+      ],
+      "revisionNote": "Sketchfab source download, 14 October 2026. Two patches cut, made tileable, resampled to 512 px, normal converted DirectX to OpenGL. Changes listed in the notice file and CREDITS.md."
     }
   ]
 }

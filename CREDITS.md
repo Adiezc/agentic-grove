@@ -83,16 +83,23 @@ with separate deadwood weathering and living moss. Baked colours, geometry and
 heartbeat remain Grove's. No genome, skeletal wind, SDF renderer or demo assets
 are imported. The full [MIT notice](licenses/dryad.txt) is packaged with the app.
 
-### Poly Haven and ambientCG — CC0
+### Vermos, "Bonsai" — CC BY 4.0
 
-Photographed textures in `assets/materials/`, downloaded 14 October 2026 and unmodified:
-[Chinese Cedar Bark](https://polyhaven.com/a/chinese_cedar_bark) by Charlotte Baglioni and
-[Rough Wood](https://polyhaven.com/a/rough_wood) by Rob Tuytel (Poly Haven), and
-[Leaf Set 019](https://ambientcg.com/view?id=LeafSet019), photographed juniper-like scale-leaf sprays, by ambientCG (Lennart Demes). All are CC0, so
-no credit is required; it is given anyway. `woodlandMaterial.ts` wraps the bark and deadwood
-round every strand along its carved grain and uses them as brightness detail and normal maps,
-keeping the baked palette; `foliageMaterial.ts` cuts each spray card to the photographed outline and
-takes its scale pattern as brightness and its normal map as lighting. Sources are listed in [licenses/cc0-textures.txt](licenses/cc0-textures.txt).
+"Bonsai" (https://skfb.ly/6XnsZ) by Vermos is licensed under Creative Commons Attribution
+(http://creativecommons.org/licenses/by/4.0/). The tree's living bark and pale deadwood are
+painted with two patches cut from this model's hand-painted base colour and normal maps,
+made to tile and wrapped round every strand along its grain in `woodlandMaterial.ts`. Changes:
+cropped, edge-blended to tile, resampled to 512 px, normal map converted from DirectX to OpenGL
+(`scripts/tile-vermos-bark.py`). The model's mesh and leaves are not used. Full notice:
+[licenses/vermos-bonsai.txt](licenses/vermos-bonsai.txt).
+
+### ambientCG, "Leaf Set 019" — CC0
+
+[Leaf Set 019](https://ambientcg.com/view?id=LeafSet019), photographed juniper-like scale-leaf
+sprays by ambientCG (Lennart Demes), downloaded 14 October 2026 and unmodified. CC0, so no credit
+is required; it is given anyway. `foliageMaterial.ts` cuts each spray card to the photographed
+outline and takes its scale pattern as brightness and its normal map as lighting. Listed in
+[licenses/cc0-textures.txt](licenses/cc0-textures.txt).
 
 ### dgreenheck/ez-tree — MIT
 

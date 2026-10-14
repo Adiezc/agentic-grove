@@ -86,12 +86,12 @@ export function ReferenceTree({ activity, attention, animate, foliageMotion = fa
   const { scene: sourceTree } = useGLTF(modelUrl, false, false)
   const lichen = useTexture(new URL('../../assets/materials/woodland-lichen.png', import.meta.url).href)
   lichen.wrapS = lichen.wrapT = THREE.RepeatWrapping
-  // Photographed bark and leaf (Poly Haven and ambientCG, CC0; see CREDITS.md).
+  // Vermos's hand-painted bark and deadwood (CC BY 4.0) and ambientCG's juniper (CC0); see CREDITS.md.
   const [livingBark, livingNormal, deadBark, deadNormal, leafColour, leafOpacity, leafNormal] = useTexture([
-    new URL('../../assets/materials/bark-living-colour.jpg', import.meta.url).href,
-    new URL('../../assets/materials/bark-living-normal.jpg', import.meta.url).href,
-    new URL('../../assets/materials/deadwood-colour.jpg', import.meta.url).href,
-    new URL('../../assets/materials/deadwood-normal.jpg', import.meta.url).href,
+    new URL('../../assets/materials/vermos-bark-colour.jpg', import.meta.url).href,
+    new URL('../../assets/materials/vermos-bark-normal.jpg', import.meta.url).href,
+    new URL('../../assets/materials/vermos-deadwood-colour.jpg', import.meta.url).href,
+    new URL('../../assets/materials/vermos-deadwood-normal.jpg', import.meta.url).href,
     new URL('../../assets/materials/juniper-colour.jpg', import.meta.url).href,
     new URL('../../assets/materials/juniper-opacity.jpg', import.meta.url).href,
     new URL('../../assets/materials/juniper-normal.jpg', import.meta.url).href,

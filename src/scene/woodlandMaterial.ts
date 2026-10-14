@@ -6,8 +6,8 @@
  * The lichen texture is baked from Linus Mossberg's MIT reaction-diffusion code.
  * This layer preserves the baked colours and the existing heartbeat shader hook.
  *
- * Photographed detail: Poly Haven's "Chinese Cedar Bark" (Charlotte Baglioni) for living wood
- * and "Rough Wood" (Rob Tuytel) for deadwood, both CC0 (see CREDITS.md). Each is wrapped round
+ * Painted detail: living bark and pale deadwood cut from "Bonsai" by Vermos (CC BY 4.0,
+ * https://skfb.ly/6XnsZ; see CREDITS.md and scripts/tile-vermos-bark.py). Each is wrapped round
  * a strand along its carved grain, a whole number of times (`_bark`), and supplies brightness
  * detail and a normal map. The baked colours stay in charge of the palette.
  */
