@@ -7,6 +7,10 @@ see what is working and what is waiting, and look away again.
 It is not a chat app. Your agents still run in Claude Code and Codex; the Grove shows you all of
 them at once and sends them where they are needed.
 
+The look comes from druidic tradition: the sacred grove where druids met, a great tree at its
+heart, standing stones carved with ogham-like marks, and roots joining everything underground.
+The Grove keeps that feeling and gives it a quiet, sci-fi glow.
+
 ![Three stages of a grove: day one with two projects and PM at work, a few weeks in with six projects and a reviewer added, and a full grove of nineteen stones with a team of agents under load](assets/screenshots/grove-demo.webp)
 
 *The grove growing, in demo mode: day one, a few weeks in, and a full grove under load. A real
@@ -58,7 +62,9 @@ walkthrough and Settings help you get it in a click or two.
 Those two are a starting point, not a wall. Other providers and locally run models (Ollama, LM
 Studio and the like) can be added: each tool the Grove understands is one small adapter in
 `core/harnesses/`, and the contract is in its README. One for Cursor is already written but has
-never been tested on real data. Contributions are welcome.
+never been tested on real data. Contributions are welcome, and **we especially welcome work that
+lets the Grove run fully offline on your own models**, including a European option such as
+Mistral's open-weight models; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -209,6 +215,9 @@ the font and Electron/Chromium. Research candidates are credited when actually a
 **The most wanted contribution is a Windows version.** [CONTRIBUTING.md](CONTRIBUTING.md) lists
 the Mac-specific pieces and where they live, the commands for running and building the Grove, and
 the checks every change should pass.
+
+**Also wanted: running the Grove offline on local models**, for people who want everything on
+their own machine. CONTRIBUTING.md lists the pieces involved.
 
 **Other features open to anyone who wants one**, each described in CONTRIBUTING.md with the
 files to start from:

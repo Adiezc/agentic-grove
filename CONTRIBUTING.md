@@ -33,6 +33,46 @@ Windows too; they are the quickest way to see what breaks. Please keep these rul
 
 A Linux version is welcome too, and is probably smaller, since most of the Mac code carries over.
 
+## Also wanted: running the Grove offline, on local models
+
+**We welcome work that lets the Grove run fully offline**, on models people run on their own
+machines (Ollama, LM Studio, llama.cpp, MLX and the like), for anyone who would rather not send
+their work to a cloud provider. Today the Grove watches and starts Claude Code and Codex, which
+need an account and a network connection. A local setup would let PM, Researcher and Builder
+work with no account and nothing leaving the machine.
+
+We would like at least one **European model** among the options, so the Grove does not depend on
+American providers alone. Some open-weight model families that run locally through Ollama or LM
+Studio and are good places to start:
+
+| Family | From | Why it fits | Licence |
+| --- | --- | --- | --- |
+| **Mistral Small**, **Ministral**, **Devstral** | Mistral AI, France | The European option. Ministral is small enough for a 16 GB Mac; Mistral Small suits PM and Researcher; Devstral is built for coding agents, so it suits Builder. | Apache 2.0 |
+| **Qwen**, including its coding models | Alibaba, China | Strong at most sizes, from laptop-sized models up. | Mostly Apache 2.0 |
+| **DeepSeek** (the smaller distilled versions) | DeepSeek, China | Good at reasoning. The full models are far too big for a laptop. | MIT |
+| **GLM** | Zhipu AI, China | Strong at agent work and tool use, though mostly in large sizes. | MIT |
+
+A rough guide to size: a compressed model needs a little over half a gigabyte of memory per
+billion parameters, plus room for macOS. Models of 8 billion parameters or fewer run well on a
+16 GB Mac; models of about 24 billion want 32 GB. Run locally, a model sends nothing anywhere,
+whoever made it. Still, check each model's licence before the Grove suggests it, download only
+from the maker's own pages or Ollama's library, and know that the Chinese models tend to avoid
+topics sensitive to their government (rarely an issue for coding work). Versions change quickly,
+so check each maker's model page for current names and sizes.
+
+What it involves, as far as we know it:
+
+| Area | Where | What is needed |
+| --- | --- | --- |
+| Seeing local runs | `core/harnesses/` | An adapter that reports sessions from a local agent tool, following the contract in that folder's README. |
+| Starting local runs | `core/spawn/` | A launcher for a local agent runner. Passing a local model's name to Claude Code or Codex is not enough: it needs a runner that actually talks to the local model. |
+| Usage | `core/usage/` | Local models have no rate limits. The crystal and provider marks should say so plainly instead of showing a number. |
+| Setup | `core/setup.ts`, `core/readiness.ts` | Detect a running local model server and offer it in the first-launch walkthrough and Settings. |
+
+Open an issue first so we can agree on which local tool to start with. The usual rules apply, and
+matter even more here: no telemetry, no network calls the user did not ask for, read-only towards
+other tools, and never invent a number.
+
 ## Also wanted: ideas from Odysseus
 
 These came from reading [Odysseus](https://github.com/odysseus-dev/odysseus), the self-hosted AI
