@@ -41,6 +41,12 @@ their work to a cloud provider. Today the Grove watches and starts Claude Code a
 need an account and a network connection. A local setup would let PM, Researcher and Builder
 work with no account and nothing leaving the machine.
 
+We would like at least one **European model** among the options, so the Grove does not depend on
+American providers alone. Mistral AI, based in Paris, publishes open-weight models under the
+Apache 2.0 licence that run locally through Ollama or LM Studio: **Mistral Small** as a general
+model for PM and Researcher, and **Devstral**, Mistral's model for coding agents, for Builder.
+Check Mistral's model pages for current versions and how much memory each needs.
+
 What it involves, as far as we know it:
 
 | Area | Where | What is needed |

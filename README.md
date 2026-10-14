@@ -59,7 +59,8 @@ Those two are a starting point, not a wall. Other providers and locally run mode
 Studio and the like) can be added: each tool the Grove understands is one small adapter in
 `core/harnesses/`, and the contract is in its README. One for Cursor is already written but has
 never been tested on real data. Contributions are welcome, and **we especially welcome work that
-lets the Grove run fully offline on your own models**; see [CONTRIBUTING.md](CONTRIBUTING.md).
+lets the Grove run fully offline on your own models**, including a European option such as
+Mistral's open-weight models; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
