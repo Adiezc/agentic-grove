@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X } from '@phosphor-icons/react'
 import '@fontsource-variable/geist'
+import '@fontsource/uncial-antiqua/400.css'
 import { GroveScene, SPIKE_STONES, type PerfSample, type QualityPreset } from './scene/Grove'
 import { Announcer, Counts, HealthLine, Rail, RuneConsole, useFullScreen, useIdle, usePrefersReducedMotion, type RailPanel } from './hud/Hud'
 import { ProjectsPanel, RunesPanel } from './hud/Panels'

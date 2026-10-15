@@ -314,8 +314,8 @@ inspiration is fine; copying from it without a licence is not, however small the
 ## Tools and libraries
 
 Grove's interface uses React and React DOM, Three.js, React Three Fiber, drei, postprocessing,
-React Three Postprocessing and Zustand. Phosphor supplies the icons and Geist Variable supplies
-the locally bundled font. Thank you to their authors and the maintainers of the supporting
+React Three Postprocessing and Zustand. Phosphor supplies the icons, Geist Variable supplies
+the interface font and Uncial Antiqua (by Astigmatic) the stone names, both bundled locally. Thank you to their authors and the maintainers of the supporting
 libraries that reach the bundle. Vite and TypeScript are development tools.
 
 The build records the exact packages whose modules reach the renderer, main process and preload,
@@ -336,7 +336,7 @@ licence. Its embedded Max Kaufmann MIT and Stefan Gustavson public-domain notice
 N8ao 2.0.1's metadata says ISC while its actual licence file is CC0-1.0; the supplied CC0 text
 travels with the app and the mismatch is recorded. These exceptions require review on upgrade.
 
-The Geist font's original SIL Open Font License is included in full. The tree model, scene
+The Geist and Uncial Antiqua fonts' original SIL Open Font Licenses are included in full. The tree model, scene
 geometry, material code and menu-bar/logo assets are authored for Grove; no Material Design
 Icons or Kay Lousberg asset packs are included. No Framer Motion code is bundled.
 
