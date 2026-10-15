@@ -5,7 +5,8 @@
  * began said "starting" for fifteen minutes and blocked the console; a resumed session sitting at
  * its prompt said "Working" for as long as it sat; "Resume" was offered on a session whose window
  * was still open; and a Terminal opened from inside Claude Code made every run a child session
- * that saved no transcript. These checks pin each fix down.
+ * that saved no transcript. These checks pin each fix down, and the Stop button that the recorded
+ * process id made possible: it must reach the run's own tool, and nothing else on the Mac.
  *
  * The launch script is really run by zsh against a stand-in tool, so the process files and the
  * signal handling are the script's own behaviour, not a model of it. Everything happens in a
@@ -23,6 +24,7 @@ process.env.AGENTIC_GROVE_HOME = path.join(scratch, 'home')
 const { launch } = await import('../core/spawn/launch.ts')
 const { clearRunProcess, exitFile, pidFile, pruneRunProcesses, readRunProcess } = await import('../core/spawn/process.ts')
 const { RunBook } = await import('../core/spawn/runs.ts')
+const { runTools, stopRun } = await import('../core/spawn/stop.ts')
 type Run = import('../core/spawn/runs.ts').Run
 type HookCall = import('../core/hooks/protocol.ts').HookCall
 type Session = import('../core/harnesses/types.ts').Session
@@ -42,6 +44,39 @@ async function tool(name: string, body: string): Promise<string> {
 const runInZsh = (env: NodeJS.ProcessEnv = process.env) => async (file: string) => {
   execFileSync('/bin/zsh', [file], { stdio: 'ignore', env })
   return ''
+}
+
+/**
+ * Instead of Terminal, for Stop: start the script in zsh and leave it running, as Terminal does.
+ * `done` settles when the script has finished, exit file and all.
+ */
+function startInZsh() {
+  let done: Promise<void> = Promise.resolve()
+  const open = async (file: string) => {
+    const child = spawn('/bin/zsh', [file], { stdio: 'ignore' })
+    done = new Promise((resolve) => child.on('exit', () => resolve()))
+    return ''
+  }
+  return { open, done: () => done }
+}
+
+/** Wait for a file to appear: the stand-in writes one once it is running and listening for signals. */
+async function waitFor(file: string, ms = 5000): Promise<void> {
+  const until = Date.now() + ms
+  while (!(await fsp.stat(file).catch(() => null))) {
+    if (Date.now() > until) throw new Error(`${path.basename(file)} never appeared`)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+}
+
+/** Whether a process is still there. */
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
 }
 
 function fakeRun(fields: Partial<Run> = {}): Run {
@@ -217,6 +252,63 @@ const cases: [string, () => Promise<void>][] = [
     assert.ok(left.includes(`${keep}.pid`))
     assert.ok(!left.includes(`${drop}.exit`))
     assert.ok(left.includes('notes.txt'), 'a file that is not ours was removed')
+  }],
+  ['Stop sends Ctrl-C’s signal to the run’s tool, and the run closes through its exit file', async () => {
+    const run = fakeRun({ id: 'bbbbbbbb-0000-4000-8000-000000000001' })
+    const ready = path.join(scratch, 'int-ready')
+    const got = path.join(scratch, 'got-int.txt')
+    // Exits 130 on SIGINT, as Claude Code does on Ctrl-C. `wait` rather than a bare `sleep` so the
+    // handler runs at once instead of after the sleep.
+    const cli = await tool('stops-on-int', `trap 'print int > ${got}; kill $! 2>/dev/null; exit 130' INT\nsleep 30 &\ntouch '${ready}'\nwait`)
+    const zsh = startInZsh()
+    await launch({ run, folder, brief: '', model: '' }, zsh.open, async () => cli, markers)
+    await waitFor(ready)
+    // A process of the same kind that is not this run's child: it must be left alone.
+    const bystander = spawn('/bin/sleep', ['30'], { stdio: 'ignore' })
+    const result = await stopRun(run.id, { folder: markers, graceMs: 3000 })
+    assert.deepEqual(result, { ok: true, signal: 'SIGINT' })
+    await zsh.done()
+    assert.equal(await fsp.readFile(got, 'utf8'), 'int\n')
+    const seen = await readRunProcess(run.id, markers)
+    assert.equal(seen.state === 'gone' && seen.code, 130, 'the script did not outlive the tool to write its exit code')
+    assert.ok(alive(bystander.pid!), 'a process that was not the run’s tool was stopped')
+    bystander.kill()
+    const { book, run: booked } = bookWithRun('stopped')
+    book.onHook(hook('SessionStart', booked.id, 2000, { source: 'startup' }))
+    book.onProcess(booked.id, seen, 3000)
+    assert.equal(book.get(booked.id)?.state, 'ended')
+    assert.equal(book.get(booked.id)?.process, 'closed')
+  }],
+  ['a tool that ignores Ctrl-C is asked to quit with SIGTERM a few seconds later', async () => {
+    const run = fakeRun({ id: 'bbbbbbbb-0000-4000-8000-000000000002' })
+    const ready = path.join(scratch, 'term-ready')
+    const cli = await tool('ignores-int', `trap '' INT\ntrap 'kill $! 2>/dev/null; exit 143' TERM\nsleep 30 &\ntouch '${ready}'\nwait; wait`)
+    const zsh = startInZsh()
+    await launch({ run, folder, brief: '', model: '' }, zsh.open, async () => cli, markers)
+    await waitFor(ready)
+    const result = await stopRun(run.id, { folder: markers, graceMs: 700 })
+    assert.deepEqual(result, { ok: true, signal: 'SIGTERM' })
+    await zsh.done()
+    const seen = await readRunProcess(run.id, markers)
+    assert.equal(seen.state === 'gone' && seen.code, 143)
+  }],
+  ['Stop refuses a recorded id that is not a Grove launch script, and a run already closed', async () => {
+    const id = 'bbbbbbbb-0000-4000-8000-000000000003'
+    // A reused id: alive, but now some other program. Its children must not be touched either.
+    const stranger = spawn('/bin/zsh', ['-c', 'sleep 30 & wait'], { stdio: 'ignore' })
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    await fsp.writeFile(pidFile(id, markers), `${stranger.pid}\n`)
+    const refused = await stopRun(id, { folder: markers, graceMs: 200 })
+    assert.equal(refused.ok, false)
+    assert.ok(alive(stranger.pid!), 'a process that is not a launch script was signalled')
+    stranger.kill()
+    // The Grove's own process id, written by mistake or by hand, is refused just the same.
+    await fsp.writeFile(pidFile(id, markers), `${process.pid}\n`)
+    assert.ok('error' in (await runTools(id, { folder: markers })))
+    await fsp.writeFile(exitFile(id, markers), '0\n')
+    const closed = await stopRun(id, { folder: markers })
+    assert.equal(closed.ok, false)
+    assert.match(!closed.ok ? closed.error : '', /already closed/)
   }],
 ]
 

@@ -73,6 +73,7 @@ const api: GroveApi = {
   uninstall: (options) => ipcRenderer.invoke(CHANNELS.uninstall, options),
   launchRun: (request) => ipcRenderer.invoke(CHANNELS.launchRun, request),
   resumeRun: (runId) => ipcRenderer.invoke(CHANNELS.resumeRun, runId),
+  stopRun: (runId) => ipcRenderer.invoke(CHANNELS.stopRun, runId),
   readTranscript: (runId) => ipcRenderer.invoke(CHANNELS.readTranscript, runId),
   readActivity: (stoneId, sessionId) => ipcRenderer.invoke(CHANNELS.readActivity, stoneId, sessionId),
   focusTerminal: () => ipcRenderer.invoke(CHANNELS.focusTerminal),

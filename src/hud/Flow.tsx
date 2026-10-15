@@ -7,7 +7,7 @@
  * glow, never a sentence.
  */
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { ArrowClockwise, ArrowSquareOut, CaretLeft, CaretRight, Check, Eye, FolderOpen, GitBranch, GitFork, PencilSimple, Plus, Trash, User, Warning, X } from '@phosphor-icons/react'
+import { ArrowClockwise, ArrowSquareOut, CaretLeft, CaretRight, Check, Eye, FolderOpen, GitBranch, GitFork, PencilSimple, Plus, Stop, Trash, User, Warning, X } from '@phosphor-icons/react'
 import type { Run, RunState } from '../../core/spawn/runs.ts'
 import type { TranscriptLine } from '../../core/spawn/transcript.ts'
 import { useGrove } from '../store/grove'
@@ -247,7 +247,7 @@ function StoneRuns({ stoneId }: { stoneId: string }) {
 /**
  * One run: what was asked, how it is going, and the last few things it said and did, read live
  * from its transcript every two seconds while the panel is open. Read-only; the conversation
- * itself is in Terminal, and "Resume in Terminal" is the way back into it.
+ * itself is in Terminal, and "Resume in Terminal" is the way back into it. "Stop" ends it from here.
  */
 export function RunPanel({ stones }: { stones: StoneSpec[] }) {
   const view = useFlow((state) => state.view)
@@ -263,12 +263,14 @@ export function RunPanel({ stones }: { stones: StoneSpec[] }) {
   const [lines, setLines] = useState<TranscriptLine[] | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [stopping, setStopping] = useState(false)
   const list = useRef<HTMLOListElement>(null)
 
   useEffect(() => {
     setLines(null)
     setNote(null)
     setError(null)
+    setStopping(false)
     if (!open || !run || !window.grove) return
     let alive = true
     const read = async () => {
@@ -296,6 +298,16 @@ export function RunPanel({ stones }: { stones: StoneSpec[] }) {
     setError(result && !result.ok ? (result.error ?? 'Could not reopen it') : null)
   }
 
+  // Stopping takes a few seconds when the tool ignores Ctrl-C and has to be asked to quit, so the
+  // button says so and cannot be pressed twice. The run then turns Closed from its exit file.
+  const stop = async () => {
+    if (!run || stopping) return
+    setStopping(true)
+    const result = await window.grove?.stopRun(run.id)
+    setStopping(false)
+    setError(result && !result.ok ? (result.error ?? 'Could not stop it') : null)
+  }
+
   const state = run ? RUN_LABEL[run.state] : null
   // Resuming opens a new window on the session, so only once its own window has gone; while that
   // window is open, the way back is that window. Runs from before the Grove knew this (no `process`)
@@ -303,6 +315,9 @@ export function RunPanel({ stones }: { stones: StoneSpec[] }) {
   const settled = run?.state === 'finished' || run?.state === 'ended' || run?.state === 'failed'
   const stillOpen = run?.process === 'open'
   const canResume = run?.harness === 'claude-code' && settled && !stillOpen
+  // Only a window the Grove knows is open has a process to stop; a finished run sitting at its
+  // prompt still holds one, which is why it is offered there too.
+  const canStop = stillOpen && (run?.state === 'running' || run?.state === 'waiting' || run?.state === 'finished')
 
   return (
     <aside className={`flow-panel run-panel${open ? ' is-open' : ''}`} aria-hidden={!open} inert={!open}>
@@ -359,6 +374,12 @@ export function RunPanel({ stones }: { stones: StoneSpec[] }) {
             <button type="button" className="panel-send" onClick={() => void window.grove?.focusTerminal()}>
               <span>Go to Terminal</span>
               <ArrowSquareOut size={14} weight="thin" />
+            </button>
+          ) : null}
+          {canStop ? (
+            <button type="button" className="panel-send is-stop" onClick={stop} disabled={stopping}>
+              <span>{stopping ? 'Stopping…' : 'Stop'}</span>
+              <Stop size={14} weight="thin" />
             </button>
           ) : null}
           {canResume ? (

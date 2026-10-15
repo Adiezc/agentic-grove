@@ -1695,6 +1695,27 @@ from inside a Claude Code session, every run inherited them and became a child s
 no transcript, so the run panel and the scan went blind. Settings such as `CLAUDE_CODE_USE_BEDROCK`
 are left alone.
 
-Not done, ranked for later: a Stop button (the process id now makes it possible), a "queued" state
+Not done, ranked for later: a "queued" state
 (nothing queues yet; every send launches at once), and seeing Claude Code's trust question before
 it is answered. `npm run verify:lifecycle` checks all of the above against a real zsh.
+
+## Stop a run from the Grove (15 October 2026)
+
+The run panel has a **Stop** button while a run is Working, Waiting or Finished with its window
+still open. It does what Ctrl-C in the window does, so a stopped session keeps its transcript and
+can be resumed.
+
+**How.** `core/spawn/stop.ts` reads the launch script's process id from the run's `.pid` file and
+acts only if that process is alive *and* is still running one of the Grove's own
+`agentic-grove-run-…/….command` scripts, since an id can be reused once its owner is gone. It
+signals that script's direct children (the tool), never anything found by name: a broad
+`pkill claude` would stop every Claude Code session on the Mac. SIGINT first; SIGTERM if the tool is
+still there four seconds later; nothing stronger, so a tool that ignores both is left for you to
+close rather than killed mid-write. The script is not signalled: it writes the exit code, and the
+run turns Closed through the usual `onProcess` path.
+
+Checked in the real app (temporary grove, real Claude Code 2.1.301 on Haiku): a Finished run with
+its window open and a Working run each read Closed within about a second of Stop, exit code 0, with
+"Resume in Terminal" offered after. Claude Code quits on SIGINT, so the SIGTERM step and the
+refusals are covered by `npm run verify:lifecycle` against a stand-in tool. Not exercised in the
+app: Stop on a run Waiting for a permission answer (neither test run asked one).

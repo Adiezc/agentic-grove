@@ -2746,6 +2746,16 @@
   border-color: var(--wait);
 }
 
+/* Stop sits under "Answer" or "Go to Terminal", so the pair reads as one group, not two sections. */
+.panel-send + .panel-send.is-stop {
+  margin-top: 0.6rem;
+}
+
+.panel-send.is-stop:hover:not(:disabled),
+.panel-send.is-stop:focus-visible {
+  border-color: rgb(242 180 76 / 0.6);
+}
+
 /* ---- Health line (review item 6): bottom left, under the counts, always there. ---- */
 
 .health {
