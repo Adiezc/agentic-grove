@@ -92,7 +92,7 @@ Picked on 27 September 2026, after step 6. Ranked, most important first.
    about your own history, such as "what did I do on Tuesday?", and the stones involved light up in
    order while the answer is written out. The world becomes the answer. Answers come from the scan
    and hook history on this machine; say so when the history does not reach back far enough.
-4. **Clearings (about one session).** Group stones into small clearings by theme, such as work, side
+4. **Clearings. Done 15 October 2026** (`core/state/clearings.ts`, `src/scene/Clearings.tsx`, `src/hud/Clearings.tsx`, `npm run verify:clearings`; `?demo&clearing`). Group stones into small clearings by theme, such as work, side
    projects or experiments, with a low ring of stones round each. It organises the grove without
    folders, and it is what keeps a grove of 25 stones readable. Clearings are yours
    to name and arrange; the Grove may suggest one, never file a stone on its own.

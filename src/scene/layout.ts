@@ -23,43 +23,14 @@
  * rules are in `core/state/places.ts`, shared with the node side that writes them.
  */
 import type { Runestone as DerivedStone } from '../../core/state/stones.ts'
-import { assignPlaces, freePlaces } from '../../core/state/places.ts'
+import { assignPlaces, freePlaces, placeAt } from '../../core/state/places.ts'
+import { clearingCentre, clearingsOf, coveredPlaces, followersOf, memberSpot, ringRadius } from '../../core/state/clearings.ts'
+
+export { placeAt }
 import { runeFor } from './runes'
 import type { StoneSpec } from './Runestone'
 
 type Place = [number, number]
-
-/** The places that fit the home view, in filling order. Picked on screen, see the header. */
-const HOME_PLACES: Place[] = [
-  [-3.7, -0.6],
-  [3.9, -0.5],
-  [-5.6, -3.6],
-  [6.1, -3.4],
-  [-3.9, -5.9],
-  [4.5, -5.8],
-  [-7.4, -6.2],
-  [7.8, -6.0],
-  [-2.6, -8.4],
-  [3.4, -8.4],
-  [-6.0, -9.0],
-  [6.6, -8.8],
-]
-
-/**
- * Places beyond those: rows further back, each a little wider than the last, alternating sides.
- * Seen from the home view they sit behind the canopy; zoomed out, they are in the open.
- */
-function outerPlace(index: number): Place {
-  const row = Math.floor(index / 6)
-  const slot = index % 6
-  const side = slot % 2 === 0 ? -1 : 1
-  const across = 2.6 + Math.floor(slot / 2) * 2.7 + row * 0.6
-  return [side * across, -10.2 - row * 2.6 - Math.floor(slot / 2) * 0.5]
-}
-
-export function placeAt(index: number): Place {
-  return index < HOME_PLACES.length ? HOME_PLACES[index]! : outerPlace(index - HOME_PLACES.length)
-}
 
 /** A small stable number from a string, so size and turn vary per project but never flicker. */
 function hash(text: string): number {
@@ -88,10 +59,40 @@ export function emptyPlaces(used: number[]): EmptyPlace[] {
   return freePlaces(used).map((index) => ({ index, at: placeAt(index) }))
 }
 
-/** The numbered place of each top-level stone, as the scene will draw it. */
-export function stonePlaces(stones: DerivedStone[]): Map<string, number> {
+/** Stones standing on their own: not hanging from another stone in the grove. */
+function standing(stones: DerivedStone[]): DerivedStone[] {
   const ids = new Set(stones.map((stone) => stone.id))
-  return assignPlaces(stones.filter((stone) => !stone.parent || !ids.has(stone.parent)).map((stone) => ({ id: stone.id, place: stone.place })))
+  return stones.filter((stone) => !stone.parent || !ids.has(stone.parent))
+}
+
+/**
+ * The numbered place of each top-level stone, as the scene will draw it. A stone standing round
+ * another's place in a clearing has none; its clearing's first stone holds the place for all of them.
+ */
+export function stonePlaces(stones: DerivedStone[]): Map<string, number> {
+  const tops = standing(stones)
+  const followers = followersOf(tops)
+  return assignPlaces(tops.filter((stone) => !followers.has(stone.id)).map((stone) => ({ id: stone.id, place: stone.place })))
+}
+
+/** Every place in use: those stones stand on, and those a clearing's ring covers, so no empty circle lands in one. */
+export function usedPlaces(stones: DerivedStone[]): number[] {
+  const places = stonePlaces(stones)
+  const areas = clearingsOf(standing(stones)).flatMap((clearing) => {
+    const place = places.get(clearing.anchor)
+    return place === undefined ? [] : [{ place, size: clearing.members.length }]
+  })
+  const taken = [...places.values()]
+  return [...taken, ...coveredPlaces(areas, Math.max(0, ...taken))]
+}
+
+/** A clearing as the scene draws it: a ring round its stones, its name on the ground. */
+export interface ClearingSpec {
+  name: string
+  centre: Place
+  radius: number
+  /** Its stones, in the order they stand round the centre. */
+  members: string[]
 }
 
 /**
@@ -118,13 +119,19 @@ export function childPlace(parent: Place, sibling: number): Place {
  * twins alternate sides and step outwards.
  */
 export const TWIN_GAP = 1.05
-export function twinPlace(anchor: Place, sibling: number): Place {
-  const outward = Math.sign(anchor[0]) || 1
+export function twinPlace(anchor: Place, sibling: number, from: Place = [0, 0]): Place {
+  // Away from `from`: the centre line, or for a stone in a clearing, the clearing's centre, so a
+  // twin never lands between two stones of the same clearing.
+  const outward = Math.sign(anchor[0] - from[0]) || 1
   const side = (sibling % 2 === 0 ? 1 : -1) * outward
   return [anchor[0] + side * TWIN_GAP * (1 + Math.floor(sibling / 2)), anchor[1]]
 }
 
 export function layoutStones(stones: DerivedStone[]): StoneSpec[] {
+  return layoutGrove(stones).stones
+}
+
+export function layoutGrove(stones: DerivedStone[]): { stones: StoneSpec[]; clearings: ClearingSpec[] } {
   const ids = new Set(stones.map((stone) => stone.id))
   const hasParent = (stone: DerivedStone) => Boolean(stone.parent && ids.has(stone.parent))
   const at = new Map<string, Place>()
@@ -133,6 +140,18 @@ export function layoutStones(stones: DerivedStone[]): StoneSpec[] {
   const places = stonePlaces(stones)
   for (const [id, index] of places) at.set(id, placeAt(index))
   let place = Math.max(-1, ...places.values()) + 1
+  // A clearing's stones stand in a small circle round its first stone's place.
+  const clearings: ClearingSpec[] = []
+  const centreOf = new Map<string, Place>()
+  for (const clearing of clearingsOf(standing(stones))) {
+    const count = clearing.members.length
+    const centre = clearingCentre(at.get(clearing.anchor) ?? placeAt(place++), count)
+    clearing.members.forEach((id, index) => {
+      at.set(id, memberSpot(centre, index, count))
+      centreOf.set(id, centre)
+    })
+    clearings.push({ name: clearing.name, centre, radius: ringRadius(count), members: clearing.members })
+  }
   // Then sub-stones, shortest path first: a parent's folder is always a prefix of its child's, so
   // every parent is placed before anything that hangs from it.
   // Twins last, since an anchor may itself be a sub-stone. Sub-stones and twins count separately,
@@ -144,9 +163,9 @@ export function layoutStones(stones: DerivedStone[]): StoneSpec[] {
     const n = siblings.get(key) ?? 0
     siblings.set(key, n + 1)
     const from = at.get(stone.parent!) ?? placeAt(place++)
-    at.set(stone.id, stone.twin ? twinPlace(from, n) : childPlace(from, n))
+    at.set(stone.id, stone.twin ? twinPlace(from, n, centreOf.get(stone.parent!)) : childPlace(from, n))
   }
-  return stones.map((stone) => {
+  const specs = stones.map((stone): StoneSpec => {
     const h = hash(stone.id)
     const child = hasParent(stone)
     return {
@@ -157,6 +176,7 @@ export function layoutStones(stones: DerivedStone[]): StoneSpec[] {
       at: at.get(stone.id)!,
       parent: child ? stone.parent : undefined,
       twin: child && stone.twin ? true : undefined,
+      clearing: child ? undefined : stone.clearing,
       branch: stone.branch,
       splits: stone.splits,
       scale: (0.92 + h * 0.14) * (child ? (stone.twin ? 0.86 : 0.78) : 1),
@@ -172,4 +192,5 @@ export function layoutStones(stones: DerivedStone[]): StoneSpec[] {
       ],
     }
   })
+  return { stones: specs, clearings }
 }

@@ -35,6 +35,8 @@ import { PhotoFocus, PhotoShot } from './Photo'
 import { useFlow, type FlowView } from '../store/flow'
 import type { Pairing } from '../../core/state/pairings.ts'
 import { Mushrooms } from './Mushrooms'
+import { Clearings } from './Clearings'
+import type { ClearingSpec } from './layout'
 import { AttentionMotes } from './AttentionMotes'
 import { TwinBase } from './TwinBase'
 import { Veil } from './Veil'
@@ -347,9 +349,12 @@ interface GroveSceneProps {
   ready?: boolean
   /** Stones worked on in the same hours, drawn as mushrooms between them. See `Mushrooms.tsx`. */
   pairs?: Pairing[]
+  /** Groups of stones standing together inside a ring. See `Clearings.tsx`. */
+  clearings?: ClearingSpec[]
 }
 
 const NO_PAIRS: Pairing[] = []
+const NO_CLEARINGS: ClearingSpec[] = []
 /** Where a deployment starts for an agent that has no orb on the tree. */
 const CANOPY_HEART: [number, number, number] = [-0.4, 3.9, 0.4]
 
@@ -359,6 +364,7 @@ export function GroveScene({
   stones = [],
   empty = [],
   pairs = NO_PAIRS,
+  clearings = NO_CLEARINGS,
   quality = 'high',
   animate = true,
   post = true,
@@ -553,6 +559,7 @@ export function GroveScene({
         <EmptyPlace key={place.index} place={place} />
       ))}
 
+      <Clearings clearings={clearings} stones={stones} animate={animate} />
       <Mushrooms pairs={pairs} stones={stones} animate={animate} />
       <AttentionMotes stones={stones} animate={animate} />
 

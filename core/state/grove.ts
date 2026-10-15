@@ -29,6 +29,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { type GroveFile, type GroveProblem, type StoneConfig, BUILT_IN_AGENT_IDS, MAX_BRIEF_CHARS, defaultGrove, isLinkOnly, parseAgent, parseGrove } from './schema.ts'
 import { assignPlaces, placeFor } from './places.ts'
+import { cleanClearingName, clearingKey, clearingsOf, coveredPlaces, followersOf, groupKey } from './clearings.ts'
 import { type RepoInfo, readRepos, twinsOf } from './repos.ts'
 import { MAX_NOTE_CHARS, NOTE_PLACES, type NotePlace } from './notes.ts'
 import { promptKey, runeNameFor } from './suggest-runes.ts'
@@ -160,15 +161,40 @@ export function updateGrove<T>(
 }
 
 /**
- * The stones that stand on numbered places: shown, not inside another shown stone's folder, and not
- * the twin of another stone (a twin stands beside its anchor, see `core/state/repos.ts`).
+ * The stones that stand on their own, before clearings are counted: shown, not inside another shown
+ * stone's folder, and not the twin of another stone (a twin stands beside its anchor, see
+ * `core/state/repos.ts`). These are the stones that may be in a clearing.
  */
-function topLevel(stones: StoneConfig[], repos: Map<string, RepoInfo>): StoneConfig[] {
+function standing(stones: StoneConfig[], repos: Map<string, RepoInfo>): StoneConfig[] {
   const shown = stones.filter((stone) => !stone.hidden)
   const twins = twinsOf(shown, repos)
   return shown.filter(
     (stone) => !twins.has(stone.path) && !shown.some((other) => other !== stone && stone.path.startsWith(other.path + path.sep))
   )
+}
+
+const asMembers = (stones: StoneConfig[]) => stones.map((stone) => ({ id: stone.path, clearing: stone.clearing, place: stone.place }))
+
+/**
+ * The stones that stand on numbered places: those standing on their own, less the ones that stand
+ * round another stone's place in a clearing (see `core/state/clearings.ts`).
+ */
+function topLevel(stones: StoneConfig[], repos: Map<string, RepoInfo>): StoneConfig[] {
+  const tops = standing(stones, repos)
+  const followers = followersOf(asMembers(tops))
+  return tops.filter((stone) => !followers.has(stone.path))
+}
+
+/** Every place in use: stones standing on one, and the places a clearing's ring covers. */
+function usedPlaces(stones: StoneConfig[], repos: Map<string, RepoInfo>, besides?: StoneConfig): number[] {
+  const tops = standing(stones, repos)
+  const byPath = new Map(tops.map((stone) => [stone.path, stone]))
+  const areas = clearingsOf(asMembers(tops)).flatMap((clearing) => {
+    const place = byPath.get(clearing.anchor)?.place
+    return place === undefined ? [] : [{ place, size: clearing.members.length }]
+  })
+  const taken = stones.filter((stone) => stone !== besides && stone.place !== undefined).map((stone) => stone.place!)
+  return [...taken, ...coveredPlaces(areas, Math.max(0, ...taken))]
 }
 
 /**
@@ -217,8 +243,7 @@ export async function addProject(folder: string, place?: number): Promise<{ ok: 
       // A top-level stone takes the circle you chose, or the lowest free one; a sub-stone stands
       // off its parent and a twin beside its anchor, and neither takes one.
       if (topLevel(grove.stones, repos).includes(entry)) {
-        const used = grove.stones.filter((stone) => stone !== entry && stone.place !== undefined).map((stone) => stone.place!)
-        entry.place = placeFor(used, place)
+        entry.place = placeFor(usedPlaces(grove.stones, repos, entry), place)
       }
       return { result: { ok: true }, write: true }
     },
@@ -247,10 +272,137 @@ export async function removeProject(stonePath: string): Promise<{ ok: boolean; e
       // whichever circle happens to be lowest.
       const heir = topLevel(grove.stones, repos).find((stone) => stone.place === undefined)
       if (heir && leaving.place !== undefined && twinsOf([leaving, heir], repos).size) heir.place = leaving.place
+      // The same for a clearing: its next stone takes the place, so the clearing stays where it is.
+      else if (heir && leaving.place !== undefined && leaving.clearing && clearingKey(heir.clearing ?? '') === clearingKey(leaving.clearing)) heir.place = leaving.place
       return { result: { ok: true }, write: true }
     },
     { ok: false, error: 'grove.json has an error; fix it before removing projects' }
   )
+}
+
+/* -------------------------------------------------------------------------------------------
+ * Clearings. Each change writes places down first (`fixPlaces`), so the only stones that move are
+ * the ones you moved. See `core/state/clearings.ts` for who stands where.
+ * ---------------------------------------------------------------------------------------- */
+
+type Answer = { ok: boolean; error?: string }
+const BROKEN: Answer = { ok: false, error: 'grove.json has an error; fix it before changing clearings' }
+
+/**
+ * Take a stone out of its clearing, if it is in one. If it was the stone the clearing stands on,
+ * the next stone in the clearing takes its place, so the clearing stays where it is; the stone
+ * that left takes the nearest free circle, as a newly connected one would.
+ */
+function leave(stones: StoneConfig[], stone: StoneConfig, repos: Map<string, RepoInfo>): void {
+  if (!stone.clearing) return
+  const key = clearingKey(stone.clearing)
+  const tops = standing(stones, repos)
+  const others = tops.filter((other) => other !== stone && other.clearing && clearingKey(other.clearing) === key)
+  delete stone.clearing
+  if (stone.place !== undefined && others.length && others.every((other) => other.place === undefined)) {
+    others[0]!.place = stone.place
+    delete stone.place
+  }
+  if (stone.place === undefined) stone.place = placeFor(usedPlaces(stones, repos, stone))
+}
+
+/** Put one stone in a clearing, new or existing. It walks over to stand with the others. */
+export async function joinClearing(stonePath: unknown, name: unknown): Promise<Answer> {
+  const clean = cleanClearingName(name)
+  if (!clean) return { ok: false, error: 'Give the clearing a short name' }
+  const repos = await reposFor()
+  return updateGrove<Answer>((grove) => {
+    const stone = grove.stones.find((each) => each.path === stonePath)
+    if (!stone || !standing(grove.stones, repos).includes(stone)) return { result: { ok: false, error: 'Only a project’s own stone can join a clearing' }, write: false }
+    if (stone.clearing && clearingKey(stone.clearing) === clearingKey(clean)) return { result: { ok: true }, write: false }
+    fixPlaces(grove.stones, repos)
+    leave(grove.stones, stone, repos)
+    // Spelled as the clearing already is, so a hand-typed "work" joins "Work" rather than splitting it.
+    const existing = standing(grove.stones, repos).find((other) => other.clearing && clearingKey(other.clearing) === clearingKey(clean))
+    stone.clearing = existing?.clearing ?? clean
+    // Joining one that stands elsewhere: give up this stone's own place and stand with the others.
+    if (existing) delete stone.place
+    return { result: { ok: true }, write: true }
+  }, BROKEN)
+}
+
+/** Take a stone out of its clearing. It goes back to standing on its own, in the nearest free circle. */
+export async function leaveClearing(stonePath: unknown): Promise<Answer> {
+  const repos = await reposFor()
+  return updateGrove<Answer>((grove) => {
+    const stone = grove.stones.find((each) => each.path === stonePath)
+    if (!stone?.clearing) return { result: { ok: true }, write: false }
+    fixPlaces(grove.stones, repos)
+    leave(grove.stones, stone, repos)
+    return { result: { ok: true }, write: true }
+  }, BROKEN)
+}
+
+/** Call a clearing something else. Two clearings cannot share a name, since the name is what joins them. */
+export async function renameClearing(from: unknown, to: unknown): Promise<Answer> {
+  const clean = cleanClearingName(to)
+  if (typeof from !== 'string' || !clean) return { ok: false, error: 'Give the clearing a short name' }
+  return updateGrove<Answer>((grove) => {
+    const members = grove.stones.filter((stone) => stone.clearing && clearingKey(stone.clearing) === clearingKey(from))
+    if (!members.length) return { result: { ok: false, error: 'No clearing called that' }, write: false }
+    const clash = grove.stones.some((stone) => stone.clearing && !members.includes(stone) && clearingKey(stone.clearing) === clearingKey(clean))
+    if (clash) return { result: { ok: false, error: 'There is already a clearing called that' }, write: false }
+    for (const stone of members) stone.clearing = clean
+    return { result: { ok: true }, write: true }
+  }, BROKEN)
+}
+
+/** Undo a clearing: every stone in it goes back to standing on its own. The stones and their work stay. */
+export async function removeClearing(name: unknown): Promise<Answer> {
+  if (typeof name !== 'string') return { ok: false, error: 'No clearing called that' }
+  const repos = await reposFor()
+  return updateGrove<Answer>((grove) => {
+    const members = grove.stones.filter((stone) => stone.clearing && clearingKey(stone.clearing) === clearingKey(name))
+    if (!members.length) return { result: { ok: true }, write: false }
+    fixPlaces(grove.stones, repos)
+    // The stones standing round the clearing leave first, each to the lowest free circle; the one
+    // it stood on goes last, by then alone, and so keeps its place.
+    for (const stone of [...members].sort((a, b) => Number(a.place !== undefined) - Number(b.place !== undefined))) leave(grove.stones, stone, repos)
+    return { result: { ok: true }, write: true }
+  }, BROKEN)
+}
+
+/**
+ * "Yes" to a suggested clearing: the stones go into a new clearing with the name you gave it,
+ * standing round the place of the first. Refused if any of them has since joined another.
+ */
+export async function makeClearing(stonePaths: unknown, name: unknown): Promise<Answer> {
+  const clean = cleanClearingName(name)
+  if (!clean) return { ok: false, error: 'Give the clearing a short name' }
+  const paths = Array.isArray(stonePaths) ? stonePaths.filter((each): each is string => typeof each === 'string') : []
+  if (paths.length < 2) return { ok: false, error: 'A clearing suggestion needs two stones or more' }
+  const repos = await reposFor()
+  return updateGrove<Answer>((grove) => {
+    if (grove.stones.some((stone) => stone.clearing && clearingKey(stone.clearing) === clearingKey(clean))) {
+      return { result: { ok: false, error: 'There is already a clearing called that' }, write: false }
+    }
+    const tops = standing(grove.stones, repos)
+    const stones = paths.map((each) => tops.find((stone) => stone.path === each))
+    if (stones.some((stone) => !stone || stone.clearing)) return { result: { ok: false, error: 'One of those stones has moved on; the suggestion is out of date' }, write: false }
+    fixPlaces(grove.stones, repos)
+    stones.forEach((stone, index) => {
+      stone!.clearing = clean
+      if (index > 0) delete stone!.place
+    })
+    return { result: { ok: true }, write: true }
+  }, BROKEN)
+}
+
+/** "No" to a suggested clearing: remembered, so the same group is not offered again. */
+export async function declineClearing(stonePaths: unknown): Promise<Answer> {
+  const paths = Array.isArray(stonePaths) ? stonePaths.filter((each): each is string => typeof each === 'string') : []
+  if (paths.length < 2) return { ok: false, error: 'Nothing to decline' }
+  return updateGrove<Answer>((grove) => {
+    const declined = grove.declinedClearings ?? []
+    if (declined.some((group) => groupKey(group) === groupKey(paths))) return { result: { ok: true }, write: false }
+    grove.declinedClearings = [...declined, [...paths].sort()]
+    return { result: { ok: true }, write: true }
+  }, BROKEN)
 }
 
 /** What the "grow an agent" form sends. The id is made here, from the name, not by page code. */

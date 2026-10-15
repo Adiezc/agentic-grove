@@ -27,7 +27,8 @@ import { SettingsPanel } from './hud/Settings'
 import { useFlow } from './store/flow'
 import { useGrove } from './store/grove'
 import { Crystal } from './hud/Crystal'
-import { childPlace, emptyPlaces, layoutStones, stonePlaces, twinPlace } from './scene/layout'
+import { childPlace, emptyPlaces, layoutGrove, twinPlace, usedPlaces, type ClearingSpec } from './scene/layout'
+import { clearingCentre, memberSpot, ringRadius } from '../core/state/clearings.ts'
 import { step, type Direction, type Target } from './scene/navigation'
 import { DEMO } from './demo'
 import { STAGE_GROVE } from './demoStages'
@@ -62,6 +63,21 @@ const DEMO_STONES = STAGE_GROVE ? STAGE_GROVE.stones : [
       ]
     : []),
 ]
+
+/**
+ * `?demo&clearing` gathers Research, Data and Compute into a clearing called "Studies", standing
+ * round Research's place, to judge the ring, its name and the mycelium between the stones.
+ */
+const CLEARING = DEMO && !STAGE_GROVE && new URLSearchParams(window.location.search).has('clearing')
+const STUDIES = ['research', 'data', 'compute']
+const studiesAt = clearingCentre(researchAt, STUDIES.length)
+const DEMO_CLEARINGS: ClearingSpec[] = CLEARING ? [{ name: 'Studies', centre: studiesAt, radius: ringRadius(STUDIES.length), members: STUDIES }] : []
+const DEMO_GROVE = CLEARING
+  ? DEMO_STONES.map((stone) => {
+      const index = STUDIES.indexOf(stone.id)
+      return index < 0 ? stone : { ...stone, at: memberSpot(studiesAt, index, STUDIES.length), clearing: 'Studies' }
+    })
+  : DEMO_STONES
 
 /** Who the demo shows working on its running stones, as in the concept art's frame 1. */
 const DEMO_WORKERS: Record<string, string> = { research: 'researcher', build: 'builder', connect: 'researcher' }
@@ -154,9 +170,10 @@ export function App() {
    * An agent you sent shows its face above the stone for as long as its run is live, so "who is
    * working there" names the agent, not only the tool. */
   const real = snapshot?.grove.stones ?? NO_STONES
+  const laidOut = useMemo(() => (DEMO ? { stones: DEMO_GROVE, clearings: DEMO_CLEARINGS } : layoutGrove(real)), [real])
+  const clearings = laidOut.clearings
   const stones = useMemo(() => {
-    const base = DEMO ? DEMO_STONES : layoutStones(real)
-    return base.map((stone) => {
+    return laidOut.stones.map((stone) => {
       const lit = DEMO ? statusOverrides[stone.id] : undefined
       // While an agent is on its way, or (in the demo) once it has landed, its face joins the
       // stone's workers so you can see who went where.
@@ -169,12 +186,12 @@ export function App() {
       const workers = [...new Set([...(stone.workers ?? []), ...staged, ...live, ...(sent ? [sent] : [])])]
       return { ...stone, status: lit ?? stone.status, workers }
     })
-  }, [real, deployment, statusOverrides, runs])
+  }, [laidOut, deployment, statusOverrides, runs])
   // Worked out once per snapshot, against the snapshot's own clock, so a quiet grove does not redo it.
   const snapshotAt = snapshot?.at ?? 0
   const pairs = useMemo(() => (DEMO ? (STAGE_GROVE?.pairs ?? DEMO_PAIRS) : pairings(real, snapshotAt)), [real, snapshotAt])
   // Keyed on the places themselves, so the circles are only worked out again when a stone comes or goes.
-  const usedKey = [...stonePlaces(real).values()].sort((a, b) => a - b).join(',')
+  const usedKey = usedPlaces(real).sort((a, b) => a - b).join(',')
   const empty = useMemo(() => (DEMO ? (STAGE_GROVE?.used ? emptyPlaces(STAGE_GROVE.used) : []) : emptyPlaces(usedKey ? usedKey.split(',').map(Number) : [])), [usedKey])
   const selectedName = stones.find((stone) => stone.id === stoneId)?.name
   const goHome = () => {
@@ -414,6 +431,7 @@ export function App() {
           stones={stones}
           empty={empty}
           pairs={pairs}
+          clearings={clearings}
           quality={quality}
           // Under `prefers-reduced-motion` the scene renders once and holds: no heartbeat, no
           // motes, no parallax, no travelling light. It is still the same picture, which is the

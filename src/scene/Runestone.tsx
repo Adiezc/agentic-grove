@@ -210,6 +210,8 @@ export interface StoneSpec {
   parent?: string
   /** This stone is a worktree of `parent`'s repository: it stands beside it, sharing a base. */
   twin?: boolean
+  /** The clearing it stands in, by name. See `core/state/clearings.ts`. */
+  clearing?: string
   /** The git branch checked out in this stone's folder, when it is a checkout. */
   branch?: string
   /** Parts of this project worth a sub-stone of their own, offered in its panel. */
@@ -770,9 +772,9 @@ export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, select
  * of the interface stays Geist. A canvas does not wait for a web font, so the label is drawn again
  * once the font has loaded, rather than staying in the fallback for good.
  */
-const LABEL_FONT = '400 30px "Uncial Antiqua", Georgia, serif'
+export const LABEL_FONT = '400 30px "Uncial Antiqua", Georgia, serif'
 
-function useLabelFontReady() {
+export function useLabelFontReady() {
   const [ready, setReady] = useState(() => document.fonts.check(LABEL_FONT))
   useEffect(() => {
     if (ready) return

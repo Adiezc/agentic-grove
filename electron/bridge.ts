@@ -175,6 +175,17 @@ export interface GroveApi {
   removeRune(stoneId: string, runeId: string): Promise<{ ok: boolean; error?: string }>
   /** Say no to a suggested rune, by its key, so it is not offered again. */
   declineRune(stoneId: string, key: string): Promise<{ ok: boolean; error?: string }>
+  /** Put a stone in a clearing, new or existing, by name. It moves to stand with the others. */
+  joinClearing(stoneId: string, name: string): Promise<{ ok: boolean; error?: string }>
+  /** Take a stone out of its clearing; it goes back to a circle of its own. */
+  leaveClearing(stoneId: string): Promise<{ ok: boolean; error?: string }>
+  renameClearing(from: string, to: string): Promise<{ ok: boolean; error?: string }>
+  /** Undo a clearing. Every stone in it stands on its own again. */
+  removeClearing(name: string): Promise<{ ok: boolean; error?: string }>
+  /** Yes to a suggested clearing: these stones, under this name. */
+  makeClearing(stoneIds: string[], name: string): Promise<{ ok: boolean; error?: string }>
+  /** No to a suggested clearing, so the same group is not offered again. */
+  declineClearing(stoneIds: string[]): Promise<{ ok: boolean; error?: string }>
   /** Run a saved rune. The node side reads its prompt and agent from grove.json, never from the page. */
   runRune(stoneId: string, runeId: string): Promise<RunResult>
   /**
@@ -335,6 +346,12 @@ export const CHANNELS = {
   removeRune: 'grove:remove-rune',
   declineRune: 'grove:decline-rune',
   runRune: 'grove:run-rune',
+  joinClearing: 'grove:join-clearing',
+  leaveClearing: 'grove:leave-clearing',
+  renameClearing: 'grove:rename-clearing',
+  removeClearing: 'grove:remove-clearing',
+  makeClearing: 'grove:make-clearing',
+  declineClearing: 'grove:decline-clearing',
   openAgentLink: 'grove:open-agent-link',
   planHooks: 'grove:plan-hooks',
   applyHooks: 'grove:apply-hooks',

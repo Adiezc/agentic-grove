@@ -16,10 +16,13 @@
 import { useState } from 'react'
 import { ArrowBendDownRight, CaretRight, FolderPlus, GitBranch, Plus, X } from '@phosphor-icons/react'
 import type { Runestone } from '../../core/state/stones.ts'
+import type { ClearingSuggestion } from '../../core/state/clearings.ts'
 import type { StoneSpec } from '../scene/Runestone'
 import { useFlow } from '../store/flow'
 import { STATE_LABEL } from './Flow'
 import { StoneRunes } from './Runes'
+import { ClearingsSection } from './Clearings'
+import { useGrove } from '../store/grove'
 
 function PanelShell({
   open,
@@ -45,6 +48,8 @@ function PanelShell({
   )
 }
 
+const NO_SUGGESTIONS: ClearingSuggestion[] = []
+
 export function ProjectsPanel({
   open,
   onClose,
@@ -57,6 +62,7 @@ export function ProjectsPanel({
   real: Runestone[]
 }) {
   const selectStone = useFlow((state) => state.selectStone)
+  const clearingSuggestions = useGrove((state) => state.snapshot?.grove.clearingSuggestions) ?? NO_SUGGESTIONS
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const canWrite = Boolean(window.grove)
@@ -118,6 +124,7 @@ export function ProjectsPanel({
                     {stone.name}
                     <small>
                       {STATE_LABEL[stone.status]}
+                      {stone.clearing ? `, in ${stone.clearing}` : ''}
                       {derived?.runningCount ? `, ${derived.runningCount} running` : ''}
                       {derived?.runes.length ? `, ${derived.runes.length} saved ${derived.runes.length === 1 ? 'task' : 'tasks'}` : ''}
                     </small>
@@ -150,6 +157,7 @@ export function ProjectsPanel({
       ) : all.length ? null : (
         <p className="setting-line">No projects yet. Connect a folder you already have, or start a new one.</p>
       )}
+      <ClearingsSection stones={stones} suggestions={clearingSuggestions} />
       <div className="setting-actions rail-actions">
         <button type="button" className="setting-button is-primary" disabled={!canWrite} onClick={() => void act(() => window.grove!.browseProject())}>
           <FolderPlus size={13} weight="thin" /> Connect a folder
@@ -161,7 +169,8 @@ export function ProjectsPanel({
       <p className="setting-fine">
         A sub-stone is a big part of a project, a subfolder or a git worktree, standing as its own stone and joined to its
         parent. Open a stone and choose “Split off a part” to make one by hand. A git worktree of a project stands right
-        beside it as a twin, named by its branch.
+        beside it as a twin, named by its branch. Open a stone and choose “Put in a clearing” to group projects: stones in a
+        clearing stand together inside a ring, joined by mycelium.
       </p>
       {error ? <p className="panel-error">{error}</p> : null}
     </PanelShell>

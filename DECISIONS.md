@@ -1719,3 +1719,40 @@ its window open and a Working run each read Closed within about a second of Stop
 "Resume in Terminal" offered after. Claude Code quits on SIGINT, so the SIGTERM step and the
 refusals are covered by `npm run verify:lifecycle` against a stand-in tool. Not exercised in the
 app: Stop on a run Waiting for a permission answer (neither test run asked one).
+
+## Clearings: stones that belong together stand together (15 October 2026)
+
+Roadmap idea 4, built on Adrian's choice of the two layouts offered: **stones move to stand
+together**, rather than a ring stretched round stones wherever they already stand. A ring round
+stones on both sides of the tree would cross the trunk, and so would the mycelium between them.
+
+**What is written.** A name on each stone in `grove.json` (`"clearing": "Work"`), nothing else, so
+it can be changed by hand and there is no second list to keep in step. Names match ignoring case.
+Turned-down suggestions go in `declinedClearings`, as lists of stone paths.
+
+**Where they stand** (`core/state/clearings.ts`, shared by the node side and the scene). A clearing
+keeps one numbered place, its first stone's; the others give theirs up and stand in a small circle
+round it, 1.9 apart, with a ring of small stones 0.9 outside them. A clearing close to the tree
+steps straight *back* until its ring clears the dais and root burst (`TREE_CLEARANCE`, 3.1):
+stepping sideways walked front clearings off the edge of the home view. The numbered places the
+ring covers count as taken, so no new stone or empty circle lands inside it; a stone already
+standing on one is left where it is. When the stone a clearing stands on leaves, the next one takes
+its place, so the clearing does not move. Place coordinates moved from `src/scene/layout.ts` to
+`core/state/places.ts` so the node side can do this sum.
+
+**Only top-level stones.** A sub-stone or a twin stands off its own stone, which may be in a
+clearing; a twin then steps away from the clearing's centre so it never lands between two members.
+
+**Mycelium between them** (`src/scene/Clearings.tsx`). Each stone keeps its own root to the tree;
+inside a clearing, five thin fibres also run between neighbours (one strand for two stones, a loop
+for three or more). They breathe with the heartbeat, light runs out along them from a stone that is
+working, and they lean amber only when a stone in the clearing needs you. Still under reduced motion.
+
+**Suggested, never made.** Stones that shared at least three hours of work in the last week (the
+mushrooms' measure) and are in no clearing are offered as one in Projects, at most two offers,
+strongest first. "Make a clearing" asks for a name; "No thanks" is remembered.
+
+Checked with `npm run verify:clearings` (14 rules) and in the real app with a temporary grove:
+joining, renaming and joining from a stone's panel, with screenshots. `?demo&clearing` shows one in
+the demo scene. Known: Uncial Antiqua draws some lower-case letters in their uncial forms (a "y"
+reads close to "u", a "j" close to "i"), which shows most in clearing names.
