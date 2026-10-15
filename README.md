@@ -18,7 +18,7 @@ grove starts empty and grows a stone for each project you connect.*
 
 **[Download for Mac](https://github.com/Adiezc/agentic-grove/releases/latest)** · Apple Silicon,
 macOS 13 or newer · Needs Claude Code or Codex, signed in with your Claude or ChatGPT account ·
-Free, MIT licensed, no telemetry
+Free for non-commercial community use, source-available, no telemetry
 
 **Status: early, and changing quickly.**
 
@@ -254,4 +254,26 @@ Several came from reading [Odysseus](https://github.com/odysseus-dev/odysseus) b
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+Required Notice: Copyright (c) 2026 Adrian Diez Cuadrado.
+
+Agentic Grove is source-available under [PolyForm Noncommercial 1.0.0](LICENSE),
+effective for copies offered under these terms from 15 October 2026.
+
+Non-commercial use, modification and sharing are permitted, including non-commercial work on
+open-source community projects. The licence also expressly permits use by charitable
+organisations, educational institutions, public research organisations, public safety or
+health organisations, environmental protection organisations and government institutions,
+regardless of their funding sources or funding obligations.
+
+Commercial uses outside the licence's permitted purposes require a separate written licence
+from Adrian Diez Cuadrado. Contact the maintainer through
+[the project repository](https://github.com/Adiezc/agentic-grove). Publishing a project's source
+code does not, by itself, make an activity non-commercial.
+
+Preserve the licence and required notices when sharing. PolyForm Noncommercial does not
+require publication of modifications. It is a source-available licence, not an OSI-approved
+open-source licence. The standard [licence text](LICENSE) controls the permissions above.
+
+Copies previously released under MIT, AGPL or other terms retain their original permissions.
+Third-party code, libraries and assets retain their own licences and notices; see [CREDITS.md](CREDITS.md).
+Contributors retain their copyright; see [CONTRIBUTING.md](CONTRIBUTING.md#licence-for-contributions).

@@ -1,5 +1,11 @@
 # Credits
 
+Required Notice: Copyright (c) 2026 Adrian Diez Cuadrado.
+
+Agentic Grove is source-available under PolyForm Noncommercial 1.0.0 from 15 October 2026.
+Earlier copies released under other licences retain their original terms. The third-party
+works below retain their own licences and notices.
+
 Agentic Grove exists because other people published their work and let others use it. This file
 is written before the feature code, not after it, and it is a condition of the project rather
 than a courtesy.
@@ -238,8 +244,10 @@ contributors
 A browser workspace for chat, agents, research, documents, email and local models. We read it on
 6 October 2026 (licence file read that day) to see what it had worked out that the Grove had not.
 
-**AGPL-3.0 is a copyleft licence: any of its code in the Grove would make the whole Grove AGPL.
-So: ideas only, not one line of code.** Two projects Odysseus itself borrows from are MIT
+**Ideas only: no Odysseus code has been copied.** At the time of this review Grove was MIT;
+the current release uses PolyForm Noncommercial 1.0.0. AGPL code cannot be
+incorporated under these non-commercial terms without a separate compatible grant from the relevant
+rights holders. Any future code reuse requires review of the exact source, licence and notices. Two projects Odysseus itself borrows from are MIT
 (`anomalyco/opencode` and `AlexsJones/llmfit`); if the Grove ever uses them, the code comes from
 those repositories directly, never from Odysseus's adapted copies.
 

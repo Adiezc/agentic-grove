@@ -96,7 +96,7 @@ try {
     icon: icns,
     appBundleId: 'com.adiezc.agentic-grove',
     appVersion: pkg.version,
-    appCopyright: `MIT licence. ${pkg.repository?.url ?? ''}`.trim(),
+    appCopyright: `Copyright (c) 2026 ${pkg.author}. ${pkg.license}. ${pkg.repository?.url ?? ''}`.trim(),
     // Plain files rather than an archive: the tray icon is read with a normal file path.
     asar: false,
     prune: false,

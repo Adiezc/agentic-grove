@@ -76,9 +76,10 @@ other tools, and never invent a number.
 ## Also wanted: ideas from Odysseus
 
 These came from reading [Odysseus](https://github.com/odysseus-dev/odysseus), the self-hosted AI
-workspace started by PewDiePie. **Odysseus is AGPL-licensed, so please do not copy its code:**
-any of it here would force the whole Grove to change licence. Take the idea, write it fresh for
-the Grove, and say in your pull request that you did. Details in [CREDITS.md](CREDITS.md).
+workspace started by PewDiePie. These are design influences, with no Odysseus code currently
+copied into Grove. Take the idea, write it fresh for Grove and say in your pull request that you
+did. Any proposed code reuse needs a review of the exact upstream licence, source and notices
+before adoption. Details in [CREDITS.md](CREDITS.md).
 
 Each one is open to whoever wants it. Comment on or open an issue first so two people do not build
 the same thing. Times are rough, for someone who has read the files named.
@@ -219,3 +220,16 @@ The idea for these checks, and for this table, came from Odysseus; see [CREDITS.
 
 Comments explain *why*, in full sentences, and plain code beats clever code. Match the files
 around the one you are changing.
+
+## Licence for contributions
+
+Original contributions must be offered under [PolyForm Noncommercial 1.0.0](LICENSE).
+You retain your copyright. Submission does not transfer ownership or automatically grant the
+maintainer separate commercial licensing rights in your work. Before merging third-party
+contributions, the maintainer must obtain explicit written permission covering inclusion in
+both non-commercial and commercial editions. Agree those permissions before substantial work.
+
+Identify any third-party code or assets, their sources and licences, and preserve their
+original notices. Do not submit material you lack permission to contribute. AGPL code cannot
+be incorporated into a PolyForm-licensed release without a separate compatible grant from the
+relevant rights holders. See the [README licence section](README.md#licence).
