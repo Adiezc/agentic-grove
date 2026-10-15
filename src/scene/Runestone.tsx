@@ -765,8 +765,26 @@ export function Runestone({ spec, cameraAt, showLabel, onHover, onSelect, select
  * the GPU. It also means the label cannot be selected or read by a screen reader, which is a real
  * cost — and the answer to that is that the interface will carry an accessible list of stones
  * elsewhere, not that this label should be DOM.
+ *
+ * Written in Uncial Antiqua, a Celtic book hand, so the names read as carved by druids; the rest
+ * of the interface stays Geist. A canvas does not wait for a web font, so the label is drawn again
+ * once the font has loaded, rather than staying in the fallback for good.
  */
+const LABEL_FONT = '400 30px "Uncial Antiqua", Georgia, serif'
+
+function useLabelFontReady() {
+  const [ready, setReady] = useState(() => document.fonts.check(LABEL_FONT))
+  useEffect(() => {
+    if (ready) return
+    let live = true
+    document.fonts.load(LABEL_FONT).then(() => live && setReady(true), () => {})
+    return () => { live = false }
+  }, [ready])
+  return ready
+}
+
 function RuneLabel({ name }: { name: string }) {
+  const fontReady = useLabelFontReady()
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas')
     const scale = 2 // for retina
@@ -776,15 +794,18 @@ function RuneLabel({ name }: { name: string }) {
     if (ctx) {
       ctx.scale(scale, scale)
       ctx.fillStyle = palette.text
-      ctx.font = '400 30px "Geist Variable", ui-sans-serif, system-ui, sans-serif'
+      ctx.font = LABEL_FONT
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(name, 256, 64)
+      // Uncial letters run wide, so a long name is squeezed to fit rather than cut at the edges.
+      if (ctx.measureText(name).width > 496) ctx.fillText(name, 256, 64, 496)
+      else ctx.fillText(name, 256, 64)
     }
     const canvasTexture = new THREE.CanvasTexture(canvas)
     canvasTexture.colorSpace = THREE.SRGBColorSpace
     return canvasTexture
-  }, [name])
+  }, [name, fontReady])
+  useEffect(() => () => texture.dispose(), [texture])
 
   return (
     // At the stone's foot, just in front of its rings, where the art writes the names. It used to

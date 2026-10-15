@@ -190,7 +190,9 @@ With thanks to the people whose open-source work helped this grove grow:
 - **[postprocessing](https://github.com/pmndrs/postprocessing) and
   [n8ao](https://github.com/N8python/n8ao)** — scene effects and ambient occlusion.
 - **[Phosphor Icons](https://github.com/phosphor-icons/react) and
-  [Geist](https://github.com/vercel/geist-font)** — the icons and locally bundled font.
+  [Geist](https://github.com/vercel/geist-font)** — the icons and locally bundled interface font.
+- **[Uncial Antiqua](https://fonts.google.com/specimen/Uncial+Antiqua) by Astigmatic** — the
+  font of the stone names.
 - **[Electron](https://github.com/electron/electron) and its contributors** — the desktop
   runtime, with thanks also to the maintainers of the supporting bundled libraries and build tools.
 
