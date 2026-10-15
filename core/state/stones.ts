@@ -25,6 +25,8 @@ import type { Provenance, Session, SessionStatus, Tell } from '../harnesses/type
 import type { GroveFile, Rune, StoneConfig } from './schema.ts'
 import { type RepoInfo, twinsOf } from './repos.ts'
 import { type RuneSuggestion, suggestRunes } from './suggest-runes.ts'
+import { type ClearingSuggestion, suggestClearings } from './clearings.ts'
+import { pairings } from './pairings.ts'
 
 /**
  * A stone's state is the most urgent thing happening on it, in this order.
@@ -116,6 +118,8 @@ export interface Runestone {
   splits: SplitSuggestion[]
   /** Its numbered place in the grove, from `grove.json`, when written. Sub-stones have none. */
   place?: number
+  /** The clearing it stands in, by name, from `grove.json`. Only on top-level stones. */
+  clearing?: string
 }
 
 /** A folder with agent work in it that is not a stone yet, offered when connecting a project. */
@@ -142,6 +146,8 @@ export interface DerivedGrove {
   stones: Runestone[]
   /** Stones hidden by configuration. Reported so the interface can offer them back. */
   hidden: { path: string; name: string; sessionCount: number }[]
+  /** Stones you keep working on together, offered as a clearing. See `core/state/clearings.ts`. */
+  clearingSuggestions: ClearingSuggestion[]
   /** Folders with sessions but no stone, busiest first, scratch folders left out. At most five. */
   suggestions: ProjectSuggestion[]
   /** Sessions outside every connected project: seen, counted, not drawn. */
@@ -260,6 +266,7 @@ function buildStone(
   // A Codex worktree's folder is named after the repo, the same as the stone beside it, so a twin
   // goes by its branch: that is the one thing that tells the two apart.
   const fallbackName = (twinOf && repo?.branch) || path.basename(config.path) || config.path
+  const parent = twinOf ?? owningConfig([path.dirname(config.path)], configs.filter((other) => !other.hidden))?.path
   return {
     id: config.path,
     name: config.name || fallbackName,
@@ -276,8 +283,9 @@ function buildStone(
       .flatMap((session) => session.tells ?? [])
       .sort((a, b) => b.at - a.at)
       .slice(0, 3),
-    parent: twinOf ?? owningConfig([path.dirname(config.path)], configs.filter((other) => !other.hidden))?.path,
+    parent,
     twin: twinOf ? true : undefined,
+    clearing: parent ? undefined : config.clearing,
     branch: repo?.branch,
     place: twinOf ? undefined : config.place,
     splits: splitsFor(config.path, ordered, new Set(configs.map((other) => other.path))),
@@ -342,6 +350,7 @@ export function deriveStones(
   return {
     stones,
     hidden,
+    clearingSuggestions: suggestClearings(stones, pairings(stones, now), grove.declinedClearings),
     suggestions,
     unconnectedSessions: [...unconnected.values()].reduce((total, group) => total + group.length, 0),
     totalSessions: drawn.length,

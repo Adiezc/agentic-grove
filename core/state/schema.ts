@@ -23,6 +23,7 @@
 /** Bumped only when a change cannot be read by an older build. Nothing migrates below 1. */
 import { MAX_NOTE_CHARS, NOTE_PLACES, type CarvedNote, type NotePlace } from './notes.ts'
 import { isModelName } from '../models.ts'
+import { cleanClearingName, MAX_CLEARING_NAME } from './clearings.ts'
 
 export const GROVE_SCHEMA_VERSION = 1
 
@@ -86,6 +87,11 @@ export interface StoneConfig {
    * connected, so the stone never moves when others come and go. See `core/state/places.ts`.
    */
   place?: number
+  /**
+   * The clearing this stone stands in, by name: `"Work"`, `"Side projects"`. Stones with the same
+   * name stand together inside one ring. Only for top-level stones. See `core/state/clearings.ts`.
+   */
+  clearing?: string
 }
 
 /**
@@ -288,6 +294,11 @@ export interface GroveFile {
    * agent's own default; `""` means the tool's default. See `core/models.ts`.
    */
   builtInModels?: Record<string, string>
+  /**
+   * Suggested clearings you said no to, each the list of stone paths it would have held. Kept so
+   * the same group is never offered twice. Delete one to be asked again.
+   */
+  declinedClearings?: string[][]
 }
 
 /**
@@ -423,6 +434,11 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
           }
         }
 
+        if (entry.clearing !== undefined) {
+          const clearing = cleanClearingName(entry.clearing)
+          if (clearing) stone.clearing = clearing
+          else problems.push({ where: `${at}.clearing`, message: `Should be a name, like "Work", up to ${MAX_CLEARING_NAME} characters.` })
+        }
         if (Array.isArray(entry.declinedRunes)) {
           const declined = entry.declinedRunes.map(asString).filter(Boolean)
           if (declined.length) stone.declinedRunes = declined
@@ -492,6 +508,14 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
         else models[id] = model
       }
       if (Object.keys(models).length) grove.builtInModels = models
+    }
+  }
+
+  if (raw.declinedClearings !== undefined) {
+    if (!Array.isArray(raw.declinedClearings)) problems.push({ where: 'declinedClearings', message: 'Should be a list of lists of paths.' })
+    else {
+      const groups = raw.declinedClearings.filter(Array.isArray).map((group: unknown[]) => group.map(asString).filter(Boolean)).filter((group) => group.length >= 2)
+      if (groups.length) grove.declinedClearings = groups
     }
   }
 

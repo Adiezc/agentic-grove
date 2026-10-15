@@ -63,3 +63,53 @@ export function placeFor(used: Iterable<number>, asked?: number): number {
   while (taken.has(index)) index += 1
   return index
 }
+
+/* -------------------------------------------------------------------------------------------
+ * Where each numbered place stands on the floor, as [x, z]. Here rather than in the scene so the
+ * node side can tell which places a clearing covers (`core/state/clearings.ts`). How they were
+ * picked is in the header of `src/scene/layout.ts`.
+ * ---------------------------------------------------------------------------------------- */
+
+export type Place = [number, number]
+
+/** The places that fit the home view, in filling order, before `PLACE_SPREAD`. Picked on screen, see the header of `src/scene/layout.ts`. */
+export const HOME_PLACES: Place[] = [
+  [-3.7, -0.6],
+  [3.9, -0.5],
+  [-5.6, -3.6],
+  [6.1, -3.4],
+  [-3.9, -5.9],
+  [4.5, -5.8],
+  [-7.4, -6.2],
+  [7.8, -6.0],
+  [-2.6, -8.4],
+  [3.4, -8.4],
+  [-6.0, -9.0],
+  [6.6, -8.8],
+]
+
+/**
+ * Places beyond those: rows further back, each a little wider than the last, alternating sides.
+ * Seen from the home view they sit behind the canopy; zoomed out, they are in the open.
+ */
+function outerPlace(index: number): Place {
+  const row = Math.floor(index / 6)
+  const slot = index % 6
+  const side = slot % 2 === 0 ? -1 : 1
+  const across = 2.6 + Math.floor(slot / 2) * 2.7 + row * 0.6
+  return [side * across, -10.2 - row * 2.6 - Math.floor(slot / 2) * 0.5]
+}
+
+/**
+ * How far out every place stands compared with where it was first picked. Set on 15 October 2026
+ * at Adrian's request, with the home camera pulled back by the same factor (`camera` in
+ * `src/theme/palette.ts`): the stones keep their spots on screen, but the tree reads smaller among
+ * them and they, and any clearing, have more room round the trunk. Change the two together.
+ */
+export const PLACE_SPREAD = 1.3
+
+export function placeAt(index: number): Place {
+  const [x, z] = index < HOME_PLACES.length ? HOME_PLACES[index]! : outerPlace(index - HOME_PLACES.length)
+  return [x * PLACE_SPREAD, z * PLACE_SPREAD]
+}
+

@@ -19,7 +19,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { startScanLoop, openSession, type ScanResult } from '../core/scan.ts'
-import { addAgent, addProject, carveNote, carveRune, declineRune, readNote, removeRune, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings, setAgentModel, updateAgent, type AgentDraft } from '../core/state/grove.ts'
+import { addAgent, addProject, carveNote, carveRune, declineClearing, declineRune, joinClearing, leaveClearing, makeClearing, removeClearing, renameClearing, readNote, removeRune, groveHome, loadGrove, grovePath, removeAgent, removeProject, saveSettings, setAgentModel, updateAgent, type AgentDraft } from '../core/state/grove.ts'
 import { builtInModel, isModelName, modelForJob } from '../core/models.ts'
 import { deriveStones } from '../core/state/stones.ts'
 import { readRepos } from '../core/state/repos.ts'
@@ -517,6 +517,13 @@ function registerHandlers(): void {
   handle(CHANNELS.carveRune, async (_event, stoneId: unknown, prompt: unknown, agent: unknown) => andRescan(await carveRune(stoneId, prompt, agent ?? '')))
   handle(CHANNELS.removeRune, async (_event, stoneId: unknown, runeId: unknown) => andRescan(await removeRune(stoneId, runeId)))
   handle(CHANNELS.declineRune, async (_event, stoneId: unknown, key: unknown) => andRescan(await declineRune(stoneId, key)))
+  /* Clearings. Each checks its arguments against grove.json itself, and rescans so stones move at once. */
+  handle(CHANNELS.joinClearing, async (_event, stoneId: unknown, name: unknown) => andRescan(await joinClearing(stoneId, name)))
+  handle(CHANNELS.leaveClearing, async (_event, stoneId: unknown) => andRescan(await leaveClearing(stoneId)))
+  handle(CHANNELS.renameClearing, async (_event, from: unknown, to: unknown) => andRescan(await renameClearing(from, to)))
+  handle(CHANNELS.removeClearing, async (_event, name: unknown) => andRescan(await removeClearing(name)))
+  handle(CHANNELS.makeClearing, async (_event, stoneIds: unknown, name: unknown) => andRescan(await makeClearing(stoneIds, name)))
+  handle(CHANNELS.declineClearing, async (_event, stoneIds: unknown) => andRescan(await declineClearing(stoneIds)))
   handle(CHANNELS.runRune, async (_event, stoneId: unknown, runeId: unknown): Promise<RunResult> => {
     const { grove } = await loadGrove()
     const rune = grove.stones.find((stone) => stone.path === stoneId)?.runes?.find((each) => each.id === runeId)

@@ -3262,3 +3262,115 @@
 .echo-model.is-chosen {
   color: var(--glow);
 }
+
+/* ---- Clearings: a stone's clearing in its panel, and the list in Projects. Grey and quiet, like
+ * the split offer: a clearing is how you arranged things, never something that needs you. ---- */
+
+.stone-clearing .split-offer {
+  margin-top: 0.8rem;
+}
+
+.clearing-line {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.8rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.clearing-line strong {
+  font-weight: 400;
+  color: var(--text);
+}
+
+.clearing-quiet {
+  margin-left: auto;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.clearing-quiet:hover,
+.clearing-quiet:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.clearing-field {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.clearing-field input {
+  flex: 1;
+  min-width: 0;
+  height: 1.8rem;
+  padding: 0 0.6rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 8px;
+  background: rgb(2 9 4 / 0.55);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.74rem;
+}
+
+.clearing-field input::placeholder {
+  color: var(--text-dim);
+}
+
+.clearing-field .setting-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.8rem;
+  padding: 0 0.55rem;
+}
+
+.clearings-section {
+  margin: 0.8rem 0 0.2rem;
+}
+
+.clearing-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.clearing-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.2rem;
+  color: var(--text-dim);
+}
+
+.clearing-row .rail-row-text {
+  flex: 1;
+  color: var(--text);
+}
+
+.clearing-icon {
+  display: inline-flex;
+  padding: 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.clearing-icon:hover,
+.clearing-icon:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.clearing-icon.is-confirming {
+  color: var(--wait);
+}

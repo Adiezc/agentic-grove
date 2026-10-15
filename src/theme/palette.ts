@@ -127,7 +127,14 @@ export const camera = {
    * close-up keeps the old thirty-degree angle (`STONE_OFFSET` in Grove.tsx), since every rune
    * faces it.
    * position = target + 13.5 * (0, sin 15°, cos 15°) */
+  /* Pulled back on 15 October 2026 at Adrian's request, from 13.5 to 17.5 units (the 1.3 of
+   * `PLACE_SPREAD` in `core/state/places.ts`, which moved the stones out by the same factor), same
+   * fifteen degrees, and aimed a little lower so the wider ring of stones sits in the frame.
+   * position = target + 17.5 * (0, sin 15°, cos 15°) */
+  /* Matched the same evening to a screenshot Adrian sent of the view he wanted: a little further
+   * back again (20.1 units), so the tree sits smaller with more floor round it.
+   * position = target + 20.1 * (0, sin 15°, cos 15°) */
   fov: 30,
-  position: [0.3, 6.09, 13.04] as [number, number, number],
-  target: [0.3, 2.6, 0] as [number, number, number],
+  position: [0.3, 7.63, 19.42] as [number, number, number],
+  target: [0.3, 2.43, 0] as [number, number, number],
 } as const

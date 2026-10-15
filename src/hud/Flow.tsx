@@ -23,6 +23,7 @@ import { DEMO } from '../demo'
 import { ModelPicker } from './ModelPicker'
 import { toolOf } from '../../core/models.ts'
 import { SessionActivity } from './ActivityDetail'
+import { StoneClearing } from './Clearings'
 
 /** One line per fixture stone. Real stones will take theirs from the project's README or name. */
 const STONE_LINES: Record<string, string> = {
@@ -201,6 +202,7 @@ export function StonePanel({ stones, onAddTask }: { stones: StoneSpec[]; onAddTa
               <CaretRight size={13} weight="thin" className="row-caret" />
             </button>
           </div>
+          <StoneClearing stone={stone} stones={stones} />
           {canOpen ? (
             <button type="button" className="panel-link" onClick={() => void splitOff()}>
               <GitFork size={13} weight="thin" aria-hidden="true" />
