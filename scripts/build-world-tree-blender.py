@@ -909,8 +909,13 @@ del front_roots
 # direction are not correlated. Grove's version steers toward an authored target (the pad a
 # bough holds up) instead of a world axis, and stops children inside the pad they support.
 
-def ez_limb(start, target, radius, tip_radius, sections, gnarliness, strength, local, initial=None):
-    """Points and radii of one branch from `start`, steered toward `target`."""
+def ez_limb(start, target, radius, tip_radius, sections, gnarliness, strength, local, initial=None,
+            drop=0.0, grow=0.0):
+    """Points and radii of one branch from `start`, steered toward `target`.
+
+    `drop` and `grow` are proctree.js's dropAmount and growAmount (Paul Brunt, BSD-3-Clause, see
+    licenses/proctree.txt): each section's heading is pulled down by the branch's weight near its
+    base and up toward the light near its tip, so a limb sags and then lifts its end."""
     span = (target - start).length
     step = span / sections
     heading = (initial or (target - start)).normalized()
@@ -927,6 +932,9 @@ def ez_limb(start, target, radius, tip_radius, sections, gnarliness, strength, l
         kink = max(1.0, 1.0 / math.sqrt(max(r, 1e-4) * 12)) * gnarliness
         heading = (heading + Vector((local.uniform(-kink, kink), local.uniform(-kink, kink),
                                      local.uniform(-kink, kink) * .6))).normalized()
+        # proctree's `newdir + [sweep, drop + grow, 0]`, spread along one branch instead of
+        # across its levels: weight wins near the base, the tip's turn to the light near the end.
+        heading = (heading + Vector((0, 0, -drop * (1 - t) + grow * t * t))).normalized()
         # EZ-Tree's growth force, aimed at the target: turn by at most strength / radius.
         wanted = (target - at)
         if wanted.length > 1e-5:
@@ -965,7 +973,11 @@ def ez_children(points, radii, count, start_share, ratio, angle, length, local, 
         target = keep_inside(base + heading * length * local.uniform(.7, 1.0))
         r0 = radii[k] * ratio
         sections = 4
-        out.append(ez_limb(base, target, r0, max(.0012, r0 * .15), sections, .09, .05, local, heading))
+        # Side branches sag a little and turn their tips up into the pad, as on the bough.
+        pts, rr = ez_limb(base, target, r0, max(.0012, r0 * .15), sections, .09, .05, local, heading, drop=.08, grow=.12)
+        # A smaller collar where each one leaves its parent, for the same reason as the bough's.
+        rr = [r * (1 + .45 * math.exp(-(p - base).length / (r0 * 3 + .01))) for p, r in zip(pts, rr)]
+        out.append((pts, rr))
     return out
 
 
@@ -997,15 +1009,45 @@ def pad_branches(attach, c, rx, ry, bough_radius, twig_count, local):
     rise = far.z - attach.z
     droop = .35 * min(1.0, max(0.0, 1 - rise / .6))
     initial = (far - attach).normalized() - Vector((0, 0, droop))
-    pts, rr = ez_limb(attach, far, bough_radius, .018, sections, .075, .03, local, initial)
-    # The reference's limbs snake like the trunk does: one slow S sideways along their length.
-    # EZ-Tree's kinks alone give a wandering but basically straight line.
+    # The pull is applied every section, so it is shared out over the bough's length: a fixed
+    # amount bent the longest low boughs into a deep V.
+    pts, rr = ez_limb(attach, far, bough_radius, .018, sections, .075, .03, local, initial,
+                      drop=1.0 / sections, grow=1.2 / sections)
+    # Old juniper limbs bend at elbows, not in smooth waves: each stretch grew straight until it
+    # was cut back and a side shoot took over at an angle ("clip and grow"). Two or three elbows
+    # sideways and up or down, joined by straight runs and rounded once so the bark still flows.
+    # The smooth sine S this replaces read as a hose rather than wood.
     side = Vector((-out.y, out.x, 0)) * local.choice((-1, 1))
     span = (far - attach).length
+    knots = [(0.0, 0.0, 0.0)]
+    for e in range(local.choice((2, 3, 3))):
+        t = (e + 1) / 4 + local.uniform(-.07, .07)
+        knots.append((t, local.uniform(.04, .09) * (1 if e % 2 else -1), local.uniform(-.05, .04)))
+    knots.append((1.0, 0.0, 0.0))
+    bent = []
     for k in range(len(pts)):
         t = k / (len(pts) - 1)
-        pts[k] = pts[k] + side * span * .09 * math.sin(math.tau * t) * math.sin(math.pi * t) ** .5 \
-            + Vector((0, 0, span * .05 * math.sin(math.pi * t)))
+        j = next(j for j in range(1, len(knots)) if t <= knots[j][0] or j == len(knots) - 1)
+        (t0, s0, z0), (t1, s1, z1) = knots[j - 1], knots[j]
+        f = (t - t0) / max(t1 - t0, 1e-5)
+        bent.append(pts[k] + side * span * (s0 + (s1 - s0) * f) + Vector((0, 0, span * (z0 + (z1 - z0) * f))))
+    pts = [bent[0]] + [(bent[k - 1] + bent[k] * 2 + bent[k + 1]) / 4 for k in range(1, len(bent) - 1)] + [bent[-1]]
+    # Where a limb leaves the trunk the wood swells into a collar: the trunk's own growth rings
+    # wrap round the branch base. Without it every bough looked pushed into a hole in the bark.
+    for k in range(len(rr)):
+        along = (pts[k] - pts[0]).length
+        rr[k] *= 1 + .7 * math.exp(-along / .14)
+    # A styled branch reaches its pad's height at the pad's inner edge and runs level under it,
+    # so the foliage rests on wood all the way across. Rising slowly to the far rim, the bough
+    # hung a hand's width below the inner half of every pad and the pad seemed to float.
+    # Not for a pad that sits over its own attach point (the apex): that bough climbs, not runs.
+    under_pad = c.z - .12
+    reach = Vector((far.x - attach.x, far.y - attach.y, 0)).length
+    for k in range(3, len(pts) if reach > rx else 0):
+        u = Vector(((pts[k].x - c.x) / rx, (pts[k].y - c.y) / ry, 0)).length
+        s = min(1.0, max(0.0, (1.35 - u) / .55))
+        if pts[k].z < under_pad:
+            pts[k].z += (under_pad - pts[k].z) * s * s * (3 - 2 * s)
     branch_parts.append(make_curve('Supporting bough', pts, rr, MAT_BRANCH, samples=max(30, sections * 6), res_v=4))
 
     def inside(p):
@@ -1019,12 +1061,24 @@ def pad_branches(attach, c, rx, ry, bough_radius, twig_count, local):
     # Only the part of the bough under the pad branches; the inner part stays clean, as wired.
     under = next((k for k, p in enumerate(pts) if (Vector((p.x - c.x, p.y - c.y, 0))).length < rx * .9), len(pts) // 2)
     share = min(.75, under / (len(pts) - 1))
+    # An apex bough is under its pad from the start, so its side branches began at the trunk and
+    # climbed a metre to the pad: a fan of bare upright sticks out of the top of the crown.
+    if reach <= rx:
+        share = max(share, .55)
     tips = [pts[-1].copy()]
+    # A bough that climbs to a pad over its own base (the apex) has no level run to rest on;
+    # dressing the top of its climb in leaves makes the apex one dome, where its bare stem and
+    # the crown's open top used to show between the highest pads.
+    if reach <= rx:
+        tips += [p.copy() for p in pts[::3] if p.z > c.z - .55]
     for side_pts, side_rr in ez_children(pts, rr, max(4, twig_count // 2), share, .62, math.radians(62), rx * .55, local, inside):
         branch_parts.append(make_curve('Canopy ramification', side_pts, side_rr, MAT_BRANCH, samples=20, res_v=2))
         tips.append(side_pts[-1].copy())
-        # Leaves along the side branch too, so no length of it shows bare beyond a cushion.
-        tips.append(side_pts[len(side_pts) // 2].copy())
+        # Leaves along the side branch too, so no length of it shows bare beyond a cushion. Not
+        # where it is still well below the pad: a cushion there hung in the air under the pad.
+        mid = side_pts[len(side_pts) // 2]
+        if mid.z > c.z - .2:
+            tips.append(mid.copy())
         for twig_pts, twig_rr in ez_children(side_pts, side_rr, 3, .25, .65, math.radians(42), rx * .26, local, inside):
             branch_parts.append(make_curve('Canopy twig', twig_pts, twig_rr, MAT_BRANCH, samples=12, res_v=1))
             tips.append(twig_pts[-1].copy())
@@ -1201,8 +1255,11 @@ def pad_clumps(c, rx, ry, tips=()):
     for tip in tips:
         d = Vector((tip.x - c.x, tip.y - c.y, 0))
         u = min(1.0, math.sqrt((d.x / rx) ** 2 + (d.y / ry) ** 2))
-        dome = PAD_DOME * math.cos(u * math.pi * .5) ** .8
-        clumps.append((Vector((tip.x, tip.y, c.z + dome - .03)), rng.uniform(*CLUMP_RADIUS) * (1.0 - .3 * u), 1.0 - .45 * u))
+        r = rng.uniform(*CLUMP_RADIUS) * (1.0 - .3 * u)
+        # The clump rests on its twig end, which sits just inside its lower half. It used to be
+        # lifted to the pad's domed top, a hand's width above the wood, so every pad hovered
+        # over its branches. The upper layer below still domes the pad over these.
+        clumps.append((Vector((tip.x, tip.y, tip.z + r * CLUMP_SQUASH * .45)), r, 1.0 - .45 * u))
     if tips:
         count = max(4, count // 2)
     for k in range(count):
