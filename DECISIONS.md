@@ -1756,3 +1756,14 @@ Checked with `npm run verify:clearings` (14 rules) and in the real app with a te
 joining, renaming and joining from a stone's panel, with screenshots. `?demo&clearing` shows one in
 the demo scene. Known: Uncial Antiqua draws some lower-case letters in their uncial forms (a "y"
 reads close to "u", a "j" close to "i"), which shows most in clearing names.
+
+## The home view pulled back, the stones moved out (15 October 2026)
+
+Adrian asked for a more zoomed-out default view with the stones further from the tree, especially
+in clearings. Every numbered place now stands 1.3 times further out (`PLACE_SPREAD` in
+`core/state/places.ts`), and the home camera is 1.3 times further back (17.5 units instead of 13.5,
+same fifteen degrees, aimed a little lower). Because both moved by the same factor, the stones keep
+the spots on screen chosen on 3 October, clear of the rail, the counters and the console; what
+changes is that the tree reads smaller among them and there is more floor round the trunk, so a
+clearing near the front barely has to step back. Places are numbers in `grove.json`, not
+coordinates, so nothing needed migrating. Checked in the real app in `?demo` and `?demo&clearing`.

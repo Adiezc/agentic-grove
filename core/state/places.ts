@@ -72,7 +72,7 @@ export function placeFor(used: Iterable<number>, asked?: number): number {
 
 export type Place = [number, number]
 
-/** The places that fit the home view, in filling order. Picked on screen, see the header of `src/scene/layout.ts`. */
+/** The places that fit the home view, in filling order, before `PLACE_SPREAD`. Picked on screen, see the header of `src/scene/layout.ts`. */
 export const HOME_PLACES: Place[] = [
   [-3.7, -0.6],
   [3.9, -0.5],
@@ -100,7 +100,16 @@ function outerPlace(index: number): Place {
   return [side * across, -10.2 - row * 2.6 - Math.floor(slot / 2) * 0.5]
 }
 
+/**
+ * How far out every place stands compared with where it was first picked. Set on 15 October 2026
+ * at Adrian's request, with the home camera pulled back by the same factor (`camera` in
+ * `src/theme/palette.ts`): the stones keep their spots on screen, but the tree reads smaller among
+ * them and they, and any clearing, have more room round the trunk. Change the two together.
+ */
+export const PLACE_SPREAD = 1.3
+
 export function placeAt(index: number): Place {
-  return index < HOME_PLACES.length ? HOME_PLACES[index]! : outerPlace(index - HOME_PLACES.length)
+  const [x, z] = index < HOME_PLACES.length ? HOME_PLACES[index]! : outerPlace(index - HOME_PLACES.length)
+  return [x * PLACE_SPREAD, z * PLACE_SPREAD]
 }
 

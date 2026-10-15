@@ -21,6 +21,9 @@
  * A stone keeps the numbered place written for it in `grove.json`, so it never moves when another
  * project is added or removed; a removed one leaves an empty circle where it stood. The numbering
  * rules are in `core/state/places.ts`, shared with the node side that writes them.
+ *
+ * On 15 October 2026 every place moved out by `PLACE_SPREAD` (1.3) and the home camera pulled back
+ * by the same factor, so the stones keep their spots on screen with more room round the tree.
  */
 import type { Runestone as DerivedStone } from '../../core/state/stones.ts'
 import { assignPlaces, freePlaces, placeAt } from '../../core/state/places.ts'
