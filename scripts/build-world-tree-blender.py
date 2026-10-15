@@ -982,14 +982,21 @@ def pad_branches(attach, c, rx, ry, bough_radius, twig_count, local):
     # Only downward: the topmost boughs already leave the trunk's crown, and lifting them put
     # their cut ends in the air above it.
     z = attach.z + local.uniform(-.2, .02)
-    centre = axis_at(z)
-    attach = Vector((attach.x, attach.y, z)).lerp(Vector((centre.x, centre.y, z)), .3)
-    out = Vector((c.x - attach.x, c.y - attach.y, 0))
+    centre = Vector((*axis_at(z).xy, z))
+    out = Vector((c.x - centre.x, c.y - centre.y, 0))
     out = out.normalized() if out.length > 1e-4 else Vector((1, 0, 0))
+    # Up to seven boughs share an attach point near the crown. Started from that one point they
+    # crossed over each other to reach pads on all sides, and their bases knotted. Each now leaves
+    # from the side of the trunk that faces its own pad, as deep in the wood as before.
+    depth = .7 * Vector((attach.x - centre.x, attach.y - centre.y, 0)).length
+    attach = centre + out * depth
     far = c + out * rx * .2 - Vector((0, 0, .1))
     sections = max(6, int((far - attach).length / .09))
     # Leave the trunk slightly downward, as the authored boughs did, before rising to the pad.
-    initial = (far - attach).normalized() - Vector((0, 0, .35))
+    # Not when the pad sits well above: dipping first and then climbing hooked those boughs.
+    rise = far.z - attach.z
+    droop = .35 * min(1.0, max(0.0, 1 - rise / .6))
+    initial = (far - attach).normalized() - Vector((0, 0, droop))
     pts, rr = ez_limb(attach, far, bough_radius, .018, sections, .075, .03, local, initial)
     # The reference's limbs snake like the trunk does: one slow S sideways along their length.
     # EZ-Tree's kinks alone give a wandering but basically straight line.
