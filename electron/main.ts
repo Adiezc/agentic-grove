@@ -41,6 +41,7 @@ import { sampleLoad, type SystemLoad } from '../core/system.ts'
 import { APP_DOWNLOADS, TOOL_PAGES, cliPath, setupScript, setupStatus, signInScript, type SetupStatus, type SetupTool } from '../core/setup.ts'
 import { nextSetupStep } from '../core/readiness.ts'
 import { RunBook, type RunHarness } from '../core/spawn/runs.ts'
+import { pruneRunProcesses, readRunProcess } from '../core/spawn/process.ts'
 import { launch } from '../core/spawn/launch.ts'
 import { BUILT_IN_BRIEFS, BUILT_IN_NAMES, PM_ID, SPAWNABLE_BUILT_INS, claudeAgentsJson, pmBrief, teamFor, teamMap } from '../core/spawn/briefs.ts'
 import { readTranscript } from '../core/spawn/transcript.ts'
@@ -651,6 +652,8 @@ function registerHandlers(): void {
     // taken off the grove since should not keep a way to start work in it.
     const { grove } = await loadGrove()
     if (!grove.stones.some((stone) => stone.path === run.stoneId)) return { ok: false, error: 'That project is no longer on the grove' }
+    // Two windows on one session would talk over each other. Asked fresh, not from the last scan.
+    if ((await readRunProcess(run.id)).state === 'alive') return { ok: false, runId: run.id, error: 'It is still open in its Terminal window.' }
     const result = await launch({ run, folder: run.stoneId, brief: '', model: '', resume: true }, shell.openPath)
     if (!result.ok) return { ok: false, runId: run.id, error: result.error, missing: result.missing }
     runs.resumed(run.id)
@@ -923,7 +926,31 @@ async function restartScanning(): Promise<void> {
     lastScan = result
     runs.onScan(live.apply(result.sessions))
     publish(result)
+    void checkRunProcesses()
   }, grove.settings.scanIntervalMs)
+}
+
+/** True while a check is reading files, so a slow disk never stacks one check on another. */
+let checkingProcesses = false
+
+/**
+ * Ask each run that may still have a Terminal window whether it does (see `core/spawn/process.ts`).
+ * Runs known closed, failed ones, and ended ones from before the Grove kept this are skipped, so
+ * the work stays a few small reads however long the history grows.
+ */
+async function checkRunProcesses(): Promise<void> {
+  if (checkingProcesses) return
+  checkingProcesses = true
+  try {
+    let changed = false
+    for (const run of runs.list()) {
+      if (run.process === 'closed' || run.state === 'failed' || (run.state === 'ended' && !run.process)) continue
+      changed = runs.onProcess(run.id, await readRunProcess(run.id)) || changed
+    }
+    if (changed) redraw()
+  } finally {
+    checkingProcesses = false
+  }
 }
 
 /* A grove started from another folder (`AGENTIC_GROVE_HOME`, which the checks use) keeps the
@@ -937,6 +964,7 @@ void app.whenReady().then(async () => {
   lockDownPages(devServerUrl, pageFile)
   installApplicationMenu()
   await runs.load()
+  void pruneRunProcesses(new Set(runs.list().map((run) => run.id)))
   registerHandlers()
   await startListening()
   await restartScanning()

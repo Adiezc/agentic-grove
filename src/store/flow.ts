@@ -101,6 +101,14 @@ interface FlowStore {
   back: () => void
 }
 
+/**
+ * Whether a send is still being handed to Terminal. Only then must a new one wait. Once Terminal
+ * has its script (or the launch failed), the toast is just news about that run, which the run book
+ * keeps following; a new send replaces the toast rather than being dropped without a word, as it
+ * was when one launch sat unconfirmed (found in the 15 October 2026 audit).
+ */
+export const inFlight = (deployment: Deployment | null): boolean => Boolean(deployment && !deployment.runId && !deployment.error)
+
 export const useFlow = create<FlowStore>((set, get) => ({
   view: 'home',
   stoneId: null,
@@ -188,7 +196,7 @@ export const useFlow = create<FlowStore>((set, get) => ({
   openRun: (id) => set({ view: 'run', runId: id }),
 
   deployTo: (stoneId, agentId, task, onSent, harness, model) => {
-    if (get().deployment) return
+    if (inFlight(get().deployment)) return
     set({ stoneId, placeIndex: null })
     get().deploy(agentId, task, onSent, harness, model)
   },

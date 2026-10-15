@@ -68,6 +68,8 @@ export interface HookCall {
   /** For the subagent moments: Claude Code's id for that one subagent, and its name (`researcher`). */
   agentId: string
   agentType: string
+  /** For `SessionStart`: how the session began (`startup`, `resume`, `clear`, `compact`). Empty otherwise. */
+  source?: string
   at: number
 }
 
@@ -90,7 +92,8 @@ export function parseHookCall(raw: unknown, now = Date.now()): HookCall | null {
   // Kept short: these are names, and a payload is not trusted to be sensible.
   const agentId = str(raw.agent_id).slice(0, 100)
   const agentType = str(raw.agent_type).slice(0, 100)
-  return { event, sessionId, cwd: str(raw.cwd), tool: str(raw.tool_name), idle, agentId, agentType, at: now }
+  const source = event === 'SessionStart' ? str(raw.source).slice(0, 20) : ''
+  return { event, sessionId, cwd: str(raw.cwd), tool: str(raw.tool_name), idle, agentId, agentType, source, at: now }
 }
 
 /**

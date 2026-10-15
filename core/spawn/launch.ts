@@ -22,6 +22,7 @@ import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { cliPath } from '../setup.ts'
+import { clearRunProcess, exitFile, pidFile, processFolder } from './process.ts'
 import type { Run } from './runs.ts'
 
 export interface LaunchSpec {
@@ -63,15 +64,36 @@ function sessionName(run: Run): string {
 }
 
 /**
+ * Markers a Claude Code session leaves in the environment of everything it starts. If Terminal
+ * itself was opened from inside a Claude Code session, a run would inherit them and Claude Code
+ * would treat it as a child: it stops saving the transcript, so the run panel and the scan go
+ * blind. A run the Grove starts is always a session of its own. Only these identity markers go;
+ * settings you chose (`CLAUDE_CODE_USE_BEDROCK` and the like) are left as they are.
+ */
+const INHERITED_SESSION_MARKERS = [
+  'CLAUDECODE',
+  'CLAUDE_CODE_CHILD_SESSION',
+  'CLAUDE_CODE_SESSION_ID',
+  'CLAUDE_CODE_HOST_SESSION_ID',
+  'CLAUDE_CODE_ENTRYPOINT',
+  'CLAUDE_CODE_MESSAGING_SOCKET',
+  'CLAUDE_CODE_MESSAGING_TOKEN',
+  'CLAUDE_PID',
+]
+
+/**
  * The script Terminal runs. Every line that could carry your words reads them from a file, and the
  * files are removed before the tool starts.
  */
-function script(dir: string, cli: string, spec: LaunchSpec): string {
+function script(dir: string, cli: string, spec: LaunchSpec, markers: string): string {
   const { run } = spec
   const at = (name: string) => quote(path.join(dir, name))
   const lines = [
     '#!/bin/zsh',
     'clear',
+    // Word for `process.ts`: this script's process id now, the tool's exit code at the end.
+    `mkdir -p -- ${quote(markers)} && print -r -- $$ > ${quote(pidFile(run.id, markers))}`,
+    `unset ${INHERITED_SESSION_MARKERS.join(' ')}`,
     `cd -- "$(cat ${at('folder.txt')})" || exit 1`,
     `TASK="$(cat ${at('task.txt')})"`,
     `NAME="$(cat ${at('name.txt')})"`,
@@ -105,7 +127,14 @@ function script(dir: string, cli: string, spec: LaunchSpec): string {
       '[[ -n "$PROMPT" ]] && ARGS+=("$PROMPT")'
     )
   }
-  lines.push(`exec ${quote(cli)} "\${ARGS[@]}"`)
+  // Not `exec`: the script stays to write the exit code once the tool stops. Ctrl-C and a closing
+  // window are given a do-nothing handler here so the script outlives the tool by that one line;
+  // a handler, unlike ignoring the signal, is reset for the tool, which still gets Ctrl-C as usual.
+  lines.push(
+    "trap ':' INT HUP TERM",
+    `${quote(cli)} "\${ARGS[@]}"`,
+    `print -r -- $? > ${quote(exitFile(run.id, markers))}`
+  )
   return lines.join('\n') + '\n'
 }
 
@@ -113,7 +142,7 @@ function script(dir: string, cli: string, spec: LaunchSpec): string {
  * Write the script and hand it to Terminal. `findCli` is only ever replaced by the checks in
  * `test/verify-spawn.ts`, which point it at a stand-in that records the arguments it was given.
  */
-export async function launch(spec: LaunchSpec, open: Opener, findCli = cliPath): Promise<LaunchResult> {
+export async function launch(spec: LaunchSpec, open: Opener, findCli = cliPath, markers = processFolder()): Promise<LaunchResult> {
   const { run } = spec
   if (spec.resume && run.harness !== 'claude-code') {
     return { ok: false, error: 'Resuming from the Grove works for Claude Code only. Open Codex to carry on.' }
@@ -139,7 +168,9 @@ export async function launch(spec: LaunchSpec, open: Opener, findCli = cliPath):
     }
     for (const [name, text] of Object.entries(files)) await fsp.writeFile(path.join(dir, name), text, { mode: 0o600 })
     const file = path.join(dir, `${run.agentId}.command`)
-    await fsp.writeFile(file, script(dir, cli, spec), { mode: 0o700 })
+    await fsp.writeFile(file, script(dir, cli, spec, markers), { mode: 0o700 })
+    // A resumed run reuses its id, so the last attempt's exit must not be read as this one's.
+    await clearRunProcess(run.id, markers)
     const failure = await open(file)
     if (failure) throw new Error(failure)
     return { ok: true }
