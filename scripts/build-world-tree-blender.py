@@ -981,6 +981,7 @@ def ez_children(points, radii, count, start_share, ratio, angle, length, local, 
     return out
 
 
+BOUGHS = []
 def pad_branches(attach, c, rx, ry, bough_radius, twig_count, local):
     """A bough that carries one pad, divided the way a styled bonsai branch is.
 
@@ -1048,7 +1049,9 @@ def pad_branches(attach, c, rx, ry, bough_radius, twig_count, local):
         s = min(1.0, max(0.0, (1.35 - u) / .55))
         if pts[k].z < under_pad:
             pts[k].z += (under_pad - pts[k].z) * s * s * (3 - 2 * s)
-    branch_parts.append(make_curve('Supporting bough', pts, rr, MAT_BRANCH, samples=max(30, sections * 6), res_v=4))
+    bough = make_curve('Supporting bough', pts, rr, MAT_BRANCH, samples=max(30, sections * 6), res_v=4)
+    branch_parts.append(bough)
+    BOUGHS.append((bough, pts, rr, sections))
 
     def inside(p):
         # Keep twig tips within the pad's footprint and below its top, so none show through.
@@ -1168,6 +1171,28 @@ def join_parts(parts,name):
     ob=bpy.context.object;ob.name=name
     return ob
 WOOD=join_parts(wood_parts,'WorldTree Carved Anatomy')
+
+# Every bough must grow out of the wood. Each starts a set depth in from the trunk's centre line,
+# which is buried where the trunk is round, but low down the braid wanders off that line, and a few
+# boughs started in the air beside it: one under the front-left pads stood clear of the trunk by a
+# hand's width (Adrian spotted it, 15 October 2026). Now that the trunk exists as a mesh, any bough
+# whose start is not touching it is carried on to the nearest wood and a little way into it.
+BOUGH_GAP = .03    # metres from the bark that still counts as touching
+BOUGH_SINK = .08   # how far into the wood the extended start goes
+from mathutils.bvhtree import BVHTree
+_wood_tree = BVHTree.FromObject(WOOD, bpy.context.evaluated_depsgraph_get())
+for _bough, _pts, _rr, _sections in BOUGHS:
+    _at, _normal, _index, _gap = _wood_tree.find_nearest(_pts[0])
+    # Already buried (behind the bark it is nearest to), or touching it: nothing to do. Carried
+    # "on to the nearest wood" from inside, it would come back out through the bark instead.
+    if _at is None or _gap < BOUGH_GAP or (_pts[0] - _at).dot(_normal) < 0:
+        continue
+    _sink = _at + (_at - _pts[0]).normalized() * BOUGH_SINK
+    _joined = make_curve('Supporting bough', [_sink] + _pts, [_rr[0]] + _rr, MAT_BRANCH, samples=max(30, _sections * 6), res_v=4)
+    branch_parts[branch_parts.index(_bough)] = _joined
+    CURVE_PATHS.pop(_bough.name, None)
+    bpy.data.objects.remove(_bough)
+    print(f"[world-tree] bough carried {_gap + BOUGH_SINK:.2f} m into the trunk")
 JIN=WOOD
 FINE=join_parts(fine_parts,'WorldTree Rootlets')
 GLOW=join_parts(glow_parts,'WorldTree Continuous Channels')
