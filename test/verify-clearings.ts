@@ -12,7 +12,7 @@ import path from 'node:path'
 const home = await fsp.mkdtemp(path.join(os.tmpdir(), 'agentic-grove-verify-clearings-'))
 process.env.AGENTIC_GROVE_HOME = home
 const { addProject, declineClearing, joinClearing, leaveClearing, loadGrove, makeClearing, removeClearing, removeProject, renameClearing } = await import('../core/state/grove.ts')
-const { clearingCentre, clearingsOf, coveredPlaces, followersOf, memberSpot, ringRadius, TREE_CLEARANCE, suggestClearings } = await import('../core/state/clearings.ts')
+const { clearingCentre, clearingsOf, coveredPlaces, followersOf, memberSpot, ringRadius, TREE_CLEARANCE, CLEARING_OUTSET, suggestClearings } = await import('../core/state/clearings.ts')
 const { parseGrove } = await import('../core/state/schema.ts')
 const { placeAt } = await import('../core/state/places.ts')
 
@@ -48,15 +48,17 @@ const cases: [string, () => Promise<void> | void][] = [
     assert.ok(Math.abs(pair[0]![1] - pair[1]![1]) < 1e-9, 'a pair should stand side by side, not one behind the other')
     assert.deepEqual(memberSpot(centre, 0, 1), centre)
   }],
-  ['a clearing near the tree steps back until its ring clears the roots; one further out stays put', () => {
+  ['a clearing stands further out than its place, clear of the roots, and never towards the camera', () => {
     for (const count of [1, 2, 3, 5]) {
-      for (const index of [0, 1, 2, 3]) {
-        const centre = clearingCentre(placeAt(index), count)
-        assert.ok(Math.hypot(...centre) >= TREE_CLEARANCE + ringRadius(count) - 1e-9, `place ${index}, ${count} stones`)
-        assert.equal(centre[0], placeAt(index)[0], 'it steps back, not sideways')
+      for (const index of [0, 1, 2, 3, 6, 10]) {
+        const place = placeAt(index)
+        const centre = clearingCentre(place, count)
+        assert.ok(Math.hypot(...centre) >= TREE_CLEARANCE + ringRadius(count) - 1e-9, `place ${index}, ${count} stones: inside the roots`)
+        assert.ok(Math.hypot(...centre) > Math.hypot(...place), `place ${index}: not further out`)
+        assert.ok(centre[1] <= place[1], `place ${index}: moved towards the camera`)
+        assert.ok(Math.abs(centre[0]) - Math.abs(place[0]) <= CLEARING_OUTSET, `place ${index}: moved too far sideways`)
       }
     }
-    assert.deepEqual(clearingCentre(placeAt(10), 2), placeAt(10))
   }],
   ['the places a clearing covers are its neighbours, never itself', () => {
     const covered = coveredPlaces([{ place: 0, size: 3 }])

@@ -1767,3 +1767,18 @@ the spots on screen chosen on 3 October, clear of the rail, the counters and the
 changes is that the tree reads smaller among them and there is more floor round the trunk, so a
 clearing near the front barely has to step back. Places are numbers in `grove.json`, not
 coordinates, so nothing needed migrating. Checked in the real app in `?demo` and `?demo&clearing`.
+
+## Clearings further out, and a fuller crown (15 October 2026)
+
+**Clearings.** A clearing now stands `CLEARING_OUTSET` (1.1) further out than the place it was
+given, so a group has more room than a single stone. Measured away from a point in front of the
+tree rather than from the trunk: from the trunk, a clearing at the front moved straight sideways
+towards the edge of the window; from in front, it moves out and back. The step back from the roots
+still applies after.
+
+**Foliage.** Every pad is 1.18 times wider than traced (`PAD_GROWTH` in
+`scripts/build-world-tree-blender.py`) and the leaf budget rose from 14,500 to 20,000 sprigs with
+the area, so the pads keep their density while covering more of the bare boughs between them. The
+cost: the model grew from 37.5 to 47.4 MB, 1.26 million triangles. The frame rate was not measured
+(the Electron window pauses drawing when it is not in front); the adaptive graphics modes still
+step down under load.

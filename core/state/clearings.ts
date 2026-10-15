@@ -94,15 +94,26 @@ export const ringRadius = (count: number): number => memberRadius(count) + RING_
 export const TREE_CLEARANCE = 3.1
 
 /**
- * The centre of a clearing standing on this place: the place itself, unless the ring would reach
- * the tree. Then the clearing steps straight back, away from the camera, until it clears it. Back
- * rather than out to the side, because the home view was framed for the places as they are: a step
- * sideways from a front place walks the clearing off the edge of the window.
+ * How much further out a clearing stands than the place it was given, so a group has more room
+ * than a single stone (Adrian, 15 October 2026). Measured away from a point in front of the tree,
+ * `OUTSET_FROM`, rather than from the trunk: from the trunk, a clearing at the front would move
+ * straight sideways and off the edge of the window; from in front, it moves out *and* back.
+ */
+export const CLEARING_OUTSET = 1.1
+const OUTSET_FROM: Place = [0, 5]
+
+/**
+ * The centre of a clearing standing on this place: moved out by `CLEARING_OUTSET`, and then, if
+ * its ring would still reach the tree, straight back, away from the camera, until it clears it.
+ * Back rather than out to the side, because the home view was framed for the places as they are.
  */
 export function clearingCentre(place: Place, count: number): Place {
+  const away = [place[0] - OUTSET_FROM[0], place[1] - OUTSET_FROM[1]]
+  const length = Math.hypot(away[0]!, away[1]!) || 1
+  const moved: Place = [place[0] + (away[0]! / length) * CLEARING_OUTSET, place[1] + (away[1]! / length) * CLEARING_OUTSET]
   const needed = TREE_CLEARANCE + ringRadius(count)
-  if (Math.hypot(place[0], place[1]) >= needed) return place
-  return [place[0], -Math.sqrt(Math.max(0, needed * needed - place[0] * place[0]))]
+  if (Math.hypot(moved[0], moved[1]) >= needed) return moved
+  return [moved[0], -Math.sqrt(Math.max(0, needed * needed - moved[0] * moved[0]))]
 }
 
 /**

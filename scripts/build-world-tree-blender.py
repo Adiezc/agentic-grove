@@ -1098,9 +1098,13 @@ pad_specs=[
 ]
 # pad size front-to-back relative to side-to-side, read off the left plate
 PAD_DEPTH_RATIO = .86
+# Every pad grown wider than traced, for a fuller crown (Adrian, 15 October 2026): the traced
+# islands left a lot of bare bough between them. `SPRIG_BUDGET` rose with the area, so the pads
+# keep the same density of leaves rather than thinning out.
+PAD_GROWTH = 1.18
 PADS=[]
 for i,(x,z,width,height,y) in enumerate(pad_specs):
-    c=plate([(x,z,y)])[0];rx=width*8.1/768;ry=rx*PAD_DEPTH_RATIO
+    c=plate([(x,z,y)])[0];rx=width*8.1/768*PAD_GROWTH;ry=rx*PAD_DEPTH_RATIO
     PADS.append((c,rx,ry,height*8.1/768*.57,.72))
     attach=plate([(350 if z<100 else (380 if z<150 else 375),112 if z<100 else (155 if z<150 else 224),.55)])[0]
     if z>235:attach=plate([(309,277,0)])[0]
@@ -1135,6 +1139,7 @@ extra_pads=[
  ((380,205,.45), Vector((.1,1,0)), 1.02, -.10, .58),
 ]
 for attach_px, direction, distance, lift, rx in extra_pads:
+    rx*=PAD_GROWTH
     attach=plate([attach_px])[0]
     c=attach+direction*distance+Vector((0,0,lift))
     ry=rx*PAD_DEPTH_RATIO
@@ -1238,7 +1243,7 @@ TEMPLATES = sprig_templates()
 # are what make the pad read as a solid mass from the side.
 # Many small tufts rather than a few big ones: at the old size a single spray was a hand's
 # width across a pad, and up close the pads read as broad leaves instead of fine juniper.
-SPRIG_BUDGET = 14500       # total sprigs (juniper tufts); ~48 triangles each
+SPRIG_BUDGET = 20000       # total sprigs (juniper tufts); ~48 triangles each. 14500 before PAD_GROWTH
 CLUMP_RADIUS = (.19, .31)  # metres
 CLUMP_SQUASH = .72         # clumps are wider than tall, like the reference
 PAD_DOME = .26             # how much higher the centre clumps sit than the rim ones
