@@ -297,7 +297,12 @@ export function RunPanel({ stones }: { stones: StoneSpec[] }) {
   }
 
   const state = run ? RUN_LABEL[run.state] : null
-  const canResume = run?.harness === 'claude-code' && (run.state === 'finished' || run.state === 'ended' || run.state === 'failed')
+  // Resuming opens a new window on the session, so only once its own window has gone; while that
+  // window is open, the way back is that window. Runs from before the Grove knew this (no `process`)
+  // keep the old rule.
+  const settled = run?.state === 'finished' || run?.state === 'ended' || run?.state === 'failed'
+  const stillOpen = run?.process === 'open'
+  const canResume = run?.harness === 'claude-code' && settled && !stillOpen
 
   return (
     <aside className={`flow-panel run-panel${open ? ' is-open' : ''}`} aria-hidden={!open} inert={!open}>
@@ -349,6 +354,12 @@ export function RunPanel({ stones }: { stones: StoneSpec[] }) {
                 <ArrowSquareOut size={14} weight="thin" />
               </button>
             </>
+          ) : null}
+          {settled && stillOpen ? (
+            <button type="button" className="panel-send" onClick={() => void window.grove?.focusTerminal()}>
+              <span>Go to Terminal</span>
+              <ArrowSquareOut size={14} weight="thin" />
+            </button>
           ) : null}
           {canResume ? (
             <button type="button" className="panel-send" onClick={resume}>

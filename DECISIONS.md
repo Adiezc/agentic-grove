@@ -1664,3 +1664,37 @@ hole. **"Blocks a merge" means a red cross, not a locked button:** Adrian chose 
 protection when the repo went public (3 October), so nothing stops a merge over a failing check.
 Requiring these checks on `main` (Settings → Rules → Rulesets) is the step that would make it
 literal, and stays his call.
+
+## A run knows whether its window is still there
+
+*15 October 2026*
+
+An audit of the whole task flow in the real app (project → task → launch → watch → answer → result
+→ stop or resume → restart) found the run states wrong in four places, all for one reason: hooks
+and the scan only speak once a session exists, and nothing told the Grove about the Terminal
+process itself.
+
+| Seen in the app | Now |
+| --- | --- |
+| Claude Code's "trust this folder?" answered No (or the window closed) left the run "Starting" for 15 minutes, and the console silently ignored every send meanwhile | Fails about 15 seconds after the process stops, saying why and that answering Yes lets it start; the console sends again at once |
+| "Resume in Terminal" offered on a finished run whose window was still open: two windows on one session | Resume only once the window has gone; until then "Go to Terminal". The node side refuses too |
+| A resumed session sitting at its prompt read "Working" for as long as it sat | A `SessionStart` with `source: resume` reads Finished; the next prompt makes it Working |
+| A run read "Working" after its turn ended (a lost `Stop`), and the scan was not allowed to correct it | Claude Code's idle reminder settles a run still saying Working; a run whose window closed is Closed, hook or no hook |
+
+**How.** The launch script no longer `exec`s the tool. It writes its process id into
+`~/.agentic-grove/run-processes/<run id>.pid` before starting it and the tool's exit code into
+`<run id>.exit` when it stops (`core/spawn/process.ts`). The Grove reads them on every scan. A do-nothing
+`trap` for INT, HUP and TERM keeps the script alive one line past the tool when the window closes;
+a handler, unlike ignoring the signal, is reset for the tool, so Ctrl-C still reaches Claude Code.
+A dead process id with no exit file also counts as closed. Old runs without these files keep the
+old rules. Runs carry two new optional fields, `process` (`open` or `closed`) and `exitCode`.
+
+**Also:** a run unsets Claude Code's session-identity variables (`CLAUDECODE`,
+`CLAUDE_CODE_CHILD_SESSION` and a few more) before starting. When Terminal had itself been opened
+from inside a Claude Code session, every run inherited them and became a child session that saved
+no transcript, so the run panel and the scan went blind. Settings such as `CLAUDE_CODE_USE_BEDROCK`
+are left alone.
+
+Not done, ranked for later: a Stop button (the process id now makes it possible), a "queued" state
+(nothing queues yet; every send launches at once), and seeing Claude Code's trust question before
+it is answered. `npm run verify:lifecycle` checks all of the above against a real zsh.

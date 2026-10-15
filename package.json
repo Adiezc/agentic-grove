@@ -44,6 +44,7 @@
     "typecheck": "tsc --noEmit",
     "app": "node scripts/package.mjs",
     "verify:spawn": "tsx test/verify-spawn.ts",
+    "verify:lifecycle": "tsx test/verify-lifecycle.ts",
     "verify:pairings": "tsx test/verify-pairings.ts",
     "verify:reliability": "tsx test/verify-reliability.ts",
     "verify:provider-fixtures": "tsx test/verify-provider-fixtures.ts",

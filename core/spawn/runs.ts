@@ -29,6 +29,11 @@
  *
  * A finished or ended run can come back to `running` when you type more, or resume it. A failed one
  * never does; resuming makes a new attempt visible as its own state change, not a quiet rewrite.
+ *
+ * **Whether its window is still there** comes from a third source, `process.ts`: the launch script
+ * leaves its process id and the tool's exit code. That is what lets a launch that died before its
+ * session began fail at once instead of after fifteen minutes, an open session be told apart from a
+ * closed one after a restart, and "Resume" never open a second window on a session still running.
  */
 import fsp from 'node:fs/promises'
 import path from 'node:path'
@@ -36,6 +41,7 @@ import { randomUUID } from 'node:crypto'
 import type { Session } from '../harnesses/types.ts'
 import type { HookCall } from '../hooks/protocol.ts'
 import { groveHome } from '../state/grove.ts'
+import type { RunProcess } from './process.ts'
 
 export type RunHarness = 'claude-code' | 'codex'
 export type RunState = 'starting' | 'running' | 'waiting' | 'finished' | 'ended' | 'failed'
@@ -65,6 +71,13 @@ export interface Run {
   /** PM runs: each worker's name in the session (`researcher`) and the agent it is on the tree. */
   team?: Record<string, string>
   /**
+   * Whether the run's Terminal process is still there, as `process.ts` last read it. Absent when it
+   * is not known: runs from before the Grove kept this, or a script Terminal has not started yet.
+   */
+  process?: 'open' | 'closed'
+  /** The tool's exit code once closed. Absent when the window was closed before it could be written. */
+  exitCode?: number
+  /**
    * PM runs: the workers busy right now, by Claude Code's id for each subagent, as tree agent ids.
    * Drawn as their orbs above the stone. Live only: emptied when the session ends or the Grove restarts.
    */
@@ -75,6 +88,11 @@ export interface Run {
 const GIVE_UP_AFTER_MS = 15 * 60_000
 /** A Codex session this much older than the launch cannot be the one it started. Covers clock and write lag. */
 const CODEX_MATCH_SLACK_MS = 5_000
+/**
+ * How long a launch may have exited while still "starting" before that counts as never having
+ * started. A session can open and close between two scans; this gives the scan time to see it.
+ */
+const EXIT_GRACE_MS = 15_000
 /** Old runs are dropped past this many, newest kept. History, not an archive. */
 const KEEP_RUNS = 200
 
@@ -85,8 +103,12 @@ export const runsPath = (): string => path.join(groveHome(), 'runs.json')
  * place on purpose: for a stone, a finished turn and a question both mean "back with you"; for a
  * run you sent, "finished" and "needs you" are different news, and the hooks can tell them apart.
  */
-function stateAfter(event: HookCall['event']): RunState {
+function stateAfter(event: HookCall['event'], source = ''): RunState {
   switch (event) {
+    case 'SessionStart':
+      // A resumed session opens at its prompt, waiting for you; nothing is being worked on until
+      // you type. Calling that "running" left resumed runs looking busy for as long as they sat.
+      return source === 'resume' ? 'finished' : 'running'
     case 'Notification':
       return 'waiting'
     case 'Stop':
@@ -139,7 +161,7 @@ export class RunBook {
       const raw: unknown = JSON.parse(await fsp.readFile(this.file, 'utf8'))
       const list = typeof raw === 'object' && raw !== null ? (raw as { runs?: unknown }).runs : undefined
       // Who was helping belongs to sessions that may be long gone; the hooks will say again.
-      this.runs = Array.isArray(list) ? list.filter(isRun).map(({ helping: _gone, ...run }) => run) : []
+      this.runs = Array.isArray(list) ? list.filter(isRun).map(({ helping: _gone, ...run }) => withSaneProcess(run)) : []
     } catch {
       this.runs = []
     }
@@ -168,9 +190,32 @@ export class RunBook {
     this.change(id, { state: 'failed', error }, now)
   }
 
-  /** Resuming reopens the same session, so the run starts over from "starting" until it is seen again. */
+  /**
+   * Resuming reopens the same session, so the run starts over from "starting" until it is seen
+   * again. Its last window's process is forgotten with it; the new window reports its own.
+   */
   resumed(id: string, now = Date.now()): void {
-    this.change(id, { state: 'starting', error: undefined }, now)
+    this.change(id, { state: 'starting', error: undefined, process: undefined, exitCode: undefined }, now)
+  }
+
+  /**
+   * What `process.ts` says about a run's Terminal process. Returns true when the run changed.
+   *
+   * Gone while still "starting" means the session never began: Claude Code's "trust this folder?"
+   * answered No, the window closed, or the command failing at once. Gone after that means the
+   * session closed, even if no `SessionEnd` hook said so (the hooks may be off, or the call lost).
+   */
+  onProcess(id: string, seen: RunProcess, now = Date.now()): boolean {
+    const run = this.runs.find((each) => each.id === id)
+    if (!run || seen.state === 'unknown') return false
+    if (seen.state === 'alive') return this.change(id, { process: 'open' }, now)
+    const closed: Partial<Run> = seen.code === null ? { process: 'closed' } : { process: 'closed', exitCode: seen.code }
+    if (run.state === 'starting') {
+      if (now - seen.at < EXIT_GRACE_MS) return false
+      return this.change(id, { ...closed, state: 'failed', error: neverStarted(run, seen.code) }, now)
+    }
+    if (run.state === 'failed' || run.state === 'ended') return this.change(id, closed, now)
+    return this.change(id, { ...closed, state: 'ended', helping: undefined }, now)
   }
 
   /** A hook call for one of our Claude Code sessions. Returns true when a run changed. */
@@ -181,9 +226,11 @@ export class RunBook {
     if (call.event === 'SubagentStart' || call.event === 'SubagentStop') return this.onWorker(run, call)
     if (call.event === 'SessionEnd' && run.helping) this.change(run.id, { helping: undefined }, call.at)
     // Claude Code's "waiting for your input" reminder arrives a minute after every finished turn.
-    // It is not a question, so a finished run stays finished rather than turning amber.
-    if (call.idle) return false
-    return this.change(run.id, { state: stateAfter(call.event), sessionId: call.sessionId }, call.at)
+    // It is not a question, so a finished run stays finished rather than turning amber. But it does
+    // prove the session is sitting at its prompt: a run still saying "running" missed its `Stop`
+    // (a hook call can be lost while the Grove is busy or restarting), so it is put right here.
+    if (call.idle) return run.state === 'running' ? this.change(run.id, { state: 'finished', sessionId: call.sessionId }, call.at) : false
+    return this.change(run.id, { state: stateAfter(call.event, call.source), sessionId: call.sessionId }, call.at)
   }
 
   /**
@@ -221,7 +268,8 @@ export class RunBook {
         claimed.add(id)
         // A first sighting always confirms the run. After that the scan moves it only while no
         // hook has spoken for it, because the hooks know "needs you" apart from "finished".
-        const fromScan = this.heard.has(run.id) ? null : stateFromScan(session)
+        // Nor once its window has closed: a transcript written moments before reads as "running".
+        const fromScan = this.heard.has(run.id) || run.process === 'closed' ? null : stateFromScan(session)
         const next = run.sessionId ? fromScan : (fromScan ?? (run.state === 'starting' ? 'running' : null))
         if (next && next !== run.state) changed = this.change(run.id, { state: next, sessionId: id }, now) || changed
         else if (!run.sessionId) changed = this.change(run.id, { sessionId: id }, now) || changed
@@ -249,19 +297,23 @@ export class RunBook {
       .sort((a, b) => a.createdAt - b.createdAt)[0]
   }
 
+  /**
+   * Apply a patch if it changes anything. A field set to `undefined` in the patch is removed, so
+   * the file never carries empty keys. Only a change of state moves `updatedAt`.
+   */
   private change(id: string, patch: Partial<Run>, now: number): boolean {
     const run = this.runs.find((each) => each.id === id)
     if (!run) return false
+    const record = run as unknown as Record<string, unknown>
+    const differs = (Object.keys(patch) as (keyof Run)[]).some((key) => JSON.stringify(patch[key] ?? null) !== JSON.stringify(record[key] ?? null))
+    if (!differs) return false
     const stateChanged = patch.state !== undefined && patch.state !== run.state
-    const idChanged = patch.sessionId !== undefined && patch.sessionId !== run.sessionId
-    const errorChanged = 'error' in patch && patch.error !== run.error
-    const helpingChanged = 'helping' in patch && JSON.stringify(patch.helping ?? {}) !== JSON.stringify(run.helping ?? {})
-    if (!stateChanged && !idChanged && !errorChanged && !helpingChanged) return false
     const from = run.state
     const since = run.updatedAt
-    Object.assign(run, patch)
-    if (patch.error === undefined && 'error' in patch) delete run.error
-    if (patch.helping === undefined && 'helping' in patch) delete run.helping
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) delete record[key]
+      else record[key] = value
+    }
     if (stateChanged) run.updatedAt = now
     this.save()
     if (stateChanged) this.onStateChange?.({ ...run }, from, since)
@@ -282,6 +334,16 @@ export class RunBook {
   }
 }
 
+/** Why a launch whose process stopped before any session appeared did not start, in words to act on. */
+function neverStarted(run: Run, code: number | null): string {
+  // Claude Code's first question in a new folder is whether to trust it, and the Grove cannot see
+  // that question; answering No is the likeliest way to get here, whatever the exit code says.
+  const trust = run.harness === 'claude-code' ? ' If it asked whether to trust the folder, answering Yes lets it start.' : ''
+  const tool = run.harness === 'claude-code' ? 'Claude Code' : 'Codex'
+  if (code !== null && code !== 0) return `${tool} stopped before its session began (exit code ${code}).${trust} Its Terminal window says why.`
+  return `${tool} closed before its session began.${trust}`
+}
+
 /** Write through a uniquely named temporary file, so no two writes can ever share one. */
 async function writeAtomically(file: string, text: string): Promise<void> {
   await fsp.mkdir(path.dirname(file), { recursive: true })
@@ -293,6 +355,14 @@ async function writeAtomically(file: string, text: string): Promise<void> {
     await fsp.rm(temporary, { force: true }).catch(() => {})
     throw error
   }
+}
+
+/** The two process fields are optional; a hand-edited or garbled value is dropped, not trusted. */
+function withSaneProcess(run: Run): Run {
+  const sane = { ...run }
+  if (sane.process !== 'open' && sane.process !== 'closed') delete sane.process
+  if (typeof sane.exitCode !== 'number' || !Number.isInteger(sane.exitCode)) delete sane.exitCode
+  return sane
 }
 
 const RUN_STATES: readonly RunState[] = ['starting', 'running', 'waiting', 'finished', 'ended', 'failed']

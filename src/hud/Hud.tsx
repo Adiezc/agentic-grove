@@ -26,7 +26,7 @@ import { useGrove } from '../store/grove'
 import { HARNESS_MARK, kindOf, useTree } from '../agents/tree'
 import { headroomFrom, route } from '../../core/routing.ts'
 import { choicesFor, modelForJob, modelLabel, toolOf } from '../../core/models.ts'
-import { useFlow } from '../store/flow'
+import { inFlight, useFlow } from '../store/flow'
 
 /** Every icon at one weight. Phosphor's `thin` is what matches the art's hairline rail. */
 const ICON = { size: 17, weight: 'thin' } as const
@@ -208,7 +208,7 @@ export function RuneConsole({
   const { agents } = useTree()
   const selectedStoneId = useFlow((state) => state.stoneId)
   const deployTo = useFlow((state) => state.deployTo)
-  const busy = useFlow((state) => state.deployment !== null)
+  const busy = useFlow((state) => inFlight(state.deployment))
 
   // Only agents that can work in a folder; Dots and Cowork cannot be sent to a stone.
   const sendable = useMemo(() => agents.filter((agent) => kindOf(agent) === 'grove'), [agents])

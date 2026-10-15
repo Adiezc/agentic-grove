@@ -19,6 +19,8 @@ import { launch } from '../core/spawn/launch.ts'
 import { RunBook, type Run } from '../core/spawn/runs.ts'
 
 const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), 'agentic-grove-verify-spawn-'))
+// The launcher writes each run's process files under the Grove's home; keep them in the scratch folder.
+process.env.AGENTIC_GROVE_HOME = path.join(scratch, 'home')
 const folder = path.join(scratch, 'My project (with spaces)')
 await fsp.mkdir(folder)
 
