@@ -42,6 +42,7 @@ import { APP_DOWNLOADS, TOOL_PAGES, cliPath, setupScript, setupStatus, signInScr
 import { nextSetupStep } from '../core/readiness.ts'
 import { RunBook, type RunHarness } from '../core/spawn/runs.ts'
 import { pruneRunProcesses, readRunProcess } from '../core/spawn/process.ts'
+import { stopRun } from '../core/spawn/stop.ts'
 import { launch } from '../core/spawn/launch.ts'
 import { BUILT_IN_BRIEFS, BUILT_IN_NAMES, PM_ID, SPAWNABLE_BUILT_INS, claudeAgentsJson, pmBrief, teamFor, teamMap } from '../core/spawn/briefs.ts'
 import { readTranscript } from '../core/spawn/transcript.ts'
@@ -659,6 +660,15 @@ function registerHandlers(): void {
     runs.resumed(run.id)
     redraw()
     return { ok: true, runId: run.id }
+  })
+
+  handle(CHANNELS.stopRun, async (_event, runId: unknown): Promise<RunResult> => {
+    const run = typeof runId === 'string' ? runs.get(runId) : undefined
+    if (!run) return { ok: false, error: 'No such run' }
+    const result = await stopRun(run.id)
+    // Read the process files now rather than at the next scan, so the panel says Closed at once.
+    await checkRunProcesses()
+    return result.ok ? { ok: true, runId: run.id } : { ok: false, runId: run.id, error: result.error }
   })
 
   handle(CHANNELS.readTranscript, async (_event, runId: unknown) => {

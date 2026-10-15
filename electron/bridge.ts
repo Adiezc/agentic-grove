@@ -231,6 +231,12 @@ export interface GroveApi {
   launchRun(request: { stoneId: string; agentId: string; task: string; harness?: 'claude-code' | 'codex'; model?: string }): Promise<RunResult>
   /** Reopen a Claude Code run's session in Terminal (`claude --resume`). */
   resumeRun(runId: string): Promise<RunResult>
+  /**
+   * Stop a run, as Ctrl-C in its window would: SIGINT to the tool, SIGTERM if it is still there a
+   * few seconds later. Takes the run id only; the node side finds the process from the Grove's own
+   * record and checks it is still the launch script it started (`core/spawn/stop.ts`).
+   */
+  stopRun(runId: string): Promise<RunResult>
   /** The last lines of a run's transcript, for the live view. Claude Code runs only. */
   readTranscript(runId: string): Promise<{ ok: boolean; lines?: TranscriptLine[]; error?: string }>
   /** On-demand bounded evidence for one session currently attached to a known stone. */
@@ -345,6 +351,7 @@ export const CHANNELS = {
   uninstall: 'grove:uninstall',
   launchRun: 'grove:launch-run',
   resumeRun: 'grove:resume-run',
+  stopRun: 'grove:stop-run',
   readTranscript: 'grove:read-transcript',
   readActivity: 'grove:read-activity',
   focusRun: 'grove:focus-run',
