@@ -1786,3 +1786,13 @@ step down under load.
 **Later the same evening:** the home camera was matched to a screenshot Adrian sent of the view he
 wanted: 20.1 units back (from 17.5), same fifteen degrees, aimed at 2.43 high. The tree sits smaller
 with more floor round it. The places were not moved again; they keep their 1.3 spread.
+
+## Every bough grows out of the wood (15 October 2026)
+
+Adrian spotted a disconnected branch. Measured in Blender: each bough started a set depth in from
+the trunk's centre line, which is inside the wood where the trunk is round, but low in the braid the
+wood wanders off that line, and 11 of the 23 boughs started between 4 and 17 cm clear of the bark.
+The worst was the low bough under the front-left pads, in the home view. Once the trunk is a mesh,
+`build-world-tree-blender.py` now finds the nearest bark to each bough's start and, if the start is
+outside it by more than 3 cm, carries the bough on to that bark and 8 cm into it. A start already
+behind the bark is left alone, so nothing is pushed back out through it.
