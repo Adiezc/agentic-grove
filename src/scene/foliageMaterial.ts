@@ -55,6 +55,8 @@ export function addFoliageSurface(material: THREE.MeshStandardMaterial, uniforms
       .replace('#include <common>', `#include <common>
 varying vec3 vFoliagePosition;
 varying vec3 vFoliageWorld;
+attribute float _shade;
+varying float vFoliageShade;
 uniform float foliageTime;
 uniform float foliageWind;
 `)
@@ -73,11 +75,13 @@ transformed += leafDirection * leafWave * foliageWind * leafMask;
 transformed.y -= abs(leafWave) * foliageWind * leafMask * 0.2;
 vFoliagePosition = position;
 vFoliageWorld = leafWorld;
+vFoliageShade = _shade;
 `)
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
 varying vec3 vFoliagePosition;
 varying vec3 vFoliageWorld;
+varying float vFoliageShade;
 uniform sampler2D leafColour;
       float _lfHash(vec3 p) {
         p = fract( p * vec3( 127.1, 311.7, 74.7 ) );
@@ -102,6 +106,12 @@ float canopyGradient = pow(clamp((vFoliagePosition.y - 0.8) / 4.4, 0.0, 1.0), 1.
 vec3 canopyShadow = vec3(0.44, 0.61, 0.46);
 vec3 canopyLit = vec3(0.96, 1.04, 0.78);
 vec3 leaf = diffuseColor.rgb * mix(canopyShadow, canopyLit, canopyGradient);
+// Each clump's own light, baked in the Blender build (_shade): sunlit tops pale and minty,
+// the gaps and undersides near black-green. The concept pads read as cushions only because of
+// this split; the grove's few soft lights cannot draw it on their own.
+float leafShade = smoothstep(0.0, 1.0, vFoliageShade);
+leaf *= mix(0.16, 1.45, leafShade * leafShade);
+leaf = mix(leaf, leaf * vec3(1.05, 1.12, 0.92) + vec3(0.010, 0.022, 0.012), smoothstep(0.62, 1.0, leafShade));
 float leafPatch = _lfNoise(vFoliageWorld * 2.2) - 0.5;
 leaf += (leaf * vec3(1.35, 1.16, 0.72) - leaf) * leafPatch * 1.3;
 diffuseColor.rgb = max(leaf, vec3(0.0));
@@ -109,11 +119,15 @@ diffuseColor.rgb = max(leaf, vec3(0.0));
 float leafLuma = dot(texture2D(leafColour, vAlphaMapUv).rgb, vec3(0.2126, 0.7152, 0.0722));
 diffuseColor.rgb *= clamp(mix(1.0, leafLuma / ${LEAF_MEAN_LUMA}, 0.9), 0.35, 1.8);
 `)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+// The faint self-light follows the same split, or the shaded gaps glow as brightly as the tops.
+totalEmissiveRadiance *= mix(0.25, 1.2, leafShade);
+`)
       .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
 // Blend FluffyTree's world-up foliage normals with the authored leaf normals.
 vec3 foliageUp = normalize(mat3(viewMatrix) * vec3(0.0, 1.0, 0.0));
 normal = normalize(mix(normal, foliageUp, 0.22));
 `)
   }
-  material.customProgramCacheKey = () => 'grove-fluffytree-cortiz-juniper-v1'
+  material.customProgramCacheKey = () => 'grove-fluffytree-cortiz-juniper-v2'
 }
