@@ -193,6 +193,8 @@ const cases: [string, () => Promise<void>][] = [
     assert.equal(again.get(run.id)?.process, 'open')
     again.onProcess(run.id, { state: 'gone', code: null, at: 9000 }, 9000)
     assert.equal(again.get(run.id)?.state, 'ended')
+    // Let that save land first, or it can overwrite the hand edit below (it did on CI's slower disk).
+    await again.flushed()
     // A hand-edited file with nonsense in the new fields keeps the run and drops the nonsense.
     const raw = JSON.parse(await fsp.readFile(file, 'utf8')) as { runs: Record<string, unknown>[] }
     raw.runs[0]!.process = 'maybe'
