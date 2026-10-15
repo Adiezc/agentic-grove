@@ -122,6 +122,19 @@ foliage pads instead of a world axis, keeps twigs inside the pad they support, a
 them the way bonsai twigs are wired. No leaves, bark textures, presets, wind or demo assets
 are imported. The full [MIT notice](licenses/ez-tree.txt) is packaged with the app.
 
+### supereggbert/proctree.js — BSD-3-Clause
+
+[proctree.js](https://github.com/supereggbert/proctree.js/tree/c1ea9dc2c1b0d3cc37cb7645b50b27c984505382),
+read 15 October 2026. Copyright (c) 2012 Paul Brunt.
+
+The drop and grow amounts from `Branch.prototype.split` in `proctree.js` (each new heading is
+nudged by `[sweep, drop + grow, 0]`) are ported to Python in `ez_limb` in
+`scripts/build-world-tree-blender.py`. proctree applies them once per branching level; Grove
+applies them section by section along one branch, weight near the base and lift near the tip,
+so each canopy bough and side branch sags and then turns its end up into its pad. The pull is
+shared out over a bough's length so long boughs do not fold. No mesh, twig, UV or trunk code is
+copied. The full [BSD-3-Clause notice](licenses/proctree.txt) is packaged with the app.
+
 ### cortiz2894/stylized-components — MIT
 
 [Stylized Components](https://github.com/cortiz2894/stylized-components/tree/1cece0a296b29299d1380c34feb5c158b2f04500),

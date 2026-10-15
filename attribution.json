@@ -155,6 +155,20 @@
       "revisionNote": "Pinned revision dcf309bd86bd521083d9c70f01f2de45fdc7c457. Section-walk gnarliness (scaled by 1/sqrt(radius)), radius-limited growth force and stratified, shuffled child placement ported to Python for the canopy boughs and twigs, steered toward authored foliage pads. Scope and changes recorded in CREDITS.md."
     },
     {
+      "name": "supereggbert/proctree.js",
+      "url": "https://github.com/supereggbert/proctree.js",
+      "license": "BSD-3-Clause",
+      "notice": "licenses/proctree.txt",
+      "source": [
+        "proctree.js/Branch.prototype.split (dropAmount, growAmount)"
+      ],
+      "destinations": [
+        "scripts/build-world-tree-blender.py",
+        "assets/models/world-tree-blender.glb"
+      ],
+      "revisionNote": "Pinned revision c1ea9dc2c1b0d3cc37cb7645b50b27c984505382. The drop/grow heading bias (newdir + [sweep, drop + grow, 0]) ported to Python in ez_limb, applied per section along one branch instead of per level, so canopy boughs and side branches sag near the base and lift their tips. No mesh, twig or UV code copied. See CREDITS.md."
+    },
+    {
       "name": "ambientCG juniper foliage",
       "url": "https://ambientcg.com/view?id=LeafSet019",
       "license": "CC0-1.0",
