@@ -1782,3 +1782,7 @@ the area, so the pads keep their density while covering more of the bare boughs 
 cost: the model grew from 37.5 to 47.4 MB, 1.26 million triangles. The frame rate was not measured
 (the Electron window pauses drawing when it is not in front); the adaptive graphics modes still
 step down under load.
+
+**Later the same evening:** the home camera was matched to a screenshot Adrian sent of the view he
+wanted: 20.1 units back (from 17.5), same fifteen degrees, aimed at 2.43 high. The tree sits smaller
+with more floor round it. The places were not moved again; they keep their 1.3 spread.

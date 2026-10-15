@@ -131,7 +131,10 @@ export const camera = {
    * `PLACE_SPREAD` in `core/state/places.ts`, which moved the stones out by the same factor), same
    * fifteen degrees, and aimed a little lower so the wider ring of stones sits in the frame.
    * position = target + 17.5 * (0, sin 15°, cos 15°) */
+  /* Matched the same evening to a screenshot Adrian sent of the view he wanted: a little further
+   * back again (20.1 units), so the tree sits smaller with more floor round it.
+   * position = target + 20.1 * (0, sin 15°, cos 15°) */
   fov: 30,
-  position: [0.3, 6.73, 16.9] as [number, number, number],
-  target: [0.3, 2.2, 0] as [number, number, number],
+  position: [0.3, 7.63, 19.42] as [number, number, number],
+  target: [0.3, 2.43, 0] as [number, number, number],
 } as const
