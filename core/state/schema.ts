@@ -271,6 +271,13 @@ export interface GroveSettings {
   tierModels: Record<ModelTool, Partial<Record<JobTier, TierChoice>>>
   /** Where the allowance rules start, in percent used. See `core/usage/limits.ts`. */
   usageThresholds: UsageThresholds
+  /**
+   * Read each new reply from PM aloud, with one of the Mac's own voices (offline, free). Off by
+   * default. Never steps or permission prompts; stops when you type or hold the mic.
+   */
+  speakReplies: boolean
+  /** Which of the Mac's voices reads PM's replies, by name. Empty means the Mac's default voice. */
+  voiceName: string
 }
 
 /** The settings a brand-new grove starts with. One place, so the loader and the default agree. */
@@ -294,6 +301,8 @@ export function defaultSettings(): GroveSettings {
     approvedModels: { 'claude-code': [], codex: [] },
     tierModels: { 'claude-code': {}, codex: {} },
     usageThresholds: { ...DEFAULT_THRESHOLDS },
+    speakReplies: false,
+    voiceName: '',
   }
 }
 
@@ -310,6 +319,7 @@ export const SETTING_SWITCHES = [
   'notifyFinished',
   'notifyNeedsYou',
   'officialClaudeLimits',
+  'speakReplies',
 ] as const satisfies readonly (keyof GroveSettings)[]
 
 export interface GroveFile {
@@ -434,6 +444,9 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
       else if (value !== undefined) problems.push({ where: `settings.${key}`, message: 'Should be true or false.' })
     }
     parseModelSettings(raw.settings, grove.settings, problems)
+    const voice = raw.settings.voiceName
+    if (typeof voice === 'string' && voice.length <= 120 && !/[\u0000-\u001f]/.test(voice)) grove.settings.voiceName = voice
+    else if (voice !== undefined) problems.push({ where: 'settings.voiceName', message: 'Should be the name of one of the Mac\'s voices, like "Samantha", or "" for the default.' })
   }
 
   if (raw.stones !== undefined) {

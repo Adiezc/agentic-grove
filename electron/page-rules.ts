@@ -59,3 +59,29 @@ export function isOwnPage(address: string | undefined, devServerUrl: string | un
     return false
   }
 }
+
+/**
+ * The one permission the page may have: the microphone, for holding the console's mic to talk to
+ * PM, asked for by the Grove's own page in its own top frame. Never the camera (a request for
+ * audio and video together is refused whole), the screen, location, notifications or anything
+ * else. `mediaTypes` comes from a request, `mediaType` from Chromium's quieter "may it?" check.
+ */
+export interface PermissionAsk {
+  permission: string
+  mediaTypes?: readonly string[]
+  mediaType?: string
+  /** The address that asked. */
+  requestingUrl?: string
+  /** The address of the window's page. */
+  pageUrl?: string
+  isMainFrame?: boolean
+}
+
+export function allowsPermission(ask: PermissionAsk, devServerUrl: string | undefined, pageFile: string): boolean {
+  if (ask.permission !== 'media') return false
+  if (ask.isMainFrame === false) return false
+  if (!isOwnPage(ask.pageUrl, devServerUrl, pageFile)) return false
+  if (ask.requestingUrl !== undefined && !isOwnPage(ask.requestingUrl, devServerUrl, pageFile)) return false
+  if (ask.mediaTypes) return ask.mediaTypes.length > 0 && ask.mediaTypes.every((type) => type === 'audio')
+  return ask.mediaType === 'audio'
+}

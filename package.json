@@ -67,6 +67,7 @@
     "verify:suggest-runes": "tsx test/verify-suggest-runes.ts",
     "verify:pm-channel": "tsx test/verify-pm-channel.ts",
     "verify:actions": "tsx test/verify-actions.ts",
+    "verify:voice": "tsx test/verify-voice.ts",
     "dmg": "node scripts/package.mjs --dmg"
   },
   "devDependencies": {

@@ -87,6 +87,10 @@ const api: GroveApi = {
   pmSay: (text, context) => ipcRenderer.invoke(CHANNELS.pmSay, text, context),
   pmStart: (options) => ipcRenderer.invoke(CHANNELS.pmStart, options),
   pmAnswerPermission: (requestId, allow) => ipcRenderer.invoke(CHANNELS.pmAnswerPermission, requestId, allow),
+  voiceStatus: () => ipcRenderer.invoke(CHANNELS.voiceStatus),
+  voiceSetUp: () => ipcRenderer.invoke(CHANNELS.voiceSetUp),
+  voiceDownload: (model) => ipcRenderer.invoke(CHANNELS.voiceDownload, model),
+  voiceTranscribe: (wav) => ipcRenderer.invoke(CHANNELS.voiceTranscribe, wav),
   pathForFile: (file) => {
     try {
       return webUtils.getPathForFile(file)

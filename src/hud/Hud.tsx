@@ -25,6 +25,8 @@ import { healthOf } from '../../core/health.ts'
 import { useGrove } from '../store/grove'
 import { usePmPanel } from '../store/pm'
 import { Conversation } from './Conversation'
+import { MicButton, VoiceCard } from './Mic'
+import { stopSpeaking } from './voice'
 import { ModelChip } from './ModelChip'
 import { classifyJob, pickModel } from '../../core/model-policy.ts'
 import { DEMO } from '../demo'
@@ -356,6 +358,7 @@ export function RuneConsole({
       ) : null}
       <Conversation />
       <AnswerCard />
+      <VoiceCard />
       {/* The echo: who would take this, and where, before anything is sent. */}
       <div className={`console-echo${typed && agent ? ' is-open' : ''}`} aria-live="polite">
         {treeAnswers && period ? (
@@ -450,7 +453,11 @@ export function RuneConsole({
           ref={inputRef}
           className="console-input"
           value={value}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => {
+            // Typing over PM stops it reading aloud.
+            stopSpeaking()
+            setValue(event.target.value)
+          }}
           placeholder={placeholder}
           aria-label="Command the grove"
           spellCheck={false}
@@ -464,6 +471,13 @@ export function RuneConsole({
             attach(event.target.files)
             // Cleared so choosing the same file again after removing it still fires a change.
             event.target.value = ''
+          }}
+        />
+        <MicButton
+          onText={(text) => {
+            // What was said joins whatever is already typed, for you to read before sending.
+            setValue((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text))
+            inputRef?.current?.focus()
           }}
         />
         <button

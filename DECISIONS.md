@@ -1937,3 +1937,44 @@ real PM session in one Terminal window, with the Grove plugged in as a Claude Co
 Checked by `npm run verify:pm-channel` (the built helper against a real bridge, playing Claude
 Code's side of the protocol). Not checked: a real Claude Code session loading the channel, which
 needs the interactive confirmation in Terminal.
+
+## Voice with PM, both ways, on the Mac and free
+
+*18 October 2026, with Adrian*
+
+Talking to PM out loud, and hearing it answer, without breaking the rule that the app never makes
+model calls on the subscription and without paying for a speech service. **Chosen: the Mac's own
+voices for speaking, whisper.cpp on the Mac for listening.**
+
+- **Hearing PM.** A speaker on PM's conversation bar (and a switch in Settings › Voice, with a
+  voice picker) reads each new reply with the page's `speechSynthesis`, which on macOS is the
+  system voices: offline, free, nothing installed. Off by default (`speakReplies` in grove.json).
+  It never reads steps or permission cards, and it stops when you type or hold the mic.
+- **Talking to PM.** Hold the mic in the console, or hold ⌥M. The page records with
+  `MediaRecorder`, decodes and resamples to 16 kHz mono itself, and sends a small WAV over the
+  bridge as bytes. The main process (`core/voice/whisper.ts`) checks it is that kind of WAV
+  before writing it to a private temp folder, runs `whisper-cli`, reads the text and deletes the
+  folder whatever happened. The text lands in the console for you to read; **Enter sends it as
+  usual, nothing is sent on its own.** WAV rather than the recorder's own WebM because Homebrew's
+  whisper.cpp reads WAV without ffmpeg.
+- **⌥M, not ⌥Space.** ⌥Space is the ChatGPT desktop app's global shortcut and would never reach
+  the Grove; ⌃Space switches input sources. ⌥M ("mic") is free and is held, not toggled.
+- **Set-up, asked not assumed.** Until whisper.cpp and a model are here the mic opens a set-up
+  card instead of failing: "Install in Terminal" runs `brew install whisper-cpp` the way Get
+  ready installs Claude Code; the model (base English, 148 MB, or small, 488 MB) is downloaded
+  only after you press the button showing its size, over https only, and kept only if its size
+  and SHA-256 match what Hugging Face publishes. The card also names macOS Dictation (Fn twice)
+  as the way that needs no install at all.
+- **One new permission.** `electron/security.ts` used to refuse every permission. It now allows
+  exactly one: the microphone (audio only, never with video), asked for by the Grove's own page
+  in its top frame (`allowsPermission` in `page-rules.ts`). Camera, screen, location and
+  notifications stay refused; `npm run verify:security` checks this case by case. The packaged
+  app carries `NSMicrophoneUsageDescription`, without which macOS refuses the microphone.
+
+Checked by `npm run verify:voice` (a stand-in `whisper-cli`, the WAV format, refusals, failures,
+time-outs, temp files deleted, and the download's checks against a local server) and in the
+built app over CDP: the set-up card, ⌥M, the speaker reading a reply once and not a permission
+card, typing stopping it, the voice picker saving, and camera/screen/location refused. **Not
+checked:** real microphone audio and a real whisper.cpp transcription (whisper.cpp is not
+installed on this Mac and holding the mic would raise the macOS permission prompt), and actual
+sound from the speaker (speech was intercepted in the test so nothing played aloud).

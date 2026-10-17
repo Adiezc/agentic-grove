@@ -96,6 +96,11 @@ try {
     icon: icns,
     appBundleId: 'com.adiezc.agentic-grove',
     appVersion: pkg.version,
+    // macOS shows this when the console's mic is first held, and refuses the microphone without it.
+    // The Grove asks for nothing else (no camera); see electron/security.ts.
+    extendInfo: {
+      NSMicrophoneUsageDescription: 'Agentic Grove listens only while you hold the mic, to turn what you say to PM into text on this Mac.',
+    },
     appCopyright: `Copyright (c) 2026 ${pkg.author}. ${pkg.license}. ${pkg.repository?.url ?? ''}`.trim(),
     // Plain files rather than an archive: the tray icon is read with a normal file path.
     asar: false,

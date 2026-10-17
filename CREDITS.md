@@ -376,6 +376,13 @@ The Geist and Uncial Antiqua fonts' original SIL Open Font Licenses are included
 geometry, material code and menu-bar/logo assets are authored for Grove; no Material Design
 Icons or Kay Lousberg asset packs are included. No Framer Motion code is bundled.
 
+Talking to PM by voice listens with **whisper.cpp** by Georgi Gerganov and contributors (MIT,
+https://github.com/ggml-org/whisper.cpp) and its English models converted from **OpenAI's
+Whisper** (MIT, https://github.com/openai/whisper). Neither ships inside the app: whisper.cpp is
+installed from Homebrew when you ask, and the model is downloaded once from whisper.cpp's own
+Hugging Face page after you agree. Replies are read aloud by macOS's own system voices through the
+page's speech synthesis; nothing of theirs is bundled either.
+
 `@electron/packager` (BSD-2-Clause) builds the Mac app for `npm run app` and `npm run dmg`; it is a
 development tool only, and none of it ships inside the app.
 

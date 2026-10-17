@@ -3885,3 +3885,124 @@
 .convo-more:hover {
   color: var(--text);
 }
+
+/* ---- Voice (Mic.tsx, voice.ts). The mic sits beside the attach button; green only while it is
+   listening, which is the one moment the Mac's microphone is on. ---- */
+
+.console-mic {
+  position: relative;
+  touch-action: none;
+}
+
+.console-mic.is-unset {
+  opacity: 0.7;
+}
+
+.console-mic.is-recording {
+  color: var(--live);
+}
+
+.console-mic.is-recording::after {
+  content: '';
+  position: absolute;
+  inset: -0.1rem;
+  border: 1px solid var(--live);
+  border-radius: 50%;
+  animation: mic-ring 1.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  pointer-events: none;
+}
+
+.console-mic.is-listening,
+.console-mic.is-starting {
+  color: var(--glow);
+  animation: pm-fade 1.2s ease-in-out infinite;
+}
+
+.console-mic:disabled {
+  cursor: progress;
+}
+
+@keyframes mic-ring {
+  from {
+    opacity: 0.8;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+.pm-icon.is-on {
+  color: var(--live);
+}
+
+.voice-card .answer-headline {
+  margin-bottom: 0.35rem;
+}
+
+.voice-line {
+  display: block;
+  margin: 0.25rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: #8fa197;
+}
+
+.voice-warn {
+  color: var(--wait);
+}
+
+.voice-steps {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.7rem 0 0.2rem;
+  padding: 0;
+  list-style: none;
+  counter-reset: voice-step;
+}
+
+.voice-steps li {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+  counter-increment: voice-step;
+}
+
+.voice-step-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  color: var(--text);
+}
+
+.voice-steps li:not(.is-done) .voice-step-head::before {
+  content: counter(voice-step) '.';
+  color: var(--text-dim);
+}
+
+.voice-steps li.is-done .voice-step-head {
+  color: var(--live);
+}
+
+.voice-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.voice-pick {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-mic.is-recording::after,
+  .console-mic.is-listening,
+  .console-mic.is-starting {
+    animation: none;
+  }
+}
