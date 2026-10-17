@@ -11,7 +11,7 @@ The look comes from druidic tradition: the sacred grove where druids met, a grea
 heart, standing stones carved with ogham-like marks, and roots joining everything underground.
 The Grove keeps that feeling and gives it a quiet, sci-fi glow.
 
-![Three stages of a grove: day one with two projects and PM at work, a few weeks in with six projects and a reviewer added, and a full grove of nineteen stones with a team of agents under load](assets/screenshots/grove-demo.webp)
+![Three stages of a grove: on day one, two projects and a job typed to PM; a few weeks in, six projects with one turned amber because it needs you; a full grove of nineteen stones, with Builder sent to fix the API's tests](assets/screenshots/grove-demo.webp)
 
 *The grove growing, in demo mode: day one, a few weeks in, and a full grove under load. A real
 grove starts empty and grows a stone for each project you connect.*
@@ -21,6 +21,11 @@ macOS 13 or newer · Needs Claude Code or Codex, signed in with your Claude or C
 Free for non-commercial community use, source-available, no telemetry
 
 **Status: early, and changing quickly.**
+
+> **Help wanted.** The Grove is Mac-only, and its maintainer has no Windows or Linux machine. If
+> you use either, or run local models with Ollama or LM Studio, there are
+> [small first issues](https://github.com/Adiezc/agentic-grove/labels/good%20first%20issue)
+> of an hour or two each. See [For contributors](#for-contributors).
 
 ## What you can do with it
 
@@ -43,7 +48,7 @@ Free for non-commercial community use, source-available, no telemetry
 
 | | |
 | --- | --- |
-| ![A project's stone chosen, with its panel](assets/screenshots/grove-stone.jpg) | ![PM's card open beside the tree, with Researcher, Builder and a Reviewer on the branches](assets/screenshots/grove-agents.jpg) |
+| ![The Build stone chosen, with its panel: running, a warning that Bash failed three times in a row, and what you can do there](assets/screenshots/grove-stone.jpg) | ![PM's card open beside the tree, with its model choice and a task box, and Researcher and Builder on the branches](assets/screenshots/grove-agents.jpg) |
 | Choose a stone to see its state and what you can do there. | PM and its team on the tree. Send PM, or any one agent. |
 
 ## Where it runs, and what it works with
@@ -51,8 +56,8 @@ Free for non-commercial community use, source-available, no telemetry
 | | |
 | --- | --- |
 | **macOS** (Apple Silicon) | Supported. This is the only platform today. |
-| **Windows** | Not yet, and **looking for a contributor**: the maintainer has no Windows machine. See [CONTRIBUTING.md](CONTRIBUTING.md) for what the port involves. |
-| **Linux** | Not yet. Contributions welcome; most of the Mac code carries over. |
+| **Windows** | Not yet, and **looking for contributors**: the maintainer has no Windows machine. The port is split into six issues, [#13](https://github.com/Adiezc/agentic-grove/issues/13) to [#18](https://github.com/Adiezc/agentic-grove/issues/18). |
+| **Linux** | Not yet. Contributions welcome; most of the Mac code carries over. See [#19](https://github.com/Adiezc/agentic-grove/issues/19). |
 
 The Grove works with the two AI providers most people use today: **Claude** (the Claude app,
 Claude Code, Cowork) and **ChatGPT** (the ChatGPT app, Codex, Dots). Ideally you have the Claude
@@ -214,12 +219,28 @@ the font and Electron/Chromium. Research candidates are credited when actually a
 
 ## For contributors
 
-**The most wanted contribution is a Windows version.** [CONTRIBUTING.md](CONTRIBUTING.md) lists
-the Mac-specific pieces and where they live, the commands for running and building the Grove, and
-the checks every change should pass.
+**Start here.** Each of these is an issue with the files to open, what done looks like and a
+rough time. Comment on one to take it, so two people don't build the same thing.
 
-**Also wanted: running the Grove offline on local models**, for people who want everything on
-their own machine. CONTRIBUTING.md lists the pieces involved.
+| Issue | Time | Needs |
+| --- | --- | --- |
+| [#13 Run the checks on a Windows runner in CI](https://github.com/Adiezc/agentic-grove/issues/13) · good first issue | 1 to 2 hours | Nothing but GitHub |
+| [#14 Find Claude Code sessions on Windows](https://github.com/Adiezc/agentic-grove/issues/14) · good first issue | 1 to 2 hours | Windows, the Claude app |
+| [#17 The hook command without a Unix shell](https://github.com/Adiezc/agentic-grove/issues/17) · good first issue | 1 to 2 hours | Windows, Claude Code |
+| [#20 Detect a running Ollama or LM Studio](https://github.com/Adiezc/agentic-grove/issues/20) · good first issue | 2 hours | A Mac with Ollama or LM Studio |
+| [#15 Find `claude` and `codex` on Windows](https://github.com/Adiezc/agentic-grove/issues/15) | 2 hours | Windows |
+| [#18 A Windows installer](https://github.com/Adiezc/agentic-grove/issues/18) | 2 to 3 hours | Windows |
+| [#16 Start agents in Windows Terminal](https://github.com/Adiezc/agentic-grove/issues/16) | 3 to 5 hours | Windows; agree the approach first |
+| [#19 A Linux version](https://github.com/Adiezc/agentic-grove/issues/19) | Half a day to a day | Linux with a desktop |
+
+**Questions, or an idea that isn't an issue yet?** Ask in
+[Discussions](https://github.com/Adiezc/agentic-grove/discussions).
+
+[CONTRIBUTING.md](CONTRIBUTING.md) has the commands for running and building the Grove, the checks
+every change should pass, and the bigger pieces: the full Windows port, and **running the Grove
+offline on local models**, for people who want everything on their own machine.
+
+**Everyone whose work is merged is named** in the release notes and in a contributors list here.
 
 **Other features open to anyone who wants one**, each described in CONTRIBUTING.md with the
 files to start from:
@@ -248,6 +269,7 @@ Several came from reading [Odysseus](https://github.com/odysseus-dev/odysseus) b
 ## Documents
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to help, starting with the Windows port
+- [Good first issues](https://github.com/Adiezc/agentic-grove/labels/good%20first%20issue) — small jobs of an hour or two
 - [SECURITY.md](SECURITY.md) — how to report a security problem privately
 - [CREDITS.md](CREDITS.md) — every project this borrows from, what was taken, under which licence
 - [DECISIONS.md](DECISIONS.md) — append-only log of architectural decisions and why
