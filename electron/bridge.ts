@@ -27,6 +27,7 @@ import type { NotePlace, NoteView } from '../core/state/notes.ts'
 import type { TranscriptLine } from '../core/spawn/transcript.ts'
 import type { ActivityResult } from '../core/activity-access.ts'
 import type { Proposal } from '../core/actions/proposals.ts'
+import type { PmChatState } from '../core/pm/chat.ts'
 
 /**
  * One complete picture of the grove, sent after every scan.
@@ -77,11 +78,20 @@ export interface GroveSnapshot {
    * that is waiting. See `core/actions/proposals.ts`.
    */
   proposals: Proposal[]
+  /** The conversation with PM, and whether PM's window is open. See `core/pm/`. */
+  pm: PmView
   /**
    * How many screens are connected. With one, a grove you have not looked at for a while steps its
    * graphics down; with several, it is probably on a screen of its own and stays at full detail.
    */
   displays: number
+}
+
+export interface PmView extends PmChatState {
+  /** PM's Terminal window, as its process files say. */
+  window: 'open' | 'closed' | 'unknown'
+  /** Why PM cannot start on this Mac (no Node.js, no Claude Code), or absent when it can. */
+  blocked?: string
 }
 
 export interface HooksStatus {
@@ -279,6 +289,12 @@ export interface GroveApi {
    * the action PM asked for, read back from the node side's own record, never from the page.
    */
   decideProposal(id: string, verdict: 'yes' | 'no', reason?: string): Promise<{ ok: boolean; error?: string; result?: { ok: boolean; text: string } }>
+  /** Say something to PM. It reaches PM's session through the Grove's channel. */
+  pmSay(text: string): Promise<{ ok: boolean; error?: string }>
+  /** Open PM's Terminal window, resuming its conversation, or a new one with `fresh`. */
+  pmStart(options?: { fresh?: boolean }): Promise<{ ok: boolean; error?: string }>
+  /** Allow or Deny one of the permission prompts PM's session relayed. Only its five-letter id crosses. */
+  pmAnswerPermission(requestId: string, allow: boolean): Promise<{ ok: boolean }>
   /** What uninstalling would do on this Mac, so the confirmation can list it before anything happens. */
   planUninstall(): Promise<UninstallPlan>
   /**
@@ -385,4 +401,7 @@ export const CHANNELS = {
   focusRun: 'grove:focus-run',
   focusTerminal: 'grove:focus-terminal',
   decideProposal: 'grove:decide-proposal',
+  pmSay: 'grove:pm-say',
+  pmStart: 'grove:pm-start',
+  pmAnswerPermission: 'grove:pm-answer-permission',
 } as const

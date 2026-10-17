@@ -18,6 +18,7 @@ export interface LaunchRequest {
   agentId: string
   task: string
   model?: string
+  effort?: string
 }
 
 export interface ActionHost {

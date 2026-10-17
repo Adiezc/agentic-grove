@@ -56,6 +56,13 @@ import { setActionHost } from '../core/actions/host.ts'
 import { startSweeping } from '../core/actions/temporary.ts'
 import { decide, onProposals, pendingProposals } from '../core/actions/proposals.ts'
 import '../core/actions/registry.ts'
+import { PmChat } from '../core/pm/chat.ts'
+import { startPmBridge, type PmBridge } from '../core/pm/bridge.ts'
+import { callPmTool, pmTools } from '../core/pm/tools.ts'
+import { pmWindow, startPm, type PmWindow } from '../core/pm/session.ts'
+import { helperCommand } from '../core/pm/helper.ts'
+import { pmChatBrief } from '../core/spawn/briefs.ts'
+import { modelPolicyText, pickModel } from '../core/model-policy.ts'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 /** The built interface. In development the dev server's page is loaded instead. */
@@ -78,6 +85,13 @@ let stopScanning: (() => void) | undefined
 let lastScan: ScanResult | null = null
 /** What the hooks have said, laid over each scan. See `core/hooks/live.ts`. */
 const live = new LiveState()
+
+/* PM's chat (`core/pm/`): the conversation, the loopback bridge its channel helper talks to, and
+ * whether its Terminal window is open, as last read. */
+const pmChat = new PmChat()
+let pmBridge: PmBridge | null = null
+let pmWindowState: PmWindow = 'unknown'
+let pmBlocked: string | undefined
 let hookServer: HookServer | null = null
 /** The crystal's figures. Refreshed once a minute on their own timer; see `core/usage/`. */
 let usage: UsageReport | null = null
@@ -200,6 +214,7 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
     runs: runs.list().slice(0, RUNS_IN_SNAPSHOT),
     notes: noteViews(grove.notes, derived.stones, runs.list()),
     proposals: await pendingProposals().catch(() => []),
+    pm: { ...pmChat.state(), window: pmWindowState, blocked: pmBlocked },
   }
 }
 
@@ -718,7 +733,28 @@ function registerHandlers(): void {
     changed: () => restartScanning(),
   })
   startSweeping(() => runs.list(), () => restartScanning())
-  onProposals(() => redraw())
+  onProposals((event) => {
+    redraw()
+    // PM hears your answer as a message from the Grove, so it can carry on without asking again.
+    if (event.kind !== 'decided') return
+    const { proposal } = event
+    const said = proposal.state === 'no' ? 'no' : 'yes'
+    const why = proposal.answer ? ` Their reason: ${proposal.answer}` : ''
+    const outcome = proposal.result ? ` Result: ${proposal.result.text}` : ''
+    pmChat.tellPm(`The person said ${said} to: ${proposal.summary}.${why}${outcome}`, false)
+  })
+  handle(CHANNELS.pmSay, async (_event, text: unknown) => {
+    if (typeof text !== 'string' || !text.trim()) return { ok: false, error: 'Nothing to send' }
+    pmChat.say(text)
+    return { ok: true }
+  })
+  handle(CHANNELS.pmStart, async (_event, options: unknown) => {
+    const fresh = typeof options === 'object' && options !== null && (options as { fresh?: unknown }).fresh === true
+    return startPmFromApp(fresh)
+  })
+  handle(CHANNELS.pmAnswerPermission, async (_event, requestId: unknown, allow: unknown) => ({
+    ok: pmChat.answerPermission(requestId, allow === true),
+  }))
   handle(CHANNELS.decideProposal, async (_event, id: unknown, verdict: unknown, reason: unknown) => {
     const answered = await decide(id, verdict, reason)
     return answered.ok ? { ok: true, result: answered.proposal?.result } : { ok: false, error: answered.error }
@@ -731,6 +767,48 @@ function registerHandlers(): void {
     // folder is created on the first save rather than here — this handler writes nothing.
     shell.showItemInFolder(file)
   })
+}
+
+/**
+ * Open PM's Terminal window with the Grove's channel, its chat brief and every stone's folder.
+ * PM runs on the Grove's pick for day-to-day work (Opus at medium effort by default, lighter when
+ * the allowance is low) unless you chose a model for PM yourself.
+ */
+async function startPmFromApp(fresh: boolean): Promise<{ ok: boolean; error?: string }> {
+  if (!(await cliPath('claude-code'))) return { ok: false, error: 'PM needs Claude Code. Use Get ready to install it.' }
+  const script = path.join(dirname, 'grove-channel.js')
+  const helper = await helperCommand(script, app.isPackaged ? null : process.execPath)
+  if (!helper) {
+    pmBlocked = 'PM\'s chat needs Node.js 20 or newer. Install it from nodejs.org, or run "brew install node" in Terminal.'
+    redraw()
+    return { ok: false, error: pmBlocked }
+  }
+  pmBlocked = undefined
+  const { grove } = await loadGrove()
+  const workers = teamFor(grove.agents.filter((agent) => agent.harness === 'claude-code'), grove.builtInModels)
+  const pick = pickModel({ tier: 'build', tool: 'claude-code', usage, settings: grove.settings, now: Date.now() })
+  const chosen = grove.builtInModels?.[PM_ID]
+  const result = await startPm(
+    {
+      helper,
+      brief: pmChatBrief(workers, modelPolicyText(grove.settings)),
+      agents: claudeAgentsJson(workers),
+      model: chosen !== undefined && chosen !== '' ? chosen : pick.model,
+      effort: pick.effort,
+      stones: grove.stones.map((stone) => stone.path),
+      fresh,
+    },
+    shell.openPath
+  )
+  if (!result.ok) return { ok: false, error: result.error }
+  pmChat.note(
+    result.resumed
+      ? 'PM is coming back in its Terminal window, with your last conversation.'
+      : 'PM is starting in a Terminal window. The first time, choose "I am using this for local development" there; after that you can minimise it.'
+  )
+  pmWindowState = 'open'
+  redraw()
+  return { ok: true }
 }
 
 /**
@@ -816,9 +894,10 @@ const MAX_TASK_CHARS = 20_000
  */
 async function launchRun(request: unknown): Promise<RunResult> {
   if (typeof request !== 'object' || request === null) return { ok: false, error: 'Not a request' }
-  const { stoneId, agentId, task, harness: asked, model: askedModel } = request as Record<string, unknown>
+  const { stoneId, agentId, task, harness: asked, model: askedModel, effort: askedEffort } = request as Record<string, unknown>
   if (typeof stoneId !== 'string' || typeof agentId !== 'string' || typeof task !== 'string') return { ok: false, error: 'Not a request' }
   if (askedModel !== undefined && (typeof askedModel !== 'string' || !isModelName(askedModel))) return { ok: false, error: 'Not a model name' }
+  if (askedEffort !== undefined && typeof askedEffort !== 'string') return { ok: false, error: 'Not an effort' }
   if (task.length > MAX_TASK_CHARS) return { ok: false, error: 'That task is too long to send' }
 
   const { grove } = await loadGrove()
@@ -869,7 +948,10 @@ async function launchRun(request: unknown): Promise<RunResult> {
   // This job's model if the console chose one, otherwise the agent's; never a name the tool would refuse.
   const agentModel = own ? (own.model ?? '') : builtInModel(agentId, grove.builtInModels)
   const model = modelForJob(harness, agentModel, typeof askedModel === 'string' ? askedModel : undefined)
-  const result = await launch({ run, folder: stoneId, brief, model, agents }, shell.openPath)
+  // Workers edit freely and ask before anything riskier (Adrian, 17 October 2026). A job PM sends
+  // carries the effort the Grove picked for it; `launch` refuses one the tool would not accept.
+  const effort = typeof askedEffort === 'string' ? askedEffort : undefined
+  const result = await launch({ run, folder: stoneId, brief, model, effort, agents, permissionMode: 'acceptEdits' }, shell.openPath)
   if (!result.ok) runs.fail(run.id, result.error)
   redraw()
   return result.ok ? { ok: true, runId: run.id } : { ok: false, runId: run.id, error: result.error, missing: result.missing }
@@ -1004,6 +1086,24 @@ void app.whenReady().then(async () => {
   await runs.load()
   void pruneRunProcesses(new Set(runs.list().map((run) => run.id)))
   registerHandlers()
+  await pmChat.load()
+  pmChat.onChange(() => redraw())
+  pmBridge = await startPmBridge({
+    chat: pmChat,
+    tools: pmTools,
+    callTool: (name, args) =>
+      callPmTool(name, args, {
+        settings: async () => (await loadGrove()).grove.settings,
+        usage: () => usage,
+        toolFor: async (agent) => {
+          const own = (await loadGrove()).grove.agents.find((each) => each.id === agent || each.name.toLowerCase() === agent.toLowerCase())
+          return own?.harness === 'codex' ? 'codex' : 'claude-code'
+        },
+      }),
+  }).catch((error: unknown) => {
+    pmBlocked = `PM's chat could not start its listener: ${error instanceof Error ? error.message : String(error)}`
+    return null
+  })
   await startListening()
   await restartScanning()
   shard = createShard(path.join(dirname, '..', 'assets', 'tray', 'crystalTemplate.png'), {
@@ -1020,7 +1120,16 @@ void app.whenReady().then(async () => {
     setInterval(() => {
       void refreshSetup(true)
     }, 60_000),
-    setInterval(() => void maybeCheckForUpdate(), 60 * 60_000)
+    setInterval(() => void maybeCheckForUpdate(), 60 * 60_000),
+    setInterval(() => {
+      pmChat.tick()
+      void pmWindow().then((state) => {
+        if (state === pmWindowState) return
+        if (state === 'closed' && pmWindowState === 'open') pmChat.note('PM\'s window was closed. Start PM to carry on where you left off.')
+        pmWindowState = state
+        redraw()
+      })
+    }, 5000)
   )
   // The first check waits a minute, so launching the app is never slowed by a network call.
   setTimeout(() => void maybeCheckForUpdate(), 60_000)
@@ -1055,5 +1164,6 @@ app.on('before-quit', () => {
   stopUsage?.()
   shard?.destroy()
   hookServer?.close()
+  void pmBridge?.close()
   for (const timer of timers) clearInterval(timer)
 })

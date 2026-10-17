@@ -1902,3 +1902,38 @@ to PM as tools and calls through `callAction`.
   leaves out anything turned down or already asked about.
 - **Ideas borrowed:** "you are the board" approvals from Paperclip, and agents bringing a written
   proposal you approve or reject with your reasons, from bagidea-office. See CREDITS.md.
+
+## PM's chat lives in the Grove, through a Claude Code channel (17 October 2026)
+
+Adrian wants the Grove as his day-to-day agentic OS: one window where he talks to PM and PM gets
+on with it. Three ways were weighed with him. A hidden `claude -p` run by the app would be the
+smoothest, but it is the app running the subscription itself, which the 30 September decision
+ruled out. An API key for the chat is allowed but costs money on top of the plan. **Chosen: a
+real PM session in one Terminal window, with the Grove plugged in as a Claude Code channel.**
+
+- **How.** PM is started (`core/pm/session.ts`) with `--mcp-config` naming the Grove's helper
+  (`electron/grove-channel.ts`) and `--dangerously-load-development-channels server:grove`.
+  Channels are Claude Code's own way for an MCP server to push messages into a session (research
+  preview; development channels are allowed on Pro and Max, and need the one-time "local
+  development" confirmation in the window). The helper collects what you type, offers PM a
+  `reply` tool and the Grove's actions, and relays permission prompts both ways. It reaches the
+  app over loopback HTTP with a token in a file only you can read (`core/pm/bridge.ts`), the same
+  walls as the hooks listener.
+- **One PM, all day.** PM keeps one session id (`pm.json`) and is resumed each time, so it
+  remembers yesterday. It works from `~/.agentic-grove/pm` with every stone's folder added, in
+  `acceptEdits` mode: edits freely, asks before anything riskier, and its prompts show as Allow
+  or Deny cards in the chat. Workers PM sends get the same mode.
+- **The console talks to PM.** A job for PM typed in the bottom console now goes to the chat
+  instead of starting a fresh PM run; naming another agent ("@builder …") still sends it directly.
+- **Allowance rules in code.** `send_agent` passes through `guardSend` (`core/pm/tools.ts`): with
+  no model given it gets the Grove's pick, Opus over the threshold waits for your yes, and over
+  90% new jobs are held. PM cannot talk its way round your settings.
+- **No new dependency.** The helper speaks MCP by hand (five messages); it answers with protocol
+  revisions up to 2025-11-25 because Claude Code does not register a channel on 2026-07-28.
+- **Runtime.** The packaged app keeps Electron's `RunAsNode` fuse off (3 October security pass),
+  so the helper runs on your own Node.js 20+; from source, Electron itself is the fallback.
+  Without either, the chat says to install Node rather than failing quietly.
+
+Checked by `npm run verify:pm-channel` (the built helper against a real bridge, playing Claude
+Code's side of the protocol). Not checked: a real Claude Code session loading the channel, which
+needs the interactive confirmation in Terminal.

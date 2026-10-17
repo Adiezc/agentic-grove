@@ -15,6 +15,7 @@ import { Announcer, Counts, HealthLine, Rail, RuneConsole, useFullScreen, useIdl
 import { ProjectsPanel, RunesPanel } from './hud/Panels'
 import { Providers } from './hud/Providers'
 import { ProposalsCard } from './hud/Proposals'
+import { PmChat } from './hud/Chat'
 import { SessionList } from './SessionList'
 import { SceneGuard } from './scene/SceneGuard'
 import { AgentCard, DeployToast, GrowCard, PickHint, RunPanel, STATE_LABEL, StonePanel, useRuns } from './hud/Flow'
@@ -488,6 +489,7 @@ export function App() {
         <GrowCard />
         <DeployToast stones={stones} />
         <ProposalsCard />
+        <PmChat />
         <PickHint />
         <Intro hidden={panel !== null} />
         <Announcer message={announcement} />

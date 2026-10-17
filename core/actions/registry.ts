@@ -346,7 +346,9 @@ const ACTIONS: Defined[] = [
         agent: { type: 'string', minLength: 1, maxLength: 80, description: 'Its id or name, like "builder".' },
         stone: STONE,
         task: { type: 'string', minLength: 1, maxLength: 20_000, description: 'What to do, in full: the agent starts with only this and its brief.' },
-        model: { type: 'string', maxLength: 80, description: 'A model for this one job. Leave out for the agent’s own.' },
+        model: { type: 'string', maxLength: 80, description: 'A model for this one job. Leave out and the Grove picks one from the kind of job and the person’s settings.' },
+        effort: { type: 'string', maxLength: 10, description: 'low, medium, high, xhigh or max. Leave out and the Grove picks one.' },
+        person_ok: { type: 'boolean', description: 'True only when the person already said yes to this model and effort in the chat.' },
         reason: REASON,
       },
       required: ['agent', 'stone', 'task'],
@@ -369,7 +371,7 @@ const ACTIONS: Defined[] = [
       const agent = findAgent(args.agent, v.grove)
       if (typeof agent === 'string') return { ok: false, text: agent }
       const stone = stoneOrThrow(args.stone, v)
-      const result = await host().launchRun({ stoneId: stone.path, agentId: agent.id, task: text(args.task), ...(args.model !== undefined ? { model: text(args.model) } : {}) })
+      const result = await host().launchRun({ stoneId: stone.path, agentId: agent.id, task: text(args.task), ...(args.model !== undefined ? { model: text(args.model) } : {}), ...(args.effort !== undefined ? { effort: text(args.effort) } : {}) })
       if (!result.ok) return { ok: false, text: result.error ?? 'It could not be started.', data: { runId: result.runId } }
       return { ok: true, text: `Sent ${agent.name} to ${stone.name}; a Terminal window is opening there. Its run id is ${result.runId}.`, data: { runId: result.runId } }
     },

@@ -23,6 +23,8 @@ import { useAnswer } from '../store/answer'
 import { AnswerCard } from './Answer'
 import { healthOf } from '../../core/health.ts'
 import { useGrove } from '../store/grove'
+import { usePmPanel } from '../store/pm'
+import { DEMO } from '../demo'
 import { HARNESS_MARK, kindOf, useTree } from '../agents/tree'
 import { headroomFrom, route } from '../../core/routing.ts'
 import { choicesFor, modelForJob, modelLabel, toolOf } from '../../core/models.ts'
@@ -283,6 +285,22 @@ export function RuneConsole({
     useAnswer.getState().clear()
     const paths = files.map((file) => window.grove?.pathForFile(file) ?? '').filter(Boolean)
     const task = paths.length ? `${reading.task}\n\nFiles to use:\n${paths.map((each) => `- ${each}`).join('\n')}` : reading.task
+    // PM is the front door (17 October 2026): a job for PM goes to its chat, where one long-lived
+    // PM decides who does it, rather than starting a fresh PM run on the stone. PM starts if it
+    // is not running. Naming another agent ("@builder ...") still sends that agent straight away.
+    if (agent.id === 'manager' && window.grove && !DEMO) {
+      const where = stone ? `\n\n(About the stone "${stone.name}", ${stone.id}.)` : ''
+      void window.grove.pmSay(task + where).then((result) => {
+        if (!result.ok) return
+        const pm = useGrove.getState().snapshot?.pm
+        if (pm && !pm.connected && pm.window !== 'open' && !pm.blocked) void window.grove?.pmStart()
+        usePmPanel.getState().setOpen(true)
+        setValue('')
+        setFiles([])
+        setChosen(null)
+      })
+      return
+    }
     deployTo(
       reading.stoneId,
       agent.id,
