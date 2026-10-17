@@ -95,6 +95,7 @@ const FRAGMENT = /* glsl */ `
   uniform float uFailed;
   uniform float uAttention;
   uniform float uGrow;
+  uniform float uCalm;
   uniform vec3 uAmber;
   uniform vec3 uColour;
   uniform vec3 uHot;
@@ -137,9 +138,15 @@ const FRAGMENT = /* glsl */ `
     vec3 colour = mix(living, uFailure, uFailed * 0.62);
     // Something needs you: the whole organism leans amber, and each beat pushes it further.
     colour = mix(colour, uAmber, clamp(uAttention, 0.0, 1.0));
-    gl_FragColor = vec4(colour, clamp(amount * fade, 0.0, 1.0));
+    gl_FragColor = vec4(colour, clamp(amount * fade * uCalm, 0.0, 1.0));
   }
 `
+
+/**
+ * The network's brightness in a quiet grove, as a share of full. Full comes back with work, with
+ * anything that needs you, and on each heartbeat, so the light reads as the grove breathing.
+ */
+const RESTING_GLOW = 0.78
 
 function makeMaterial(halo: boolean, rest: number): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
@@ -159,6 +166,7 @@ function makeMaterial(halo: boolean, rest: number): THREE.ShaderMaterial {
       uFailed: { value: 0 },
       uAttention: { value: 0 },
       uGrow: { value: 1 },
+      uCalm: { value: 1 },
       uAmber: { value: new THREE.Color(palette.waiting) },
       uColour: { value: new THREE.Color(halo ? palette.vein : palette.live) },
       uHot: { value: new THREE.Color(palette.energy) },
@@ -472,10 +480,18 @@ export function Mycelium({ network, arriving, active, attention, failed, activit
   const amber = useRef(0)
   const cordAmber = useMemo(() => new THREE.Color(palette.waiting), [])
 
+  /** How bright the network is overall, eased: a little under full at rest, full when it works. */
+  const calm = useRef(RESTING_GLOW)
+
   useFrame((state, delta) => {
     const wanted = attention.size > 0 || failed.size > 0
     const organismBeat = animate ? heartbeatFrame(state.clock.elapsedTime, activity, wanted).pulse : 0.28
     amber.current = animate ? THREE.MathUtils.damp(amber.current, wanted ? 1 : 0, 1.4, delta) : wanted ? 1 : 0
+    // Work, something that needs you, or the crest of a beat brings the light up to full; between
+    // beats in a quiet grove it rests a little lower (Adrian, 18 October 2026).
+    const lift = Math.max(Math.min(1, activity * 2), wanted ? 1 : 0, active.size > 0 ? 1 : 0)
+    const wantedCalm = THREE.MathUtils.lerp(RESTING_GLOW, 1, Math.max(lift, organismBeat))
+    calm.current = animate ? THREE.MathUtils.damp(calm.current, wantedCalm, 6, delta) : wantedCalm
     groups.forEach((group) => {
       const owner = group.owner
       const want = owner && active.has(owner) ? 1 : 0
@@ -493,7 +509,7 @@ export function Mycelium({ network, arriving, active, attention, failed, activit
       const tint = Math.min(1, amber.current * (0.18 + organismBeat * 0.5) + (needsAttention || isFailed ? 0.5 : 0))
       group.cord.growth.value = group.grow
       group.cord.material.emissive.set(HYPHA_GLOW).lerp(cordAmber, tint * 0.25)
-      group.cord.material.emissiveIntensity = 0.85 + organismBeat * 0.3
+      group.cord.material.emissiveIntensity = (0.85 + organismBeat * 0.3) * calm.current
       signals.current.set(owner, { active: next + attentionLift, attention: tint, grow: group.grow,
         beat: organismBeat * (0.28 + activity * 0.72) + attentionLift, time })
       for (const material of [group.coreMaterial, group.haloMaterial]) {
@@ -503,6 +519,7 @@ export function Mycelium({ network, arriving, active, attention, failed, activit
         material.uniforms.uTime!.value = time
         material.uniforms.uHeartbeat!.value = organismBeat * (0.28 + activity * 0.72) + attentionLift
         material.uniforms.uFailed!.value = isFailed ? 1 : 0
+        material.uniforms.uCalm!.value = calm.current
         // Everywhere a little, beating; along the roots to the stone that wants you, a lot.
         material.uniforms.uAttention!.value =
           tint
