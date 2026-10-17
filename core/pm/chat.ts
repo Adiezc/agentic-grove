@@ -11,7 +11,7 @@
 import { randomUUID } from 'node:crypto'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
-import { CONNECTED_WITHIN_MS, isRequestId, pmHome, type PermissionRequest, type PmInbound } from './protocol.ts'
+import { CONNECTED_WITHIN_MS, POLL_WAIT_MS, isRequestId, pmHome, type PermissionRequest, type PmInbound } from './protocol.ts'
 
 export type ChatFrom = 'you' | 'pm' | 'grove'
 
@@ -146,6 +146,8 @@ export class PmChat {
    * waits up to `waitMs` so a message you type reaches PM straight away rather than on the next poll.
    */
   poll(waitMs: number): Promise<PmInbound[]> {
+    // Capped here as well as in the bridge, so no caller can hold a timer open for long.
+    const wait = Math.min(Math.max(Number.isFinite(waitMs) ? waitMs : 0, 0), POLL_WAIT_MS)
     const wasConnected = this.connected()
     this.lastPollAt = this.now()
     if (!wasConnected) this.changed()
@@ -160,7 +162,7 @@ export class PmChat {
         this.pollers = this.pollers.filter((p) => p !== deliver)
         this.lastPollAt = this.now()
         resolve([])
-      }, waitMs)
+      }, wait)
       this.pollers.push(deliver)
     })
   }

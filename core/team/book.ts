@@ -59,6 +59,8 @@ export interface TeamRun {
 }
 
 export const MAX_TALK_CHARS = 8000
+/** The longest any single wait for an answer may last: ten minutes. */
+const MAX_WAIT_MS = 10 * 60_000
 const KEEP = 400
 /** How long a pulse stays in the snapshot for the scene to draw. */
 const PULSE_MS = 8000
@@ -111,6 +113,8 @@ export class TeamBook {
 
   /** Wait up to `ms` for the answer to a question; `null` when none came in time. */
   waitForAnswer(askId: string, ms: number): Promise<TeamMessage | null> {
+    // Never longer than a worker would wait, whoever asks.
+    const wait = Math.min(Math.max(Number.isFinite(ms) ? ms : 0, 0), MAX_WAIT_MS)
     const known = this.answerTo(askId)
     if (known) return Promise.resolve(known)
     return new Promise((resolve) => {
@@ -123,7 +127,7 @@ export class TeamBook {
         if (list.length) this.answerWaiters.set(askId, list)
         else this.answerWaiters.delete(askId)
         resolve(null)
-      }, ms)
+      }, wait)
       this.answerWaiters.set(askId, [...(this.answerWaiters.get(askId) ?? []), wake])
     })
   }
