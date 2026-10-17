@@ -79,7 +79,8 @@ const cases: [string, () => void][] = [
     if (!built) return console.log('      (skipped: run npm run build first)')
     const html = fs.readFileSync(PAGE, 'utf8')
     assert.ok(html.includes('http-equiv="Content-Security-Policy"'))
-    for (const tag of html.match(/<script[^>]*>/g) ?? []) assert.ok(/\ssrc=/.test(tag), `inline script: ${tag}`)
+    // Case-insensitive, because HTML is: `<SCRIPT>` runs just the same, so the check must catch it.
+    for (const tag of html.match(/<script\b[^>]*>/gi) ?? []) assert.ok(/\ssrc\s*=/i.test(tag), `inline script: ${tag}`)
   }],
   ['the preload is plain CommonJS asking only for electron, as a sandboxed preload must', () => {
     if (!built) return console.log('      (skipped: run npm run build first)')
