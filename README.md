@@ -23,7 +23,7 @@ Free for non-commercial community use, source-available, no telemetry
 **Status: early, and changing quickly.**
 
 > **Help wanted.** The Grove is Mac-only, and its maintainer has no Windows or Linux machine. If
-> you use either, or run local models with Ollama or LM Studio, there are
+> you use either, or run local models (Ollama, LM Studio, llama.cpp, MLX and the like), there are
 > [small first issues](https://github.com/Adiezc/agentic-grove/labels/good%20first%20issue)
 > of an hour or two each. See [For contributors](#for-contributors).
 
@@ -69,7 +69,8 @@ Studio and the like) can be added: each tool the Grove understands is one small 
 `core/harnesses/`, and the contract is in its README. One for Cursor is already written but has
 never been tested on real data. Contributions are welcome, and **we especially welcome work that
 lets the Grove run fully offline on your own models**, including a European option such as
-Mistral's open-weight models; see [CONTRIBUTING.md](CONTRIBUTING.md).
+Mistral's open-weight models. The steps are in
+[#30](https://github.com/Adiezc/agentic-grove/issues/30); see also [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -229,7 +230,7 @@ rough time. Comment on one to take it, so two people don't build the same thing.
 | [#13 Run the checks on a Windows runner in CI](https://github.com/Adiezc/agentic-grove/issues/13) | 1 to 2 hours | Nothing but GitHub |
 | [#14 Find Claude Code sessions on Windows](https://github.com/Adiezc/agentic-grove/issues/14) | 1 to 2 hours | Windows, the Claude app |
 | [#17 The hook command without a Unix shell](https://github.com/Adiezc/agentic-grove/issues/17) | 1 to 2 hours | Windows, Claude Code |
-| [#20 Detect a running Ollama or LM Studio](https://github.com/Adiezc/agentic-grove/issues/20) | 2 hours | A Mac with Ollama or LM Studio |
+| [#20 Detect a running local model server](https://github.com/Adiezc/agentic-grove/issues/20) | 2 to 3 hours | A Mac with Ollama, LM Studio, llama.cpp, MLX or similar |
 | [#22 Test the Cursor adapter on real sessions](https://github.com/Adiezc/agentic-grove/issues/22) | 1 to 2 hours | A Mac with Cursor |
 | [#24 A short "how it works now" note for the hooks](https://github.com/Adiezc/agentic-grove/issues/24) | 1 to 2 hours | No code; reading the source |
 | [#25 Check the interface with a screen reader](https://github.com/Adiezc/agentic-grove/issues/25) | 1 to 2 hours | A Mac with VoiceOver |
@@ -239,6 +240,7 @@ rough time. Comment on one to take it, so two people don't build the same thing.
 
 | Issue | Time | Needs |
 | --- | --- | --- |
+| [#30 Run the Grove fully locally](https://github.com/Adiezc/agentic-grove/issues/30) (tracking issue, 7 steps) | Several pieces; take one | A Mac with a local model server |
 | [#15 Find `claude` and `codex` on Windows](https://github.com/Adiezc/agentic-grove/issues/15) | 2 hours | Windows |
 | [#18 A Windows installer](https://github.com/Adiezc/agentic-grove/issues/18) | 2 to 3 hours | Windows |
 | [#26 Runs that always end in a word to you](https://github.com/Adiezc/agentic-grove/issues/26) | 2 to 4 hours | A Mac |
