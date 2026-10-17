@@ -28,6 +28,7 @@ import type { TranscriptLine } from '../core/spawn/transcript.ts'
 import type { ActivityResult } from '../core/activity-access.ts'
 import type { Proposal } from '../core/actions/proposals.ts'
 import type { PmChatState } from '../core/pm/chat.ts'
+import type { Transcript, VoiceModelId, VoiceStatus } from '../core/voice/whisper.ts'
 
 /**
  * One complete picture of the grove, sent after every scan.
@@ -300,6 +301,18 @@ export interface GroveApi {
   pmStart(options?: { fresh?: boolean }): Promise<{ ok: boolean; error?: string }>
   /** Allow or Deny one of the permission prompts PM's session relayed. Only its five-letter id crosses. */
   pmAnswerPermission(requestId: string, allow: boolean): Promise<{ ok: boolean }>
+
+  /** Is voice ready on this Mac: whisper.cpp, a speech model, and the microphone allowed? */
+  voiceStatus(): Promise<VoiceStatusView>
+  /** Open Terminal running Homebrew's install of whisper.cpp. Takes nothing from the page. */
+  voiceSetUp(): Promise<{ ok: boolean; error?: string }>
+  /**
+   * Download a speech model, after the person pressed Download beside its size. Only the two
+   * models in `core/voice/whisper.ts`, from their fixed addresses. Progress shows in `voiceStatus`.
+   */
+  voiceDownload(model: VoiceModelId): Promise<{ ok: boolean; error?: string }>
+  /** What was said: a 16 kHz WAV recording (`core/voice/wav.ts`) to text, on this Mac. */
+  voiceTranscribe(wav: Uint8Array): Promise<Transcript>
   /** What uninstalling would do on this Mac, so the confirmation can list it before anything happens. */
   planUninstall(): Promise<UninstallPlan>
   /**
@@ -357,6 +370,11 @@ export interface ProjectResult {
   error?: string
 }
 
+/** Voice on this Mac, plus whether macOS lets the Grove use the microphone. */
+export interface VoiceStatusView extends VoiceStatus {
+  microphone: 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown'
+}
+
 /** The IPC channel names, in one place so the two sides cannot disagree about a string. */
 export const CHANNELS = {
   snapshot: 'grove:snapshot',
@@ -409,4 +427,8 @@ export const CHANNELS = {
   pmSay: 'grove:pm-say',
   pmStart: 'grove:pm-start',
   pmAnswerPermission: 'grove:pm-answer-permission',
+  voiceStatus: 'grove:voice-status',
+  voiceSetUp: 'grove:voice-set-up',
+  voiceDownload: 'grove:voice-download',
+  voiceTranscribe: 'grove:voice-transcribe',
 } as const

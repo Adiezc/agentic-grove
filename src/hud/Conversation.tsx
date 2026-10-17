@@ -10,12 +10,18 @@
  * It needs you in two ways, both amber: a reply PM flagged, and a permission prompt from PM's
  * session, which you can Allow or Deny here without going to Terminal. The bar stays visible
  * while either waits, even with the conversation folded away.
+ *
+ * The speaker on the bar reads each new reply from PM aloud with one of the Mac's own voices
+ * (`voice.ts`). Off until you switch it on; it never reads steps or permission prompts, and it
+ * stops the moment you type or hold the mic.
  */
 import { useEffect, useRef, useState } from 'react'
-import { ArrowCounterClockwise, CaretDown, CaretUp, Check, Play, X } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, CaretDown, CaretUp, Check, Play, SpeakerHigh, SpeakerSlash, X } from '@phosphor-icons/react'
 import { useGrove } from '../store/grove'
 import { usePmPanel } from '../store/pm'
 import { DEMO } from '../demo'
+import { saveSettings, useSettings } from '../store/settings'
+import { speak, stopSpeaking } from './voice'
 import type { ChatMessage } from '../../core/pm/chat.ts'
 import type { PmView } from '../../electron/bridge.ts'
 
@@ -45,6 +51,20 @@ export function Conversation() {
     if (pm.needsYou) setOpen(true)
   }, [pm.needsYou])
 
+  // Read PM's newest reply aloud, once, when the speaker is on. Whatever was already there when the
+  // window opened, or when the speaker was switched on, is not read.
+  const { speakReplies, voiceName } = useSettings()
+  const spoken = useRef<string | undefined>(last?.id)
+  useEffect(() => {
+    if (!speakReplies) {
+      spoken.current = last?.id
+      return
+    }
+    if (!last || last.id === spoken.current) return
+    spoken.current = last.id
+    if (last.from === 'pm' && !last.permission) speak(last.text, voiceName)
+  }, [last?.id, speakReplies])
+
   // Newest at the bottom, kept in view as messages and steps arrive.
   useEffect(() => {
     if (open) list.current?.scrollTo({ top: list.current.scrollHeight })
@@ -70,6 +90,19 @@ export function Conversation() {
           {open ? <CaretDown size={11} weight="thin" aria-hidden="true" /> : <CaretUp size={11} weight="thin" aria-hidden="true" />}
         </button>
         <span className="convo-actions">
+          <button
+            type="button"
+            className={`pm-icon${speakReplies ? ' is-on' : ''}`}
+            aria-pressed={speakReplies}
+            onClick={() => {
+              if (speakReplies) stopSpeaking()
+              void saveSettings({ speakReplies: !speakReplies })
+            }}
+            title={speakReplies ? 'Reading replies aloud. Click to stop' : 'Read PM\'s replies aloud'}
+            aria-label="Read PM's replies aloud"
+          >
+            {speakReplies ? <SpeakerHigh size={12} weight="thin" /> : <SpeakerSlash size={12} weight="thin" />}
+          </button>
           {!pm.connected && pm.window !== 'open' && !pm.blocked ? (
             <button type="button" className="pm-icon" disabled={starting} onClick={() => void start()} title="Start PM in its Terminal window">
               <Play size={12} weight="thin" />

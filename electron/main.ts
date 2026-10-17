@@ -13,7 +13,7 @@
  * Windows, the tray and notifications will each get their own file as they arrive. This one
  * stays about lifecycle.
  */
-import { BrowserWindow, app, dialog, net, screen, session, shell } from 'electron'
+import { BrowserWindow, app, dialog, net, screen, session, shell, systemPreferences } from 'electron'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
@@ -25,7 +25,7 @@ import { deriveStones } from '../core/state/stones.ts'
 import { readRepos } from '../core/state/repos.ts'
 import { noteViews } from '../core/state/notes.ts'
 import { BUILT_IN_AGENT_IDS, LINK_HOME, defaultGrove, isHttpsUrl, isLinkOnly } from '../core/state/schema.ts'
-import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type LimitsCheck, type ProjectResult, type ReadyResult, type RunResult, type UninstallPlan } from './bridge.ts'
+import { CHANNELS, type VoiceStatusView, type AgentResult, type GroveSnapshot, type HooksStatus, type LimitsCheck, type ProjectResult, type ReadyResult, type RunResult, type UninstallPlan } from './bridge.ts'
 import { LiveState } from '../core/hooks/live.ts'
 import { startUsageLoop, usage as readUsage } from '../core/usage/index.ts'
 import { isProbeFolder, runProbe, type ClaudeReading } from '../core/usage/probe.ts'
@@ -58,6 +58,7 @@ import { decide, onProposals, pendingProposals } from '../core/actions/proposals
 import '../core/actions/registry.ts'
 import { readTranscript } from '../core/spawn/transcript.ts'
 import { PmChat } from '../core/pm/chat.ts'
+import { VOICE_MODELS, downloadModel, transcribe, voiceStatus, whisperSetupScript } from '../core/voice/whisper.ts'
 import { startPmBridge, type PmBridge } from '../core/pm/bridge.ts'
 import { callPmTool, pmTools } from '../core/pm/tools.ts'
 import { pmFolder, pmSessionId, pmWindow, startPm, type PmWindow } from '../core/pm/session.ts'
@@ -786,6 +787,18 @@ function registerHandlers(): void {
     return answered.ok ? { ok: true, result: answered.proposal?.result } : { ok: false, error: answered.error }
   })
 
+  // Voice (core/voice): talking to PM through the console's mic. All on this Mac.
+  handle(CHANNELS.voiceStatus, async (): Promise<VoiceStatusView> => ({
+    ...(await voiceStatus()),
+    microphone: systemPreferences.getMediaAccessStatus('microphone') as VoiceStatusView['microphone'],
+  }))
+  handle(CHANNELS.voiceSetUp, async () => openInTerminal('set-up-voice', whisperSetupScript()))
+  handle(CHANNELS.voiceDownload, async (_event, model: unknown) => {
+    if (typeof model !== 'string' || !Object.hasOwn(VOICE_MODELS, model)) return { ok: false, error: 'Unknown model' }
+    return downloadModel(model as keyof typeof VOICE_MODELS)
+  })
+  handle(CHANNELS.voiceTranscribe, async (_event, wav: unknown) => transcribe(wav))
+
   handle(CHANNELS.revealGroveFile, async () => {
     const file = grovePath()
     // `showItemInFolder` on a file that does not exist yet opens nothing at all, which reads as
@@ -848,14 +861,20 @@ async function openSetup(which: SetupTool): Promise<{ ok: boolean; opened?: 'ter
     await shell.openExternal(TOOL_PAGES[which])
     return { ok: true, opened: 'page' }
   }
+  const result = await openInTerminal(`set-up-${which}`, script)
+  return result.ok ? { ok: true, opened: 'terminal' } : result
+}
+
+/** Run one of the Grove's own set-up scripts in a Terminal window. */
+async function openInTerminal(name: string, script: string): Promise<{ ok: boolean; error?: string }> {
   try {
     // A `.command` file is what macOS opens in Terminal on its own. Written to a private temp
     // folder, readable and runnable by this user only.
     const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'agentic-grove-setup-'))
-    const file = path.join(dir, `set-up-${which}.command`)
+    const file = path.join(dir, `${name}.command`)
     await fsp.writeFile(file, script, { mode: 0o700 })
     const failure = await shell.openPath(file)
-    return failure ? { ok: false, error: failure } : { ok: true, opened: 'terminal' }
+    return failure ? { ok: false, error: failure } : { ok: true }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
   }

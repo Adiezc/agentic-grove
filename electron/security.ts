@@ -15,8 +15,9 @@
  *   2. **No new windows and no navigation away.** A link or a script can neither open a window nor
  *      turn the Grove's window into some other page. Links meant for your browser go through
  *      `shell.openExternal` on the node side, after their own checks.
- *   3. **No permissions.** Camera, microphone, location, notifications from the page: all refused.
- *      The Grove's notifications come from the node side (`notify.ts`).
+ *   3. **One permission: the microphone, for the Grove's own page** (`allowsPermission`), so you
+ *      can hold the console's mic to talk to PM. Camera, screen, location, notifications from the
+ *      page: all refused. The Grove's notifications come from the node side (`notify.ts`).
  *   4. **Only the Grove's page may use the bridge** (`isOwnPage`, checked on every message).
  *   5. **Only photographs download.** Photo mode saves its image as an ordinary download of a PNG
  *      the page drew itself; the save dialog opens on Pictures. Any other download is cancelled.
@@ -27,14 +28,28 @@
  */
 import { app, session, type WebContents } from 'electron'
 import path from 'node:path'
-import { isOwnPage } from './page-rules.ts'
+import { allowsPermission, isOwnPage } from './page-rules.ts'
 
-export { CONTENT_SECURITY_POLICY, isAppLink, isOwnPage } from './page-rules.ts'
+export { CONTENT_SECURITY_POLICY, allowsPermission, isAppLink, isOwnPage } from './page-rules.ts'
 
 /** Apply rules 2, 3 and 5 to every page the app ever makes. Call once, before the first window. */
 export function lockDownPages(devServerUrl: string | undefined, pageFile: string): void {
-  session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
-  session.defaultSession.setPermissionCheckHandler(() => false)
+  session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+    const media = details as { mediaTypes?: string[]; requestingUrl?: string; isMainFrame?: boolean }
+    callback(allowsPermission({
+      permission,
+      mediaTypes: media.mediaTypes ?? [],
+      requestingUrl: media.requestingUrl ?? '',
+      pageUrl: contents?.getURL(),
+      isMainFrame: media.isMainFrame,
+    }, devServerUrl, pageFile))
+  })
+  session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) => allowsPermission({
+    permission,
+    mediaType: (details as { mediaType?: string }).mediaType,
+    pageUrl: contents?.getURL(),
+    isMainFrame: (details as { isMainFrame?: boolean }).isMainFrame,
+  }, devServerUrl, pageFile))
   session.defaultSession.on('will-download', (event, item) => {
     if (!item.getURL().startsWith('data:image/png;')) return event.preventDefault()
     item.setSaveDialogOptions({ defaultPath: path.join(app.getPath('pictures'), item.getFilename()) })
