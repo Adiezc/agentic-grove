@@ -14,6 +14,7 @@ import { GroveScene, SPIKE_STONES, type PerfSample, type QualityPreset } from '.
 import { Announcer, Counts, HealthLine, Rail, RuneConsole, useFullScreen, useIdle, usePrefersReducedMotion, type RailPanel } from './hud/Hud'
 import { ProjectsPanel, RunesPanel } from './hud/Panels'
 import { Providers } from './hud/Providers'
+import { ProposalsCard } from './hud/Proposals'
 import { SessionList } from './SessionList'
 import { SceneGuard } from './scene/SceneGuard'
 import { AgentCard, DeployToast, GrowCard, PickHint, RunPanel, STATE_LABEL, StonePanel, useRuns } from './hud/Flow'
@@ -378,7 +379,10 @@ export function App() {
    * on a spare screen is never a frozen picture. Not while anything is open, not in photo mode, not
    * under reduced motion, and never while a stone wants you: the camera must not turn away from the
    * one thing on screen that matters. `?drift=10` shortens the wait to ten seconds, for judging it. */
-  const needsYou = stones.some((stone) => stone.status === 'waiting' || stone.status === 'errored')
+  // A question from PM needs you as much as a waiting stone does (`core/actions/proposals.ts`).
+  // So does a reply PM flagged or a permission prompt from its session (`core/pm/chat.ts`).
+  const asking = (snapshot?.proposals?.length ?? 0) > 0 || Boolean(snapshot?.pm?.needsYou)
+  const needsYou = asking || stones.some((stone) => stone.status === 'waiting' || stone.status === 'errored')
   const drifting = useIdle(
     settings.idleDrift && !reducedMotion && !photo && !panel && !dataOpen && view === 'home' && !stoneId && !deployment && !needsYou,
     DRIFT_AFTER_MS
@@ -484,6 +488,7 @@ export function App() {
         <RunPanel stones={stones} />
         <GrowCard />
         <DeployToast stones={stones} />
+        <ProposalsCard />
         <PickHint />
         <Intro hidden={panel !== null} />
         <Announcer message={announcement} />

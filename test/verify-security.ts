@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { CONTENT_SECURITY_POLICY, isAppLink, isOwnPage } from '../electron/page-rules.ts'
+import { CONTENT_SECURITY_POLICY, allowsPermission, isAppLink, isOwnPage } from '../electron/page-rules.ts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), 'utf8')
@@ -43,6 +43,45 @@ const cases: [string, () => void][] = [
     assert.ok(!isOwnPage('http://localhost:5174/', dev, PAGE))
     assert.ok(!isOwnPage('http://evil.localhost:5173/', dev, PAGE))
     assert.ok(!isOwnPage(pathToFileURL(PAGE).href, dev, PAGE))
+  }],
+  ['only the microphone, only for the Grove page, is ever allowed', () => {
+    const own = pathToFileURL(PAGE).href
+    const other = 'https://example.com/'
+    const dev = 'http://localhost:5173/'
+    const yes = (ask: Parameters<typeof allowsPermission>[0], devUrl?: string) => allowsPermission(ask, devUrl, PAGE)
+    // The microphone, asked for by the Grove page: a request, and Chromium's quieter check.
+    assert.ok(yes({ permission: 'media', mediaTypes: ['audio'], requestingUrl: own, pageUrl: own, isMainFrame: true }))
+    assert.ok(yes({ permission: 'media', mediaType: 'audio', pageUrl: `${own}#stone` }))
+    assert.ok(yes({ permission: 'media', mediaTypes: ['audio'], requestingUrl: dev, pageUrl: dev }, dev))
+    // Not the camera, not both together, not an empty or unknown ask.
+    assert.ok(!yes({ permission: 'media', mediaTypes: ['video'], requestingUrl: own, pageUrl: own }))
+    assert.ok(!yes({ permission: 'media', mediaTypes: ['audio', 'video'], requestingUrl: own, pageUrl: own }))
+    assert.ok(!yes({ permission: 'media', mediaTypes: [], requestingUrl: own, pageUrl: own }))
+    assert.ok(!yes({ permission: 'media', mediaType: 'video', pageUrl: own }))
+    assert.ok(!yes({ permission: 'media', mediaType: 'unknown', pageUrl: own }))
+    assert.ok(!yes({ permission: 'media', pageUrl: own }))
+    // Not from any other page, not from a frame inside it, not without knowing the page.
+    assert.ok(!yes({ permission: 'media', mediaTypes: ['audio'], requestingUrl: other, pageUrl: other }))
+    assert.ok(!yes({ permission: 'media', mediaTypes: ['audio'], requestingUrl: other, pageUrl: own }))
+    assert.ok(!yes({ permission: 'media', mediaTypes: ['audio'], requestingUrl: own, pageUrl: own, isMainFrame: false }))
+    assert.ok(!yes({ permission: 'media', mediaType: 'audio', pageUrl: undefined }))
+    assert.ok(!yes({ permission: 'media', mediaTypes: ['audio'], requestingUrl: 'http://localhost:5174/', pageUrl: dev }, dev))
+    // Nothing else, even for the Grove page.
+    for (const permission of ['notifications', 'geolocation', 'display-capture', 'clipboard-read', 'midi', 'openExternal', 'fullscreen', 'pointerLock', 'hid', 'serial', 'usb']) {
+      assert.ok(!yes({ permission, mediaTypes: ['audio'], mediaType: 'audio', requestingUrl: own, pageUrl: own, isMainFrame: true }), permission)
+    }
+    // Both of Electron's permission handlers go through the rule, and nothing else grants anything.
+    const security = read('electron/security.ts')
+    assert.equal(security.match(/allowsPermission\(\{/g)?.length, 2)
+    assert.ok(security.includes('setPermissionRequestHandler(') && security.includes('setPermissionCheckHandler('))
+    for (const file of ['electron/main.ts', 'electron/security.ts']) {
+      assert.ok(!/setDevicePermissionHandler|setDisplayMediaRequestHandler|askForMediaAccess\('camera'/.test(read(file)), file)
+    }
+  }],
+  ['the packaged app says why it asks for the microphone', () => {
+    const script = read('scripts/package.mjs')
+    assert.ok(/NSMicrophoneUsageDescription:\s*'[^']{20,}'/.test(script), 'NSMicrophoneUsageDescription in extendInfo')
+    assert.ok(!script.includes('NSCameraUsageDescription'), 'no camera')
   }],
   ['the policy allows no outside scripts, no eval and no network from the page', () => {
     const rules = Object.fromEntries(CONTENT_SECURITY_POLICY.split(';').map((rule) => {

@@ -173,7 +173,8 @@ export const groupKey = (stones: string[]): string => [...stones].sort().join('\
 export function suggestClearings(
   stones: { id: string; parent?: string; clearing?: string }[],
   pairs: Pairing[],
-  declined: string[][] = []
+  declined: string[][] = [],
+  minHours = SUGGEST_HOURS
 ): ClearingSuggestion[] {
   const free = new Set(stones.filter((stone) => !stone.parent && !stone.clearing?.trim()).map((stone) => stone.id))
   const root = new Map<string, string>()
@@ -182,7 +183,7 @@ export function suggestClearings(
     while (root.get(at) && root.get(at) !== at) at = root.get(at)!
     return at
   }
-  const strong = pairs.filter((pair) => pair.hours >= SUGGEST_HOURS && free.has(pair.a) && free.has(pair.b))
+  const strong = pairs.filter((pair) => pair.hours >= minHours && free.has(pair.a) && free.has(pair.b))
   for (const pair of strong) {
     for (const id of [pair.a, pair.b]) if (!root.has(id)) root.set(id, id)
     root.set(find(pair.a), find(pair.b))

@@ -58,6 +58,8 @@ export interface TreeAgent {
   own: boolean
   /** The model it runs on as saved: empty is Default, the tool's own choice. See `core/models.ts`. */
   model: string
+  /** Grown by PM for one job; goes by itself (`core/actions/temporary.ts`). */
+  temporary?: boolean
 }
 
 /**
@@ -163,6 +165,7 @@ export function placeAgents(
       at,
       own: !BUILT_IN.has(definition.id),
       model: BUILT_IN.has(definition.id) ? builtInModel(definition.id, builtInModels) : (definition.model ?? ''),
+      ...(definition.temporary ? { temporary: true } : {}),
     })
   }
   return { agents, bud: HANGING[Math.min(hanging, HANGING.length)] ?? BUD_WHEN_FULL }

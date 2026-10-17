@@ -83,6 +83,24 @@ const cases: [string, () => Promise<void>][] = [
     const [, ...args] = await recorded()
     assert.deepEqual(args.slice(-3), ['--model', 'opus', 'hi'])
   }],
+  ['an effort is passed after the model, to Claude Code as --effort', async () => {
+    await launch({ run: fakeRun({ task: 'hi' }), folder, brief: '', model: 'opus', effort: 'xhigh' }, runInZsh, async () => fakeCli)
+    const [, ...args] = await recorded()
+    assert.deepEqual(args.slice(-5), ['--model', 'opus', '--effort', 'xhigh', 'hi'])
+  }],
+  ['Codex gets its effort as a one-session setting', async () => {
+    await launch({ run: fakeRun({ harness: 'codex', task: 'Fix it' }), folder, brief: '', model: 'gpt-6.1-sol', effort: 'ultra' }, runInZsh, async () => fakeCli)
+    const [, ...args] = await recorded()
+    assert.deepEqual(args, ['-m', 'gpt-6.1-sol', '-c', 'model_reasoning_effort="ultra"', 'Fix it'])
+  }],
+  ['an effort the tool does not know is refused before Terminal opens', async () => {
+    let opened = false
+    const result = await launch({ run: fakeRun(), folder, brief: '', model: '', effort: 'ultra; rm -rf ~' }, async () => ((opened = true), ''), async () => fakeCli)
+    assert.equal(result.ok, false)
+    assert.equal(opened, false)
+    const codexOnly = await launch({ run: fakeRun(), folder, brief: '', model: '', effort: 'ultra' }, async () => ((opened = true), ''), async () => fakeCli)
+    assert.equal(codexOnly.ok, false, 'ultra is a Codex effort, not a Claude Code one')
+  }],
   ['resuming passes only the session id', async () => {
     await launch({ run: fakeRun(), folder, brief: 'ignored', model: '', resume: true }, runInZsh, async () => fakeCli)
     const [, ...args] = await recorded()

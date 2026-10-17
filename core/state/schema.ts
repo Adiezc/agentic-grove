@@ -22,7 +22,9 @@
 
 /** Bumped only when a change cannot be read by an older build. Nothing migrates below 1. */
 import { MAX_NOTE_CHARS, NOTE_PLACES, type CarvedNote, type NotePlace } from './notes.ts'
-import { isModelName } from '../models.ts'
+import { isEffort, isModelName, type ModelTool } from '../models.ts'
+import { JOB_TIERS, MODEL_MODES, type JobTier, type ModelMode, type TierChoice } from '../model-policy.ts'
+import { DEFAULT_THRESHOLDS, type UsageThresholds } from '../usage/limits.ts'
 import { cleanClearingName, MAX_CLEARING_NAME } from './clearings.ts'
 
 export const GROVE_SCHEMA_VERSION = 1
@@ -77,6 +79,11 @@ export interface StoneConfig {
   wildwood?: boolean
   /** Repeatable tasks bound to this project. */
   runes?: Rune[]
+  /**
+   * Suggested sub-stones you said no to, as folder paths (see `splitsFor` in `stones.ts`). Kept so
+   * the same part is never offered again. Delete a line to be asked again.
+   */
+  declinedSplits?: string[]
   /**
    * Suggested runes you said no to, as matching keys (see `core/state/suggest-runes.ts`). Kept so
    * the same suggestion is never offered twice. Delete a line to be asked again.
@@ -168,6 +175,16 @@ export interface AgentDefinition {
   model?: string
   /** Prepended to every prompt this agent runs. Optional. */
   systemPrompt?: string
+  /**
+   * Set on an agent PM grew for one job. A temporary agent goes by itself: when the run it was sent
+   * on ends, or at `expiresAt` if it is not working then (see `core/actions/temporary.ts`). PM may
+   * grow and remove these without asking; a permanent agent needs your yes.
+   */
+  temporary?: true
+  /** Who grew a temporary agent. Only PM does, for now. */
+  createdBy?: 'pm'
+  /** When a temporary agent goes if nothing is keeping it, as an ISO date. */
+  expiresAt?: string
 }
 
 /** Long enough for a page of instructions; a limit so a pasted file does not end up in `grove.json`. */
@@ -243,6 +260,24 @@ export interface GroveSettings {
    * default, because each check sends one small request on your plan. See `core/usage/probe.ts`.
    */
   officialClaudeLimits: boolean
+  /**
+   * When PM asks before choosing a model: only for costly picks (the default), never, or always.
+   * The allowance rules ask regardless. See `core/model-policy.ts`.
+   */
+  modelMode: ModelMode
+  /** Models PM may pick, per tool. An empty list means any; Default is always allowed. */
+  approvedModels: Record<ModelTool, string[]>
+  /** Your own model and effort for a kind of job, per tool, over PM's defaults. */
+  tierModels: Record<ModelTool, Partial<Record<JobTier, TierChoice>>>
+  /** Where the allowance rules start, in percent used. See `core/usage/limits.ts`. */
+  usageThresholds: UsageThresholds
+  /**
+   * Read each new reply from PM aloud, with one of the Mac's own voices (offline, free). Off by
+   * default. Never steps or permission prompts; stops when you type or hold the mic.
+   */
+  speakReplies: boolean
+  /** Which of the Mac's voices reads PM's replies, by name. Empty means the Mac's default voice. */
+  voiceName: string
 }
 
 /** The settings a brand-new grove starts with. One place, so the loader and the default agree. */
@@ -262,6 +297,12 @@ export function defaultSettings(): GroveSettings {
     notifyFinished: true,
     notifyNeedsYou: false,
     officialClaudeLimits: false,
+    modelMode: 'auto-ask-costly',
+    approvedModels: { 'claude-code': [], codex: [] },
+    tierModels: { 'claude-code': {}, codex: {} },
+    usageThresholds: { ...DEFAULT_THRESHOLDS },
+    speakReplies: false,
+    voiceName: '',
   }
 }
 
@@ -278,6 +319,7 @@ export const SETTING_SWITCHES = [
   'notifyFinished',
   'notifyNeedsYou',
   'officialClaudeLimits',
+  'speakReplies',
 ] as const satisfies readonly (keyof GroveSettings)[]
 
 export interface GroveFile {
@@ -401,6 +443,10 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
       if (typeof value === 'boolean') grove.settings[key] = value
       else if (value !== undefined) problems.push({ where: `settings.${key}`, message: 'Should be true or false.' })
     }
+    parseModelSettings(raw.settings, grove.settings, problems)
+    const voice = raw.settings.voiceName
+    if (typeof voice === 'string' && voice.length <= 120 && !/[\u0000-\u001f]/.test(voice)) grove.settings.voiceName = voice
+    else if (voice !== undefined) problems.push({ where: 'settings.voiceName', message: 'Should be the name of one of the Mac\'s voices, like "Samantha", or "" for the default.' })
   }
 
   if (raw.stones !== undefined) {
@@ -442,6 +488,10 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
         if (Array.isArray(entry.declinedRunes)) {
           const declined = entry.declinedRunes.map(asString).filter(Boolean)
           if (declined.length) stone.declinedRunes = declined
+        }
+        if (Array.isArray(entry.declinedSplits)) {
+          const declined = entry.declinedSplits.map(asString).filter((each) => each.startsWith('/'))
+          if (declined.length) stone.declinedSplits = declined
         }
         if (entry.runes !== undefined) {
           if (!Array.isArray(entry.runes)) {
@@ -581,6 +631,86 @@ function parseNote(entry: unknown, at: string, problems: GroveProblem[], seen: S
  * same rules as a hand-typed entry. One set of rules, so the form can never write something the
  * loader would then refuse.
  */
+const MODEL_TOOLS: readonly ModelTool[] = ['claude-code', 'codex']
+
+/**
+ * PM's model settings: the mode, approved models, your choices per kind of job, and where the
+ * allowance rules start. A bad entry is dropped and reported, the rest kept, like everything here.
+ */
+function parseModelSettings(raw: Record<string, unknown>, settings: GroveSettings, problems: GroveProblem[]): void {
+  const mode = asString(raw.modelMode)
+  if (mode) {
+    if ((MODEL_MODES as readonly string[]).includes(mode)) settings.modelMode = mode as ModelMode
+    else problems.push({ where: 'settings.modelMode', message: `"${mode}" is not a mode. Use ${MODEL_MODES.map((each) => `"${each}"`).join(', ')}.` })
+  }
+
+  if (raw.approvedModels !== undefined) {
+    if (!isRecord(raw.approvedModels)) problems.push({ where: 'settings.approvedModels', message: 'Should be an object, like { "claude-code": ["opus"] }.' })
+    else {
+      for (const tool of MODEL_TOOLS) {
+        const list = raw.approvedModels[tool]
+        if (list === undefined) continue
+        if (!Array.isArray(list)) {
+          problems.push({ where: `settings.approvedModels.${tool}`, message: 'Should be a list of model names, like ["opus", "sonnet"].' })
+          continue
+        }
+        const names = list.map(asString).filter(Boolean)
+        const bad = names.find((name) => !isModelName(name))
+        if (bad) problems.push({ where: `settings.approvedModels.${tool}`, message: `"${bad.slice(0, 40)}" is not a model name.` })
+        settings.approvedModels[tool] = [...new Set(names.filter(isModelName))]
+      }
+    }
+  }
+
+  if (raw.tierModels !== undefined) {
+    if (!isRecord(raw.tierModels)) problems.push({ where: 'settings.tierModels', message: 'Should be an object, like { "claude-code": { "plan": { "effort": "max" } } }.' })
+    else {
+      for (const tool of MODEL_TOOLS) {
+        const byTier = raw.tierModels[tool]
+        if (byTier === undefined) continue
+        if (!isRecord(byTier)) {
+          problems.push({ where: `settings.tierModels.${tool}`, message: 'Should be an object with "quick", "build" or "plan".' })
+          continue
+        }
+        const kept: Partial<Record<JobTier, TierChoice>> = {}
+        for (const tier of JOB_TIERS) {
+          const entry = byTier[tier]
+          if (entry === undefined) continue
+          const at = `settings.tierModels.${tool}.${tier}`
+          if (!isRecord(entry)) {
+            problems.push({ where: at, message: 'Should be an object, like { "model": "opus", "effort": "high" }.' })
+            continue
+          }
+          const model = asString(entry.model)
+          const effort = asString(entry.effort)
+          if (!isModelName(model)) problems.push({ where: `${at}.model`, message: `"${model.slice(0, 40)}" is not a model name.` })
+          if (!isEffort(tool, effort)) problems.push({ where: `${at}.effort`, message: `"${effort.slice(0, 20)}" is not an effort. Use low, medium, high, xhigh or max.` })
+          const choice = { model: isModelName(model) ? model : '', effort: isEffort(tool, effort) ? effort : '' }
+          if (choice.model || choice.effort) kept[tier] = choice
+        }
+        settings.tierModels[tool] = kept
+      }
+    }
+  }
+
+  if (raw.usageThresholds !== undefined) {
+    if (!isRecord(raw.usageThresholds)) problems.push({ where: 'settings.usageThresholds', message: 'Should be an object of percentages.' })
+    else {
+      const next = { ...settings.usageThresholds }
+      for (const key of Object.keys(DEFAULT_THRESHOLDS) as (keyof UsageThresholds)[]) {
+        const value = raw.usageThresholds[key]
+        if (value === undefined) continue
+        if (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100) next[key] = value
+        else problems.push({ where: `settings.usageThresholds.${key}`, message: 'Should be a percentage from 0 to 100.' })
+      }
+      // Asking has to start before the lightest-model-only rule, or there would be nothing to ask about.
+      if (next.noOpusAbove > next.haikuOnlyAbove) {
+        problems.push({ where: 'settings.usageThresholds', message: '"noOpusAbove" should be at most "haikuOnlyAbove". Keeping the previous values.' })
+      } else settings.usageThresholds = next
+    }
+  }
+}
+
 export function parseAgent(entry: unknown, at: string, problems: GroveProblem[]): AgentDefinition | null {
   if (!isRecord(entry)) {
     problems.push({ where: at, message: 'Should be an object.' })
@@ -638,6 +768,20 @@ export function parseAgent(entry: unknown, at: string, problems: GroveProblem[])
   }
   const systemPrompt = asString(entry.systemPrompt)
   if (systemPrompt) agent.systemPrompt = systemPrompt
+
+  if (entry.temporary === true) {
+    // Temporary means "goes by itself", so it needs a time to go and a tool the Grove can run.
+    const expires = Date.parse(asString(entry.expiresAt))
+    if (isLinkOnly(agent.harness)) {
+      problems.push({ where: `${at}.temporary`, message: 'Only an agent the Grove runs can be temporary.' })
+    } else if (!Number.isFinite(expires)) {
+      problems.push({ where: `${at}.expiresAt`, message: 'A temporary agent needs "expiresAt", a date like "2026-10-17T18:00:00Z".' })
+    } else {
+      agent.temporary = true
+      agent.createdBy = 'pm'
+      agent.expiresAt = new Date(expires).toISOString()
+    }
+  }
   return agent
 }
 

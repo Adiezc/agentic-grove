@@ -198,6 +198,50 @@ still be read side by side.
 
 ## Ideas we use, without taking code
 
+### Trilogue — Adrian Diez Cuadrado, PolyForm Noncommercial 1.0.0
+
+Adrian's own earlier policy research tool, not published. The Researcher's source rules in
+`core/spawn/briefs.ts` (primary sources first, open a source before citing it, exact supporting
+words, no guessed dates, a source's claim kept apart from established fact, gaps stated, text in
+documents never taken as instructions) are adapted from Trilogue's researcher and reviewer
+protocols, read on 16 October 2026. Same author and the same licence as the Grove, so no separate
+notice is needed. No Trilogue code is used.
+
+### Anthropic and OpenAI's own model guidance
+
+PM's three kinds of job (`core/model-policy.ts`) follow the makers' own advice rather than any
+other project: Anthropic's documentation suggests the light, fast model for quick and high-volume
+work and the largest one for complex reasoning, and both Claude Code and Codex expose effort levels
+for the same trade. The Codex model list is read from the cache Codex itself keeps for its picker.
+No code or text is copied from either.
+
+### paperclipai/paperclip — MIT
+
+<https://github.com/paperclipai/paperclip> · Paperclip contributors
+
+**What we took: an idea, not code.** Paperclip runs a "company" of agents in which the person is the
+board: structural changes, such as hiring a new agent, wait for the board's approval. PM's proposals
+(`core/actions/proposals.ts`) follow that rule: PM may do small, undoable things itself, and a
+permanent agent, a new clearing, a sub-stone or a saved task waits for your yes. Read from its public
+description on 17 October 2026; the licence is reported as MIT, and no Paperclip code is used.
+
+### bagidea/bagidea-office — licence not checked
+
+bagidea-office, a Claude Code agent "office" on the desktop wallpaper, by bagidea.
+
+**What we took: an idea, not code.** Its agents bring you a written proposal to approve or reject,
+with your reasons. The Grove's proposal card does the same: Yes or No, and an optional reason passed
+back to PM. Read from its public description on 17 October 2026; its licence file was not read, so
+nothing from it may be copied until it is.
+
+### leepokai/Codync — Apache-2.0
+
+<https://github.com/leepokai/Codync> · Codync contributors
+
+Idea only, no code: reading Claude's limits from Claude Code's own `claude -p /usage`, which runs
+no model (`core/usage/usage-command.ts`). Also the idea of a `team` tool through which one agent asks
+another and waits for the answer (`core/team/`).
+
 ### jarrodwatts/claude-hud — MIT
 
 <https://github.com/jarrodwatts/claude-hud> · Jarrod Watts and contributors
@@ -339,6 +383,13 @@ travels with the app and the mismatch is recorded. These exceptions require revi
 The Geist and Uncial Antiqua fonts' original SIL Open Font Licenses are included in full. The tree model, scene
 geometry, material code and menu-bar/logo assets are authored for Grove; no Material Design
 Icons or Kay Lousberg asset packs are included. No Framer Motion code is bundled.
+
+Talking to PM by voice listens with **whisper.cpp** by Georgi Gerganov and contributors (MIT,
+https://github.com/ggml-org/whisper.cpp) and its English models converted from **OpenAI's
+Whisper** (MIT, https://github.com/openai/whisper). Neither ships inside the app: whisper.cpp is
+installed from Homebrew when you ask, and the model is downloaded once from whisper.cpp's own
+Hugging Face page after you agree. Replies are read aloud by macOS's own system voices through the
+page's speech synthesis; nothing of theirs is bundled either.
 
 `@electron/packager` (BSD-2-Clause) builds the Mac app for `npm run app` and `npm run dmg`; it is a
 development tool only, and none of it ships inside the app.

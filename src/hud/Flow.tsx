@@ -513,6 +513,7 @@ export function AgentCard({ stones }: { stones: StoneSpec[] }) {
         </div>
       </header>
       <p className="panel-line agent-line">{agent.description}</p>
+      {agent.temporary ? <p className="panel-line agent-line">Temporary. PM grew it for one job; it goes when that job ends.</p> : null}
       {isBot ? null : (
         <>
           <ModelPicker tool={agent.harness === 'codex' ? 'codex' : 'claude-code'} value={shownModel} disabled={!canWrite} onChange={(model) => void chooseModel(model)} />

@@ -3374,3 +3374,635 @@
 .clearing-icon.is-confirming {
   color: var(--wait);
 }
+
+/* ---- Settings: how PM picks models (ModelSettings.tsx). Reuses the chips and fields above. ---- */
+
+.policy-tools {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.policy-tiers,
+.policy-thresholds {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+.policy-tier {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.policy-select {
+  height: 1.85rem;
+  min-width: 0;
+  padding: 0 0.4rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 10px;
+  background: #06120b;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+}
+
+.policy-select:focus-visible {
+  outline: 1px solid var(--live);
+  outline-offset: 2px;
+}
+
+.policy-threshold {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.policy-percent {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.policy-percent .model-other {
+  width: 4rem;
+  height: 1.85rem;
+  padding: 0 0.5rem;
+}
+
+/* ---- PM's model choice for one job (ModelChip.tsx): a chip, and a small card under it. ---- */
+
+.model-chip-box {
+  position: relative;
+  display: inline-block;
+}
+
+.model-chip {
+  height: 1.6rem;
+  padding: 0 0.7rem;
+  border: 1px solid rgb(46 111 72 / 0.35);
+  border-radius: 999px;
+  background: rgb(2 9 4 / 0.55);
+  color: var(--glow);
+  font: inherit;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.model-chip:hover,
+.model-chip:focus-visible,
+.model-chip.is-open {
+  border-color: var(--live);
+  outline: none;
+}
+
+.model-chip:active {
+  transform: translateY(1px);
+}
+
+.model-chip.needs-ok {
+  border-color: rgb(242 180 76 / 0.55);
+  color: var(--wait);
+}
+
+.model-chip-pop {
+  position: absolute;
+  z-index: 5;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+  width: 17rem;
+  padding: 0.2rem 0.85rem 0.85rem;
+  border: 1px solid rgb(46 111 72 / 0.35);
+  border-radius: 12px;
+  background: rgb(2 9 4 / 0.94);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+}
+
+.model-chip-reason {
+  margin-top: 0.7rem;
+  line-height: 1.45;
+}
+
+/* ---- PM's questions, top centre. Amber-edged: each one needs you. See Proposals.tsx. ---- */
+
+.proposal-card {
+  position: absolute;
+  top: 1.25rem;
+  left: 50%;
+  width: min(24rem, calc(100vw - 2rem));
+  padding: 0.75rem 0.9rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--wait) 45%, transparent);
+  border-radius: 14px;
+  background: rgb(2 9 4 / 0.82);
+  backdrop-filter: blur(8px);
+  transform: translateX(-50%);
+  animation: proposal-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.proposal-card.is-done {
+  border-color: rgb(46 111 72 / 0.4);
+}
+
+.proposal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--wait);
+}
+
+.proposal-more {
+  margin-left: auto;
+  color: var(--text-dim);
+}
+
+.proposal-summary {
+  margin: 0.45rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.proposal-line {
+  margin: 0.3rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #8fa197;
+}
+
+.proposal-reason {
+  width: 100%;
+  margin-top: 0.55rem;
+  height: 2rem;
+  padding: 0 0.6rem;
+  border: 1px solid rgb(46 111 72 / 0.35);
+  border-radius: 10px;
+  background: rgb(1 5 2 / 0.7);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+.proposal-reason:focus-visible {
+  border-color: var(--live);
+  outline: none;
+}
+
+.proposal-reason::placeholder {
+  color: #7d8f84;
+}
+
+.proposal-choices {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.proposal-choices .setting-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.9rem;
+  padding: 0 0.8rem;
+}
+
+.proposal-quiet {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.proposal-quiet:hover,
+.proposal-quiet:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+@keyframes proposal-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -0.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proposal-card {
+    animation: none;
+  }
+}
+
+/* ---- PM's conversation (Conversation.tsx), opening above the console. Same panel material and
+   14px radius as the other cards; amber only when something needs you. ---- */
+
+.convo {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgb(46 111 72 / 0.32);
+  border-radius: 14px;
+  background: rgb(2 9 4 / 0.82);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  animation: proposal-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.convo.needs-you {
+  border-color: color-mix(in srgb, var(--wait) 50%, transparent);
+}
+
+.convo-bar {
+  display: flex;
+  align-items: center;
+  padding: 0.3rem 0.45rem 0.3rem 0.35rem;
+}
+
+.convo-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.2rem 0.5rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.convo-toggle:hover {
+  color: var(--text);
+}
+
+.convo-title {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.convo-status {
+  font-size: 0.68rem;
+}
+
+.convo-status.is-live {
+  color: var(--live);
+}
+
+.convo-status.is-working {
+  animation: pm-fade 1.8s ease-in-out infinite;
+}
+
+.convo.needs-you .convo-status {
+  color: var(--wait);
+}
+
+.convo-actions {
+  display: flex;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.convo-messages {
+  max-height: min(44vh, 30rem);
+  overflow-y: auto;
+  padding: 0.35rem 0.8rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-top: 1px solid rgb(46 111 72 / 0.2);
+}
+
+.convo-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-left: 0.2rem;
+}
+
+.convo-step {
+  margin: 0;
+  font: 0.68rem/1.45 ui-monospace, SFMono-Regular, monospace;
+  color: #8fa197;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.convo-step::before {
+  content: '';
+  display: inline-block;
+  width: 0.35rem;
+  height: 0.35rem;
+  margin-right: 0.45rem;
+  border-radius: 999px;
+  background: var(--vein);
+  vertical-align: 0.08rem;
+}
+
+.convo-step:last-of-type::before {
+  background: var(--live);
+}
+
+.pm-icon {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.pm-icon:hover:not(:disabled) {
+  background: rgb(46 111 72 / 0.18);
+  color: var(--text);
+}
+
+.pm-icon:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+
+
+
+.pm-dim {
+  color: #8fa197;
+  font-size: 0.72rem;
+}
+
+.pm-message {
+  max-width: 88%;
+}
+
+.pm-message > p {
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  border-radius: 14px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pm-message.is-pm > p {
+  background: rgb(9 43 21 / 0.55);
+  color: var(--text);
+}
+
+.pm-message.is-you {
+  align-self: flex-end;
+}
+
+.pm-message.is-you > p {
+  border: 1px solid rgb(46 111 72 / 0.4);
+  color: var(--text);
+}
+
+.pm-message.is-grove {
+  align-self: center;
+  max-width: 94%;
+}
+
+.pm-message.is-grove > p {
+  padding: 0.1rem 0.4rem;
+  font-size: 0.68rem;
+  color: #8fa197;
+  text-align: center;
+}
+
+.pm-message.needs-you > p {
+  box-shadow: inset 2px 0 0 var(--wait);
+}
+
+.pm-working {
+  margin: 0;
+  font-size: 0.68rem;
+  color: var(--live);
+  animation: pm-fade 1.8s ease-in-out infinite;
+}
+
+@keyframes pm-fade {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.pm-permission {
+  padding: 0.55rem 0.65rem 0.6rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 14px;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.pm-permission.needs-you {
+  border-color: color-mix(in srgb, var(--wait) 50%, transparent);
+}
+
+.pm-permission p {
+  margin: 0 0 0.25rem;
+}
+
+.pm-permission-head {
+  font-size: 0.68rem;
+  color: var(--wait);
+}
+
+.pm-permission:not(.needs-you) .pm-permission-head {
+  color: var(--text-dim);
+}
+
+.pm-preview {
+  max-height: 6.5rem;
+  overflow: auto;
+  margin: 0.3rem 0 0;
+  padding: 0.4rem 0.5rem;
+  border-radius: 10px;
+  background: rgb(1 5 2 / 0.7);
+  color: #a8b8ad;
+  font: 0.66rem/1.45 ui-monospace, SFMono-Regular, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pm-blocked,
+.pm-error {
+  margin: 0 0.8rem 0.4rem;
+  font-size: 0.72rem;
+}
+
+.pm-blocked {
+  color: var(--wait);
+}
+
+
+
+
+
+
+
+
+
+@media (prefers-reduced-motion: reduce) {
+  .convo,
+  .convo-status.is-working,
+  .pm-working {
+    animation: none;
+  }
+}
+
+.convo-steps.is-done {
+  margin-bottom: 0.3rem;
+}
+
+.convo-steps.is-done .convo-step::before {
+  background: var(--vein);
+}
+
+.convo-more {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font: 0.66rem/1.45 ui-monospace, SFMono-Regular, monospace;
+  cursor: pointer;
+}
+
+.convo-more:hover {
+  color: var(--text);
+}
+
+/* ---- Voice (Mic.tsx, voice.ts). The mic sits beside the attach button; green only while it is
+   listening, which is the one moment the Mac's microphone is on. ---- */
+
+.console-mic {
+  position: relative;
+  touch-action: none;
+}
+
+.console-mic.is-unset {
+  opacity: 0.7;
+}
+
+.console-mic.is-recording {
+  color: var(--live);
+}
+
+.console-mic.is-recording::after {
+  content: '';
+  position: absolute;
+  inset: -0.1rem;
+  border: 1px solid var(--live);
+  border-radius: 50%;
+  animation: mic-ring 1.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  pointer-events: none;
+}
+
+.console-mic.is-listening,
+.console-mic.is-starting {
+  color: var(--glow);
+  animation: pm-fade 1.2s ease-in-out infinite;
+}
+
+.console-mic:disabled {
+  cursor: progress;
+}
+
+@keyframes mic-ring {
+  from {
+    opacity: 0.8;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+.pm-icon.is-on {
+  color: var(--live);
+}
+
+.voice-card .answer-headline {
+  margin-bottom: 0.35rem;
+}
+
+.voice-line {
+  display: block;
+  margin: 0.25rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: #8fa197;
+}
+
+.voice-warn {
+  color: var(--wait);
+}
+
+.voice-steps {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.7rem 0 0.2rem;
+  padding: 0;
+  list-style: none;
+  counter-reset: voice-step;
+}
+
+.voice-steps li {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+  counter-increment: voice-step;
+}
+
+.voice-step-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  color: var(--text);
+}
+
+.voice-steps li:not(.is-done) .voice-step-head::before {
+  content: counter(voice-step) '.';
+  color: var(--text-dim);
+}
+
+.voice-steps li.is-done .voice-step-head {
+  color: var(--live);
+}
+
+.voice-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.voice-pick {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-mic.is-recording::after,
+  .console-mic.is-listening,
+  .console-mic.is-starting {
+    animation: none;
+  }
+}

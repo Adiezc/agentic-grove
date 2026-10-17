@@ -23,6 +23,13 @@ import { useAnswer } from '../store/answer'
 import { AnswerCard } from './Answer'
 import { healthOf } from '../../core/health.ts'
 import { useGrove } from '../store/grove'
+import { usePmPanel } from '../store/pm'
+import { Conversation } from './Conversation'
+import { MicButton, VoiceCard } from './Mic'
+import { stopSpeaking } from './voice'
+import { ModelChip } from './ModelChip'
+import { classifyJob, pickModel } from '../../core/model-policy.ts'
+import { DEMO } from '../demo'
 import { HARNESS_MARK, kindOf, useTree } from '../agents/tree'
 import { headroomFrom, route } from '../../core/routing.ts'
 import { choicesFor, modelForJob, modelLabel, toolOf } from '../../core/models.ts'
@@ -202,6 +209,9 @@ export function RuneConsole({
   const [chosenTool, setChosenTool] = useState<'claude-code' | 'codex' | null>(null)
   /** A model for this one job, over the agent's own. Cleared with the text. */
   const [chosenModel, setChosenModel] = useState<string | null>(null)
+  /** For PM: the model and effort you chose on the chip, over the Grove's pick. Cleared with the text. */
+  const [pmChoice, setPmChoice] = useState<{ model: string; effort: string } | null>(null)
+  const settings = useGrove((state) => state.snapshot?.settings)
   const setup = useGrove((state) => state.snapshot?.setup)
   const usage = useGrove((state) => state.snapshot?.usage ?? null)
   const picker = useRef<HTMLInputElement>(null)
@@ -253,9 +263,18 @@ export function RuneConsole({
       setChosen(null)
       setChosenTool(null)
       setChosenModel(null)
+      setPmChoice(null)
       setToAgent(false)
     }
   }, [typed])
+
+  // PM's job: the Grove's pick for what you are typing, or the one you chose on the chip.
+  const toPm = agent?.id === 'manager'
+  const pmPick = useMemo(() => {
+    if (!toPm || !typed || !settings) return null
+    const base = pickModel({ tier: classifyJob(reading.task), tool: 'claude-code', usage, settings, now: Date.now() })
+    return pmChoice ? { ...base, ...pmChoice, needsOk: false, reason: 'Your choice for this message.' } : base
+  }, [toPm, typed, settings, usage, reading.task, pmChoice])
 
   // The same file twice is one attachment, not two chips with the same name.
   const attach = (incoming: FileList | null) => {
@@ -283,6 +302,23 @@ export function RuneConsole({
     useAnswer.getState().clear()
     const paths = files.map((file) => window.grove?.pathForFile(file) ?? '').filter(Boolean)
     const task = paths.length ? `${reading.task}\n\nFiles to use:\n${paths.map((each) => `- ${each}`).join('\n')}` : reading.task
+    // PM is the front door (17 October 2026): a job for PM goes to its chat, where one long-lived
+    // PM decides who does it, rather than starting a fresh PM run on the stone. PM starts if it
+    // is not running. Naming another agent ("@builder ...") still sends that agent straight away.
+    if (agent.id === 'manager' && window.grove && !DEMO) {
+      const where = stone ? `(About the stone "${stone.name}", ${stone.id}.)` : ''
+      const choice = pmChoice ? `(Use ${modelLabel(pmChoice.model) || 'the default model'}${pmChoice.effort ? ` at ${pmChoice.effort} effort` : ''} for this.)` : ''
+      void window.grove.pmSay(task, [where, choice].filter(Boolean).join('\n')).then((result) => {
+        if (!result.ok) return
+        const pm = useGrove.getState().snapshot?.pm
+        if (pm && !pm.connected && pm.window !== 'open' && !pm.blocked) void window.grove?.pmStart()
+        usePmPanel.getState().setOpen(true)
+        setValue('')
+        setFiles([])
+        setChosen(null)
+      })
+      return
+    }
     deployTo(
       reading.stoneId,
       agent.id,
@@ -320,7 +356,9 @@ export function RuneConsole({
           ))}
         </ul>
       ) : null}
+      <Conversation />
       <AnswerCard />
+      <VoiceCard />
       {/* The echo: who would take this, and where, before anything is sent. */}
       <div className={`console-echo${typed && agent ? ' is-open' : ''}`} aria-live="polite">
         {treeAnswers && period ? (
@@ -334,6 +372,26 @@ export function RuneConsole({
             <button type="button" className="echo-tool" onClick={() => setToAgent(true)} title="Send this to an agent instead">
               Ask an agent instead
             </button>
+          </>
+        ) : typed && agent && Glyph && toPm && pmPick ? (
+          <>
+            <button
+              type="button"
+              className="echo-agent"
+              onClick={nextAgent}
+              title="PM decides who does it. Click to send another agent yourself"
+              aria-label="PM will take this. Choose another agent"
+            >
+              <Glyph size={14} weight="thin" aria-hidden="true" />
+              PM
+            </button>
+            <ModelChip pick={pmPick} onChange={(model, effort) => setPmChoice({ model, effort })} />
+            {stone ? (
+              <>
+                <ArrowRight size={12} weight="thin" aria-hidden="true" />
+                <span className="echo-stone">{stone.name}</span>
+              </>
+            ) : null}
           </>
         ) : typed && agent && Glyph ? (
           <>
@@ -395,7 +453,11 @@ export function RuneConsole({
           ref={inputRef}
           className="console-input"
           value={value}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => {
+            // Typing over PM stops it reading aloud.
+            stopSpeaking()
+            setValue(event.target.value)
+          }}
           placeholder={placeholder}
           aria-label="Command the grove"
           spellCheck={false}
@@ -409,6 +471,13 @@ export function RuneConsole({
             attach(event.target.files)
             // Cleared so choosing the same file again after removing it still fires a change.
             event.target.value = ''
+          }}
+        />
+        <MicButton
+          onText={(text) => {
+            // What was said joins whatever is already typed, for you to read before sending.
+            setValue((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text))
+            inputRef?.current?.focus()
           }}
         />
         <button

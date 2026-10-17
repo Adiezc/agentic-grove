@@ -62,7 +62,8 @@ function isAPrompt(text: string): boolean {
 export function suggestRunes(
   sessions: { preview: string; lastActivityAt: number }[],
   carved: { prompt: string }[],
-  declined: string[]
+  declined: string[],
+  after = SUGGEST_AFTER
 ): RuneSuggestion[] {
   const skip = new Set([...carved.map((rune) => promptKey(rune.prompt)), ...declined.map(promptKey)])
   const groups = new Map<string, { prompt: string; count: number; latest: number }>()
@@ -80,7 +81,7 @@ export function suggestRunes(
     groups.set(key, group)
   }
   return [...groups.entries()]
-    .filter(([, group]) => group.count >= SUGGEST_AFTER)
+    .filter(([, group]) => group.count >= after)
     .sort((a, b) => b[1].count - a[1].count || b[1].latest - a[1].latest)
     .slice(0, MAX_SUGGESTIONS)
     .map(([key, group]) => ({ prompt: group.prompt, count: group.count, key }))

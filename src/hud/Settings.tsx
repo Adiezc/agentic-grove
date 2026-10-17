@@ -11,9 +11,10 @@
  * change too.
  */
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowsClockwise, Asterisk, Bell, Eye, Gauge, Leaf, Monitor, Plugs, Trash, X } from '@phosphor-icons/react'
+import { ArrowsClockwise, Asterisk, Bell, Cpu, Eye, Gauge, Leaf, Microphone, Monitor, Plugs, Trash, X } from '@phosphor-icons/react'
 import { ToolSetup } from './Setup'
 import { CreditsReader } from './Credits'
+import { ModelSettings } from './ModelSettings'
 import type { HooksAction, HooksPlan } from '../../core/hooks/install.ts'
 import type { HooksStatus, UninstallPlan } from '../../electron/bridge.ts'
 import { GRAPHICS_MODES, type GraphicsMode, type GroveSettings } from '../../core/state/schema.ts'
@@ -21,6 +22,8 @@ import { WINDOW_NAME, ago, figure } from '../../core/usage/format.ts'
 import { useGrove } from '../store/grove'
 import { saveSettings, useSettings, useSettingsError } from '../store/settings'
 import { useDrawing, type Reason } from '../scene/graphics'
+import { macVoices, speak } from './voice'
+import { useVoice } from './Mic'
 
 const MODE_NAME: Record<GraphicsMode, string> = { performance: 'Performance', balanced: 'Balanced', grove: 'Grove' }
 const MODE_LINE: Record<GraphicsMode, string> = {
@@ -149,6 +152,58 @@ function Notifications({ settings }: { settings: GroveSettings }) {
         on={settings.notifyNeedsYou}
         onChange={(on) => void saveSettings({ notifyNeedsYou: on })}
       />
+    </Section>
+  )
+}
+
+/**
+ * Talking with PM by voice, both ways, all on this Mac. Replies are read with one of the Mac's own
+ * voices; the console's mic listens with whisper.cpp, set up from its own card.
+ */
+function Voice({ settings }: { settings: GroveSettings }) {
+  const [voices, setVoices] = useState(macVoices)
+  const status = useVoice((state) => state.status)
+  useEffect(() => {
+    // The Mac's voices arrive a moment after the page asks for them the first time.
+    const update = () => setVoices(macVoices())
+    window.speechSynthesis?.addEventListener('voiceschanged', update)
+    update()
+    return () => window.speechSynthesis?.removeEventListener('voiceschanged', update)
+  }, [])
+  const listening = !window.grove
+    ? 'Needs the app.'
+    : status?.ready
+      ? 'Ready. Tap the mic in the console, or press ⌥M, and talk.'
+      : 'Not set up yet. Press the mic in the console to set it up.'
+  return (
+    <Section icon={<Microphone size={14} weight="regular" />} name="Voice">
+      <Switch
+        label="Read PM's replies aloud"
+        detail="With your Mac's own voices, offline. Stops when you type or talk. Also on the speaker beside PM."
+        on={settings.speakReplies}
+        onChange={(on) => void saveSettings({ speakReplies: on })}
+      />
+      {voices.length ? (
+        <div className="voice-pick">
+          <select
+            className="policy-select"
+            aria-label="Voice"
+            value={settings.voiceName}
+            onChange={(event) => void saveSettings({ voiceName: event.target.value })}
+          >
+            <option value="">Mac default voice</option>
+            {voices.map((voice) => (
+              <option key={voice.voiceURI} value={voice.name}>
+                {voice.name} ({voice.lang})
+              </option>
+            ))}
+          </select>
+          <button type="button" className="setting-button" onClick={() => speak('Hello. This is how PM will sound.', settings.voiceName)}>
+            Hear it
+          </button>
+        </div>
+      ) : null}
+      <p className="setting-line">Talking to PM: {listening}</p>
     </Section>
   )
 }
@@ -314,7 +369,11 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       <Graphics settings={settings} />
       <Showing settings={settings} />
       <Notifications settings={settings} />
+      <Voice settings={settings} />
       <ClaudeLimits settings={settings} />
+      <Section icon={<Cpu size={14} weight="regular" />} name="Models">
+        <ModelSettings settings={settings} />
+      </Section>
       <Updates settings={settings} />
       <LiveUpdates open={open} />
       <Section icon={<Leaf size={14} weight="regular" />} name="Credits and acknowledgements">

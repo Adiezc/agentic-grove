@@ -21,6 +21,7 @@
 import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { isEffort } from '../models.ts'
 import { cliPath } from '../setup.ts'
 import { clearRunProcess, exitFile, pidFile, processFolder } from './process.ts'
 import type { Run } from './runs.ts'
@@ -34,13 +35,36 @@ export interface LaunchSpec {
   /** Empty means the tool's own default. */
   model: string
   /**
+   * How hard the model thinks: low, medium, high, xhigh, max (Codex also ultra). Empty or missing
+   * means the tool's own default. See `core/models.ts` and `core/model-policy.ts`.
+   */
+  effort?: string
+  /**
    * PM's team, as the JSON Claude Code's `--agents` takes (see `briefs.ts`). Only PM runs on
    * Claude Code have one; with it, the workers are also stopped from starting workers of their own.
    */
   agents?: string
   /** Resume the run's existing session rather than start one. Claude Code only. */
   resume?: boolean
+  /**
+   * PM's channel (`core/pm/`): the MCP config that starts the Grove's channel helper. With it,
+   * Claude Code loads the helper as a development channel and may call its tools without asking,
+   * since every tool that changes the grove asks you through a card of its own. Claude Code only.
+   */
+  channel?: { mcpConfig: string }
+  /** Claude Code's permission mode for the session, such as `acceptEdits`. Missing keeps your own. */
+  permissionMode?: string
+  /** Folders the session may read and edit besides its own: PM gets every stone's folder. */
+  addDirs?: string[]
+  /**
+   * A worker on the team (`core/team/`): its team tools and its two hooks, both for this run only.
+   * Its tools may be used without asking, and a question may wait up to ten minutes for its answer.
+   */
+  team?: { mcpConfig: string; settings: string }
 }
+
+/** Claude Code's permission modes (`claude --help`, 2.1.301). Only these are passed on. */
+export const PERMISSION_MODES = ['acceptEdits', 'auto', 'default', 'manual', 'dontAsk', 'plan'] as const
 
 /** Resolves with an error message, or an empty string when the file opened. Electron's `shell.openPath` has this shape. */
 export type Opener = (file: string) => Promise<string>
@@ -98,21 +122,39 @@ function script(dir: string, cli: string, spec: LaunchSpec, markers: string): st
     `TASK="$(cat ${at('task.txt')})"`,
     `NAME="$(cat ${at('name.txt')})"`,
     `MODEL="$(cat ${at('model.txt')})"`,
+    `EFFORT="$(cat ${at('effort.txt')})"`,
     // The brief has to outlive the folder for Claude Code, which reads it after starting, so it is
     // copied into a variable too and handed over as text rather than as a file.
     `BRIEF="$(cat ${at('brief.txt')})"`,
     `AGENTS="$(cat ${at('agents.txt')})"`,
+    `MCP="$(cat ${at('mcp.txt')})"`,
+    `MODE="$(cat ${at('mode.txt')})"`,
+    `TEAMMCP="$(cat ${at('team-mcp.txt')})"`,
+    `TEAMSET="$(cat ${at('team-settings.txt')})"`,
+    // One folder per line; `(f)` splits on newlines only, so spaces in a path stay inside it.
+    `DIRS=("\${(@f)$(cat ${at('dirs.txt')})}")`,
     `rm -rf -- ${quote(dir)}`,
   ]
   // Arguments are gathered in an array, one element each, because zsh keeps "$TASK" as one
   // argument however many spaces or quotes it holds, and optional ones are simply not added.
   if (run.harness === 'claude-code' && spec.resume) {
     lines.push(`ARGS=(--resume ${run.id})`)
+    // PM's session is resumed every time the Grove brings PM back. Its brief and model are not
+    // kept by Claude Code between starts, so they are handed over again; ordinary runs resume as they were.
+    if (spec.channel) {
+      lines.push(
+        '[[ -n "$BRIEF" ]] && ARGS+=(--append-system-prompt "$BRIEF")',
+        '[[ -n "$MODEL" ]] && ARGS+=(--model "$MODEL")',
+        '[[ -n "$EFFORT" ]] && ARGS+=(--effort "$EFFORT")',
+        '[[ -n "$AGENTS" ]] && ARGS+=(--agents "$AGENTS") && export CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1'
+      )
+    }
   } else if (run.harness === 'claude-code') {
     lines.push(
       `ARGS=(--session-id ${run.id} --name "$NAME")`,
       '[[ -n "$BRIEF" ]] && ARGS+=(--append-system-prompt "$BRIEF")',
       '[[ -n "$MODEL" ]] && ARGS+=(--model "$MODEL")',
+      '[[ -n "$EFFORT" ]] && ARGS+=(--effort "$EFFORT")',
       // One level of delegation: PM may start workers, workers may not start their own.
       '[[ -n "$AGENTS" ]] && ARGS+=(--agents "$AGENTS") && export CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1',
       '[[ -n "$TASK" ]] && ARGS+=("$TASK")'
@@ -122,9 +164,21 @@ function script(dir: string, cli: string, spec: LaunchSpec, markers: string): st
     lines.push(
       'ARGS=()',
       '[[ -n "$MODEL" ]] && ARGS+=(-m "$MODEL")',
+      // Codex has no effort option of its own; its setting is overridden for this session only.
+      '[[ -n "$EFFORT" ]] && ARGS+=(-c "model_reasoning_effort=\\"$EFFORT\\"")',
       'PROMPT="$TASK"',
       '[[ -n "$BRIEF" ]] && PROMPT="$BRIEF"$\'\\n\\n\'"$TASK"',
       '[[ -n "$PROMPT" ]] && ARGS+=("$PROMPT")'
+    )
+  }
+  if (run.harness === 'claude-code') {
+    lines.push(
+      '[[ -n "$MODE" ]] && ARGS+=(--permission-mode "$MODE")',
+      'for D in "${DIRS[@]}"; do [[ -n "$D" ]] && ARGS+=(--add-dir "$D"); done',
+      // `mcp__grove` allows every tool of the Grove's helper and nothing else.
+      '[[ -n "$MCP" ]] && ARGS+=(--mcp-config "$MCP" --dangerously-load-development-channels server:grove --allowedTools mcp__grove)',
+      // A teammate's question can take minutes to answer; the tool call waits that long.
+      '[[ -n "$TEAMMCP" ]] && ARGS+=(--mcp-config "$TEAMMCP" --settings "$TEAMSET" --allowedTools mcp__grove) && export MCP_TOOL_TIMEOUT=900000'
     )
   }
   // Not `exec`: the script stays to write the exit code once the tool stops. Ctrl-C and a closing
@@ -147,6 +201,16 @@ export async function launch(spec: LaunchSpec, open: Opener, findCli = cliPath, 
   if (spec.resume && run.harness !== 'claude-code') {
     return { ok: false, error: 'Resuming from the Grove works for Claude Code only. Open Codex to carry on.' }
   }
+  // Only a word the tool knows is handed over, the same care `isModelName` takes with models.
+  if (spec.effort && !isEffort(run.harness === 'codex' ? 'codex' : 'claude-code', spec.effort)) {
+    return { ok: false, error: `"${spec.effort.slice(0, 20)}" is not an effort ${run.harness === 'codex' ? 'Codex' : 'Claude Code'} accepts.` }
+  }
+  if (spec.permissionMode && !(PERMISSION_MODES as readonly string[]).includes(spec.permissionMode)) {
+    return { ok: false, error: `"${spec.permissionMode.slice(0, 20)}" is not a permission mode Claude Code accepts.` }
+  }
+  if ((spec.channel || spec.addDirs?.length || spec.team) && run.harness !== 'claude-code') {
+    return { ok: false, error: 'PM\'s channel works with Claude Code only.' }
+  }
   const cli = await findCli(run.harness)
   if (!cli) {
     const tool = run.harness === 'claude-code' ? 'Claude Code' : 'Codex'
@@ -162,9 +226,17 @@ export async function launch(spec: LaunchSpec, open: Opener, findCli = cliPath, 
       'task.txt': notAnOption(run.task),
       'name.txt': notAnOption(sessionName(run)),
       'model.txt': notAnOption(spec.model),
+      'effort.txt': spec.effort ?? '',
       'brief.txt': notAnOption(spec.brief),
       // JSON always starts with a brace, never a dash, so it cannot be read as an option.
       'agents.txt': spec.run.harness === 'claude-code' ? (spec.agents ?? '') : '',
+      // Paths this side chose (the helper's config) or stones from grove.json; a newline inside a
+      // folder name would split it, so such a folder is left out rather than half-passed.
+      'mcp.txt': spec.channel?.mcpConfig ?? '',
+      'mode.txt': spec.permissionMode ?? '',
+      'team-mcp.txt': spec.team?.mcpConfig ?? '',
+      'team-settings.txt': spec.team?.settings ?? '',
+      'dirs.txt': (spec.addDirs ?? []).filter((d) => d && !d.includes('\n')).map(notAnOption).join('\n'),
     }
     for (const [name, text] of Object.entries(files)) await fsp.writeFile(path.join(dir, name), text, { mode: 0o600 })
     const file = path.join(dir, `${run.agentId}.command`)

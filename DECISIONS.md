@@ -1796,3 +1796,223 @@ The worst was the low bough under the front-left pads, in the home view. Once th
 `build-world-tree-blender.py` now finds the nearest bark to each bough's start and, if the start is
 outside it by more than 3 cm, carries the bough on to that bark and 8 cm into it. A start already
 behind the bark is left alone, so nothing is pushed back out through it.
+
+## The Researcher cites its sources, and the person decides which sources count (16 October 2026)
+
+Adrian paused Trilogue, his policy research tool, and asked what of it would help the Researcher.
+Most of Trilogue was machinery the Grove does not need: its own model adapters, budgets, a PDF
+renderer and a web interface. What carried over is its rules for sources, now in `SOURCE_RULES`
+in `core/spawn/briefs.ts`, used both when PM sends the Researcher and when it is sent directly.
+
+- **Rules in the brief, not checks in code.** Adrian's call: the brief says what is used and what
+  is not, and the person keeps the final say. Trilogue's mechanical quote check was not ported. So
+  the rules make an answer checkable by whoever reads it; they do not guarantee the Researcher
+  followed them, and nothing in the Grove should describe its findings as verified.
+- **The person chooses the sources.** The defaults (official documents, then peer-reviewed work,
+  then the rest) give way to whatever the person or PM's brief says. PM asks which sources count
+  when it matters and is unclear, and passes the answer on word for word.
+- **Papers, not only the web.** A web search finds few papers, so the brief names free indexes
+  that answer without an account: OpenAlex, arXiv, PubMed, and Crossref to confirm a DOI. Each
+  answered a plain request on 16 October 2026. Semantic Scholar was left out: without a key it
+  turned every request away as too many.
+- **No policy brief job.** Not wanted. If someone asks for a comparison of positions, the general
+  rule that each position is attributed and that "no visible position" is said rather than
+  balanced away covers the useful part.
+
+The Researcher still defaults to Haiku. Exact quotation from long documents is harder for a small
+model; anyone who relies on quotes can switch the Researcher's model in its card.
+
+## PM proposes a model and effort for each job, and the person decides (17 October 2026)
+
+Adrian wants the Grove as his day-to-day place to work, talking only to PM. PM now suggests a model
+and an effort level for each job instead of leaving every job on Default. Agreed with Adrian:
+
+- **Three kinds of job.** A quick question gets Haiku at low effort. Day-to-day building gets Opus
+  at medium effort, or high for a bigger build if PM judges it needs it. Planning the day, the
+  roadmap or the architecture gets Opus at extra-high effort. Codex follows the same shape on
+  effort and keeps whatever model you chose in Codex, because its model names change too often to
+  build rules on.
+- **The person has the final say.** Settings hold the model mode (ask only for costly picks, the
+  default; never ask; always ask), the models PM may use, your own model and effort for each kind
+  of job, and the three allowance thresholds. Every pick comes with one sentence of reasoning and
+  shows as a chip (`src/hud/ModelChip.tsx`) that changes it in one click.
+- **Allowance rules sit on top and cannot be switched off by the mode.** Above 70% of the Claude
+  five-hour window, Opus or Fable needs a yes. Above 90%, Haiku only, at low effort, and new jobs
+  queue for the reset. Above 80% of the week, PM warns and sends less at once. The same rules
+  apply to Codex against Codex's own figures. Unknown or out-of-date figures never hold work back
+  (`core/usage/limits.ts`): stopping work on a guess would be inventing a number.
+- **Rules, not a model call.** "Sending an agent opens Terminal with your own Claude Code" still
+  stands: the app never spends the subscription itself. So which kind of job a line of text is,
+  and which model it gets, are plain rules in `core/model-policy.ts`, tested by
+  `npm run verify:model-policy`. PM, a real Claude Code session, reads the job properly and can
+  call the rules; the classifier is the fallback when nobody has read the job.
+- **Effort reaches the tools as they expect it.** Claude Code takes `--effort` (low, medium, high,
+  xhigh, max). Codex has no effort option, so its `model_reasoning_effort` setting is overridden
+  for that one session with `-c`, which also accepts `ultra`. An effort a tool does not know is
+  refused before Terminal opens.
+- **Codex lists the models Codex lists.** Codex keeps the list its own picker shows in
+  `~/.codex/models_cache.json`. The Grove reads the visible entries from there (read-only) and
+  offers them; without that file Codex still offers Default and Other.
+
+This settles the "PM recommends models" idea in ROADMAP.md, with one change from that note: PM
+does not need to start on a separate model to assess the prompt, because PM is already a Claude
+Code session reading the job.
+
+## PM's hands: Grove actions, proposals and when to suggest (17 October 2026)
+
+PM is becoming the front door of the Grove as a day-to-day agentic OS. It is a real Claude Code
+session on the person's own plan; the app still never calls a model itself. What PM may *do* to
+the grove is one list, `PM_ACTIONS` in `core/actions/registry.ts`, which the channel server offers
+to PM as tools and calls through `callAction`.
+
+- **Free or ask.** Free: looking (`grove_status`, `list_agents`), sending an agent to a stone
+  (`send_agent`, through the app's own `launchRun` and all its checks), growing or removing a
+  *temporary* agent, and moving one stone into or out of a clearing (`join_clearing`,
+  `leave_clearing`). Ask: a *permanent* agent added or removed (Adrian, 16 October), a new
+  clearing, a sub-stone (`split_stone`) and a saved task (`carve_rune`). `make_clearing` asks even
+  though the brief listed it without a risk: Adrian's 17 October rule is that PM suggests groups
+  and always asks first, and a new clearing is exactly that suggestion. Moving one stone the person
+  named stays free, since they already said it in the chat and it is undone in one click.
+- **An ask is a proposal, not a promise.** `callAction` does not run an ask action. It writes a
+  proposal to `proposals.json` under the grove home (beside `runs.json`, history rather than
+  intent) and returns its id. The Grove shows it as an amber card, top centre, with Yes, No and an
+  optional reason; the tree turns amber and idle drift stops, as for any stone that needs you.
+  Yes re-checks the request against the grove as it is now and runs it; if the grove changed while
+  the card waited, it fails with a reason instead of half-running. No runs nothing and remembers a
+  turned-down suggestion (`declinedClearings`, `declinedRunes`, and the new `declinedSplits` on a
+  stone), so it is never offered again. Asking twice for the same thing makes one card.
+  `waitForDecision` and `onProposals` let the channel server tell PM the answer; a wait also reads
+  the file each second, so an answer given in another process is heard.
+- **Every argument is checked twice.** Against the action's JSON Schema (`core/actions/validate.ts`,
+  a page of code for the subset used rather than a library), then against the grove, so PM hears
+  "No stone called X. The stones are: …" rather than a stack trace, and no card is made for
+  something that cannot be done.
+- **Temporary agents** are ordinary definitions with `temporary: true`, `createdBy: "pm"` and an
+  `expiresAt`, so they hang on the tree, can be sent, and say "Temporary" in their card. They go
+  when their run ends, or when their time is up (default 4 hours, at most 24) if nothing is
+  working; never mid-job, and a run finished with its window still open counts as working. At most
+  four at once, the branches left after the built-in three. Swept every 30 seconds and whenever PM
+  looks at the grove.
+- **When PM suggests** is one object, `ADVICE_THRESHOLDS` in `core/actions/advice.ts`: shared
+  working hours for a clearing (3 in 7 days), sessions and share for a split (4 each, a fifth of
+  the stone, two parts), repeats for a saved task (3), and at most 2 of each kind at a time. Each
+  starts as the number the panels already use, and the existing rules (`suggestClearings`,
+  `splitsFor`, `suggestRunes`, `pairings`) now take these as arguments rather than being copied.
+  `groveAdvice` returns each suggestion with a one-line reason and the ready-made action call, and
+  leaves out anything turned down or already asked about.
+- **Ideas borrowed:** "you are the board" approvals from Paperclip, and agents bringing a written
+  proposal you approve or reject with your reasons, from bagidea-office. See CREDITS.md.
+
+## PM's chat lives in the Grove, through a Claude Code channel (17 October 2026)
+
+Adrian wants the Grove as his day-to-day agentic OS: one window where he talks to PM and PM gets
+on with it. Three ways were weighed with him. A hidden `claude -p` run by the app would be the
+smoothest, but it is the app running the subscription itself, which the 30 September decision
+ruled out. An API key for the chat is allowed but costs money on top of the plan. **Chosen: a
+real PM session in one Terminal window, with the Grove plugged in as a Claude Code channel.**
+
+- **How.** PM is started (`core/pm/session.ts`) with `--mcp-config` naming the Grove's helper
+  (`electron/grove-channel.ts`) and `--dangerously-load-development-channels server:grove`.
+  Channels are Claude Code's own way for an MCP server to push messages into a session (research
+  preview; development channels are allowed on Pro and Max, and need the one-time "local
+  development" confirmation in the window). The helper collects what you type, offers PM a
+  `reply` tool and the Grove's actions, and relays permission prompts both ways. It reaches the
+  app over loopback HTTP with a token in a file only you can read (`core/pm/bridge.ts`), the same
+  walls as the hooks listener.
+- **One PM, all day.** PM keeps one session id (`pm.json`) and is resumed each time, so it
+  remembers yesterday. It works from `~/.agentic-grove/pm` with every stone's folder added, in
+  `acceptEdits` mode: edits freely, asks before anything riskier, and its prompts show as Allow
+  or Deny cards in the chat. Workers PM sends get the same mode.
+- **The console talks to PM.** A job for PM typed in the bottom console now goes to the chat
+  instead of starting a fresh PM run; naming another agent ("@builder …") still sends it directly.
+- **Allowance rules in code.** `send_agent` passes through `guardSend` (`core/pm/tools.ts`): with
+  no model given it gets the Grove's pick, Opus over the threshold waits for your yes, and over
+  90% new jobs are held. PM cannot talk its way round your settings.
+- **No new dependency.** The helper speaks MCP by hand (five messages); it answers with protocol
+  revisions up to 2025-11-25 because Claude Code does not register a channel on 2026-07-28.
+- **Runtime.** The packaged app keeps Electron's `RunAsNode` fuse off (3 October security pass),
+  so the helper runs on your own Node.js 20+; from source, Electron itself is the fallback.
+  Without either, the chat says to install Node rather than failing quietly.
+
+Checked by `npm run verify:pm-channel` (the built helper against a real bridge, playing Claude
+Code's side of the protocol). Not checked: a real Claude Code session loading the channel, which
+needs the interactive confirmation in Terminal.
+
+## Claude's official limits come from `claude -p /usage`, every five minutes (18 October 2026)
+
+Claude Code's own `/usage` command prints the five-hour and weekly percentages and their reset
+times, and runs no model: it costs nothing against the limits it reports (checked with 2.1.301;
+the idea came from Codync, Apache-2.0, see CREDITS.md). So the Grove now reads it every five
+minutes (`core/usage/usage-command.ts`) and treats the figures as official. The crystal shows
+real percentages for Claude instead of counted tokens, and PM's allowance rules (`limits.ts`:
+ask before Opus above 70%, Haiku only above 90%) act on them. The press-to-check probe stays for
+older Claude Code versions without the command. The parser is strict: text it cannot read gives
+no figure. `npm run verify:usage-command`.
+
+## Voice with PM, both ways, on the Mac and free
+
+*18 October 2026, with Adrian*
+
+Talking to PM out loud, and hearing it answer, without breaking the rule that the app never makes
+model calls on the subscription and without paying for a speech service. **Chosen: the Mac's own
+voices for speaking, whisper.cpp on the Mac for listening.**
+
+- **Hearing PM.** A speaker on PM's conversation bar (and a switch in Settings › Voice, with a
+  voice picker) reads each new reply with the page's `speechSynthesis`, which on macOS is the
+  system voices: offline, free, nothing installed. Off by default (`speakReplies` in grove.json).
+  It never reads steps or permission cards, and it stops when you type or hold the mic.
+- **Talking to PM.** Hold the mic in the console, or hold ⌥M. The page records with
+  `MediaRecorder`, decodes and resamples to 16 kHz mono itself, and sends a small WAV over the
+  bridge as bytes. The main process (`core/voice/whisper.ts`) checks it is that kind of WAV
+  before writing it to a private temp folder, runs `whisper-cli`, reads the text and deletes the
+  folder whatever happened. The text lands in the console for you to read; **Enter sends it as
+  usual, nothing is sent on its own.** WAV rather than the recorder's own WebM because Homebrew's
+  whisper.cpp reads WAV without ffmpeg.
+- **⌥M, not ⌥Space.** ⌥Space is the ChatGPT desktop app's global shortcut and would never reach
+  the Grove; ⌃Space switches input sources. ⌥M ("mic") is free and is held, not toggled.
+- **Set-up, asked not assumed.** Until whisper.cpp and a model are here the mic opens a set-up
+  card instead of failing: "Install in Terminal" runs `brew install whisper-cpp` the way Get
+  ready installs Claude Code; the model (base English, 148 MB, or small, 488 MB) is downloaded
+  only after you press the button showing its size, over https only, and kept only if its size
+  and SHA-256 match what Hugging Face publishes. The card also names macOS Dictation (Fn twice)
+  as the way that needs no install at all.
+- **One new permission.** `electron/security.ts` used to refuse every permission. It now allows
+  exactly one: the microphone (audio only, never with video), asked for by the Grove's own page
+  in its top frame (`allowsPermission` in `page-rules.ts`). Camera, screen, location and
+  notifications stay refused; `npm run verify:security` checks this case by case. The packaged
+  app carries `NSMicrophoneUsageDescription`, without which macOS refuses the microphone.
+
+Checked by `npm run verify:voice` (a stand-in `whisper-cli`, the WAV format, refusals, failures,
+time-outs, temp files deleted, and the download's checks against a local server) and in the
+built app over CDP: the set-up card, ⌥M, the speaker reading a reply once and not a permission
+card, typing stopping it, the voice picker saving, and camera/screen/location refused. **Not
+checked:** real microphone audio and a real whisper.cpp transcription (whisper.cpp is not
+installed on this Mac and holding the mic would raise the macOS permission prompt), and actual
+sound from the speaker (speech was intercepted in the test so nothing played aloud).
+
+## The team talks: PM and workers ask, tell and answer each other (18 October 2026)
+
+Stage B of the agent plan, asked for by Adrian. Every Claude Code worker the Grove sends joins the
+team (`core/team/`): it can ask PM or another worker a question and wait for the answer (up to ten
+minutes), tell them something without waiting, and answer what it is asked. PM gets the same tools
+but never waits, so it stays free to talk to you; answers reach it as `[Grove]` messages through
+its channel. Each message is a pulse of light between the two in the scene (tree for PM, stones
+for workers; `src/scene/TalkPulses.tsx`) and a short line in the conversation.
+
+- **How a message reaches a busy worker, with Claude Code's own features and nothing global.**
+  Each worker starts with an MCP config and a settings file for that run only (`--mcp-config`,
+  `--settings`): the team tools, plus two hooks. After each tool it uses, waiting messages are
+  added to what it reads next (`PostToolUse` `additionalContext`); when it is about to stop, a
+  waiting message holds it back and is given to it as the reason to carry on (`Stop` `block`).
+  Your own Claude Code settings are untouched. A worker that has already finished reads its
+  messages when it is resumed.
+- **Not a channel for workers.** Channels need the "local development" confirmation in each
+  window, which would stop every worker until you pressed Enter; tools plus hooks need nothing.
+- **Same helper, three jobs.** `electron/grove-channel.ts` is PM's channel, a worker's team tools
+  (`GROVE_TEAM_RUN`) or a worker's hook (`--hook post|stop`), all through the same loopback
+  bridge and token.
+- **Codex workers** work alone for now (no hooks of this kind); noted for later.
+
+Borrowed idea: Codync's `team` tool (Apache-2.0), see CREDITS.md. Checked by `npm run
+verify:team` and with a real Claude Code worker (Haiku): it asked PM and waited for the answer,
+and a message PM sent while it worked reached it through the hook and changed its final answer.

@@ -40,8 +40,8 @@ function hoursOf(stone: Pick<Runestone, 'sessions'>, since: number): Set<number>
   return hours
 }
 
-export function pairings(stones: Pick<Runestone, 'id' | 'sessions' | 'parent'>[], now: number): Pairing[] {
-  const since = now - PAIRING_WINDOW_MS
+export function pairings(stones: Pick<Runestone, 'id' | 'sessions' | 'parent'>[], now: number, windowMs = PAIRING_WINDOW_MS): Pairing[] {
+  const since = now - windowMs
   const hours = stones.map((stone) => hoursOf(stone, since))
   const out: Pairing[] = []
   for (let i = 0; i < stones.length; i++) {
@@ -59,7 +59,7 @@ export function pairings(stones: Pick<Runestone, 'id' | 'sessions' | 'parent'>[]
       if (!shared) continue
       const age = now - latest * HOUR_MS
       const [a, b] = one.id < two.id ? [one.id, two.id] : [two.id, one.id]
-      out.push({ a, b, hours: shared, freshness: Math.max(0, Math.min(1, 1 - age / PAIRING_WINDOW_MS)) })
+      out.push({ a, b, hours: shared, freshness: Math.max(0, Math.min(1, 1 - age / windowMs)) })
     }
   }
   return out

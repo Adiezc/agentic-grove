@@ -26,6 +26,10 @@ import type { Run } from '../core/spawn/runs.ts'
 import type { NotePlace, NoteView } from '../core/state/notes.ts'
 import type { TranscriptLine } from '../core/spawn/transcript.ts'
 import type { ActivityResult } from '../core/activity-access.ts'
+import type { Proposal } from '../core/actions/proposals.ts'
+import type { PmChatState } from '../core/pm/chat.ts'
+import type { TalkPulse } from '../core/team/book.ts'
+import type { Transcript, VoiceModelId, VoiceStatus } from '../core/voice/whisper.ts'
 
 /**
  * One complete picture of the grove, sent after every scan.
@@ -72,10 +76,31 @@ export interface GroveSnapshot {
   /** Notes to your future self, each waiting or showing. See `core/state/notes.ts`. */
   notes: NoteView[]
   /**
+   * What PM is waiting for you to say yes or no to, oldest first. Each one needs you, like a stone
+   * that is waiting. See `core/actions/proposals.ts`.
+   */
+  proposals: Proposal[]
+  /** The conversation with PM, and whether PM's window is open. See `core/pm/`. */
+  pm: PmView
+  /** Messages between agents in the last few seconds, for the scene's pulses. See `core/team/`. */
+  talk: TalkPulse[]
+  /**
    * How many screens are connected. With one, a grove you have not looked at for a while steps its
    * graphics down; with several, it is probably on a screen of its own and stays at full detail.
    */
   displays: number
+}
+
+export interface PmView extends PmChatState {
+  /** PM's Terminal window, as its process files say. */
+  window: 'open' | 'closed' | 'unknown'
+  /** Why PM cannot start on this Mac (no Node.js, no Claude Code), or absent when it can. */
+  blocked?: string
+  /**
+   * What PM has done since your last message, one short line per tool ("Read core/scan.ts"), from
+   * its own transcript: the way Claude Code shows its steps. Only while it is working.
+   */
+  steps: string[]
 }
 
 export interface HooksStatus {
@@ -268,6 +293,29 @@ export interface GroveApi {
    * for it; this only takes you to where you can.
    */
   focusTerminal(): Promise<void>
+  /**
+   * Answer one of PM's proposals. Takes the proposal's id and your answer only: what a yes runs is
+   * the action PM asked for, read back from the node side's own record, never from the page.
+   */
+  decideProposal(id: string, verdict: 'yes' | 'no', reason?: string): Promise<{ ok: boolean; error?: string; result?: { ok: boolean; text: string } }>
+  /** Say something to PM. It reaches PM's session through the Grove's channel. */
+  pmSay(text: string, context?: string): Promise<{ ok: boolean; error?: string }>
+  /** Open PM's Terminal window, resuming its conversation, or a new one with `fresh`. */
+  pmStart(options?: { fresh?: boolean }): Promise<{ ok: boolean; error?: string }>
+  /** Allow or Deny one of the permission prompts PM's session relayed. Only its five-letter id crosses. */
+  pmAnswerPermission(requestId: string, allow: boolean): Promise<{ ok: boolean }>
+
+  /** Is voice ready on this Mac: whisper.cpp, a speech model, and the microphone allowed? */
+  voiceStatus(): Promise<VoiceStatusView>
+  /** Open Terminal running Homebrew's install of whisper.cpp. Takes nothing from the page. */
+  voiceSetUp(): Promise<{ ok: boolean; error?: string }>
+  /**
+   * Download a speech model, after the person pressed Download beside its size. Only the two
+   * models in `core/voice/whisper.ts`, from their fixed addresses. Progress shows in `voiceStatus`.
+   */
+  voiceDownload(model: VoiceModelId): Promise<{ ok: boolean; error?: string }>
+  /** What was said: a 16 kHz WAV recording (`core/voice/wav.ts`) to text, on this Mac. */
+  voiceTranscribe(wav: Uint8Array): Promise<Transcript>
   /** What uninstalling would do on this Mac, so the confirmation can list it before anything happens. */
   planUninstall(): Promise<UninstallPlan>
   /**
@@ -325,6 +373,11 @@ export interface ProjectResult {
   error?: string
 }
 
+/** Voice on this Mac, plus whether macOS lets the Grove use the microphone. */
+export interface VoiceStatusView extends VoiceStatus {
+  microphone: 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown'
+}
+
 /** The IPC channel names, in one place so the two sides cannot disagree about a string. */
 export const CHANNELS = {
   snapshot: 'grove:snapshot',
@@ -373,4 +426,12 @@ export const CHANNELS = {
   readActivity: 'grove:read-activity',
   focusRun: 'grove:focus-run',
   focusTerminal: 'grove:focus-terminal',
+  decideProposal: 'grove:decide-proposal',
+  pmSay: 'grove:pm-say',
+  pmStart: 'grove:pm-start',
+  pmAnswerPermission: 'grove:pm-answer-permission',
+  voiceStatus: 'grove:voice-status',
+  voiceSetUp: 'grove:voice-set-up',
+  voiceDownload: 'grove:voice-download',
+  voiceTranscribe: 'grove:voice-transcribe',
 } as const

@@ -38,6 +38,7 @@ import { Mushrooms } from './Mushrooms'
 import { Clearings } from './Clearings'
 import type { ClearingSpec } from './layout'
 import { AttentionMotes } from './AttentionMotes'
+import { TalkPulses } from './TalkPulses'
 import { TwinBase } from './TwinBase'
 import { Veil } from './Veil'
 import { useGrove } from '../store/grove'
@@ -380,10 +381,14 @@ export function GroveScene({
   const { alwaysShowNames, ambientMotion } = useSettings()
   // Stones with a note waiting to be read keep their name up, the quietest way to say "look here".
   const notes = useGrove((state) => state.snapshot?.notes)
+  const talk = useGrove((state) => state.snapshot?.talk)
+  const snapshotAt = useGrove((state) => state.snapshot?.at ?? 0)
   const noted = useMemo(
     () => new Set((notes ?? []).filter((note) => note.on === 'stone' && note.state === 'showing').map((note) => note.id)),
     [notes]
   )
+  // PM waiting on your yes or no lights the tree amber, where PM lives (`core/actions/proposals.ts`).
+  const asking = useGrove((state) => (state.snapshot?.proposals?.length ?? 0) > 0)
   const [hovered, setHovered] = useState<string | null>(null)
   const settings = QUALITY[quality]
   const view = useFlow((state) => state.view)
@@ -517,7 +522,7 @@ export function GroveScene({
       <Ground reflect={settings.reflect} reflectionResolution={settings.reflectionRes} />
       <Veil activity={activity} animate={animate && ambientMotion} />
       <Mycelium signals={myceliumSignals} network={network} arriving={arriving} active={active} attention={attention} failed={failed} activity={activity} animate={animate} />
-      <ReferenceTree signals={myceliumSignals} activity={activity} attention={attention.size > 0 || failed.size > 0} network={network} animate={animate} foliageMotion={animate && ambientMotion} />
+      <ReferenceTree signals={myceliumSignals} activity={activity} attention={asking || attention.size > 0 || failed.size > 0} network={network} animate={animate} foliageMotion={animate && ambientMotion} />
       {view === 'home' || view === 'stone' || view === 'run' ? <TreeHitbox onOpen={openAgents} /> : null}
 
       {stones.map((stone) => (
@@ -562,6 +567,7 @@ export function GroveScene({
       <Clearings clearings={clearings} stones={stones} animate={animate} />
       <Mushrooms pairs={pairs} stones={stones} animate={animate} />
       <AttentionMotes stones={stones} animate={animate} />
+      <TalkPulses pulses={talk ?? []} stones={stones} animate={animate} at={snapshotAt} />
 
       {view === 'agents' ? <Canopy animate={animate} /> : null}
       {deployment?.phase === 'flight' && deployFrom && deployTo ? (

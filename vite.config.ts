@@ -32,7 +32,9 @@ export default defineConfig({
       ],
     },
     electron({
-      main: { entry: 'electron/main.ts', vite: { plugins: [attributionInventory(root, 'main')] } },
+      // PM's channel helper (`electron/grove-channel.ts`) is built beside the main process: Claude
+      // Code starts it as its own small program, so it must be a file of its own.
+      main: { entry: ['electron/main.ts', 'electron/grove-channel.ts'], vite: { plugins: [attributionInventory(root, 'main')] } },
       preload: { input: 'electron/preload.ts', vite: { plugins: [attributionInventory(root, 'preload')] } },
     }),
   ],
