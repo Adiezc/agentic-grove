@@ -45,7 +45,6 @@ import { pruneRunProcesses, readRunProcess } from '../core/spawn/process.ts'
 import { stopRun } from '../core/spawn/stop.ts'
 import { launch } from '../core/spawn/launch.ts'
 import { BUILT_IN_BRIEFS, BUILT_IN_NAMES, PM_ID, SPAWNABLE_BUILT_INS, claudeAgentsJson, pmBrief, teamFor, teamMap } from '../core/spawn/briefs.ts'
-import { readTranscript } from '../core/spawn/transcript.ts'
 import { selectedActivity } from '../core/activity-access.ts'
 import { harnessById } from '../core/harnesses/index.ts'
 import { noticeFor } from '../core/attention.ts'
@@ -56,10 +55,11 @@ import { setActionHost } from '../core/actions/host.ts'
 import { startSweeping } from '../core/actions/temporary.ts'
 import { decide, onProposals, pendingProposals } from '../core/actions/proposals.ts'
 import '../core/actions/registry.ts'
+import { readTranscript } from '../core/spawn/transcript.ts'
 import { PmChat } from '../core/pm/chat.ts'
 import { startPmBridge, type PmBridge } from '../core/pm/bridge.ts'
 import { callPmTool, pmTools } from '../core/pm/tools.ts'
-import { pmWindow, startPm, type PmWindow } from '../core/pm/session.ts'
+import { pmFolder, pmSessionId, pmWindow, startPm, type PmWindow } from '../core/pm/session.ts'
 import { helperCommand } from '../core/pm/helper.ts'
 import { pmChatBrief } from '../core/spawn/briefs.ts'
 import { modelPolicyText, pickModel } from '../core/model-policy.ts'
@@ -92,6 +92,31 @@ const pmChat = new PmChat()
 let pmBridge: PmBridge | null = null
 let pmWindowState: PmWindow = 'unknown'
 let pmBlocked: string | undefined
+/** PM's steps since your last message, read from its transcript while it works. */
+let pmSteps: string[] = []
+
+/**
+ * Read PM's latest steps from its transcript: the tool lines since your last message.
+ * Its own Grove calls (reply, grove_status) are left out; they are the chat itself.
+ */
+async function readPmSteps(): Promise<void> {
+  const id = await pmSessionId()
+  const lines = id ? await readTranscript(id, pmFolder()).catch(() => null) : null
+  if (!lines) return
+  // Channel messages reach the transcript wrapped in a <channel> tag the reader leaves out, so the
+  // boundary is time: steps taken since your last message was sent (a second's grace for clocks).
+  const mine = pmChat.state().messages.filter((message) => message.from === 'you').at(-1)
+  const since = (mine?.at ?? 0) - 1000
+  const steps = lines
+    .filter((line) => line.at >= since)
+    .filter((line) => line.kind === 'tool' && !/^(mcp__grove__)?reply\b|^ToolSearch\b/.test(line.text))
+    .map((line) => line.text.replace(/^mcp__grove__/, 'Grove: '))
+    .slice(-20)
+  if (steps.join('\n') !== pmSteps.join('\n')) {
+    pmSteps = steps
+    redraw()
+  }
+}
 let hookServer: HookServer | null = null
 /** The crystal's figures. Refreshed once a minute on their own timer; see `core/usage/`. */
 let usage: UsageReport | null = null
@@ -214,7 +239,7 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
     runs: runs.list().slice(0, RUNS_IN_SNAPSHOT),
     notes: noteViews(grove.notes, derived.stones, runs.list()),
     proposals: await pendingProposals().catch(() => []),
-    pm: { ...pmChat.state(), window: pmWindowState, blocked: pmBlocked },
+    pm: { ...pmChat.state(), window: pmWindowState, blocked: pmBlocked, steps: pmChat.state().working ? pmSteps.slice(-8) : [] },
   }
 }
 
@@ -743,9 +768,9 @@ function registerHandlers(): void {
     const outcome = proposal.result ? ` Result: ${proposal.result.text}` : ''
     pmChat.tellPm(`The person said ${said} to: ${proposal.summary}.${why}${outcome}`, false)
   })
-  handle(CHANNELS.pmSay, async (_event, text: unknown) => {
+  handle(CHANNELS.pmSay, async (_event, text: unknown, context: unknown) => {
     if (typeof text !== 'string' || !text.trim()) return { ok: false, error: 'Nothing to send' }
-    pmChat.say(text)
+    pmChat.say(text, typeof context === 'string' ? context : '')
     return { ok: true }
   })
   handle(CHANNELS.pmStart, async (_event, options: unknown) => {
@@ -1090,6 +1115,10 @@ void app.whenReady().then(async () => {
   pmChat.onChange(() => redraw())
   pmBridge = await startPmBridge({
     chat: pmChat,
+    stepsForReply: async () => {
+      await readPmSteps()
+      return pmSteps
+    },
     tools: pmTools,
     callTool: (name, args) =>
       callPmTool(name, args, {
@@ -1121,6 +1150,10 @@ void app.whenReady().then(async () => {
       void refreshSetup(true)
     }, 60_000),
     setInterval(() => void maybeCheckForUpdate(), 60 * 60_000),
+    // While PM works, its steps are read every second and a half, so the chat moves as it does.
+    setInterval(() => {
+      if (pmChat.state().working) void readPmSteps()
+    }, 1500),
     setInterval(() => {
       pmChat.tick()
       void pmWindow().then((state) => {

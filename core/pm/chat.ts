@@ -22,6 +22,8 @@ export interface ChatMessage {
   at: number
   /** PM flagged this reply as needing you: it shows amber until you answer. */
   needsYou?: boolean
+  /** PM's steps on the way to this reply ("Read core/scan.ts"), kept with it as Claude Code keeps them. */
+  steps?: string[]
   /** A permission prompt relayed from PM's session, answered with Allow or Deny. */
   permission?: PermissionRequest & { state: 'open' | 'allowed' | 'denied' | 'closed' }
 }
@@ -89,13 +91,17 @@ export class PmChat {
     return this.pollers.length > 0 || this.now() - this.lastPollAt < CONNECTED_WITHIN_MS
   }
 
-  /** You typed something. It waits in the inbox until PM's helper collects it. */
-  say(text: string): ChatMessage | null {
+  /**
+   * You typed something. It waits in the inbox until PM's helper collects it. `context` goes to PM
+   * with it but is not shown back to you: which stone you had selected, the model you chose.
+   */
+  say(text: string, context = ''): ChatMessage | null {
     const clean = text.trim().slice(0, MAX_CHAT_CHARS)
     if (!clean) return null
     const message = this.add({ from: 'you', text: clean })
     this.working = true
-    this.push({ kind: 'chat', id: message.id, text: clean })
+    const extra = context.trim().slice(0, 2000)
+    this.push({ kind: 'chat', id: message.id, text: extra ? `${clean}\n\n${extra}` : clean })
     return message
   }
 
@@ -111,11 +117,11 @@ export class PmChat {
   }
 
   /** PM answered through its reply tool. */
-  reply(text: string, needsYou = false): ChatMessage | null {
+  reply(text: string, needsYou = false, steps: string[] = []): ChatMessage | null {
     const clean = text.trim().slice(0, MAX_CHAT_CHARS)
     if (!clean) return null
     this.working = false
-    return this.add({ from: 'pm', text: clean, needsYou: needsYou || undefined })
+    return this.add({ from: 'pm', text: clean, needsYou: needsYou || undefined, steps: steps.length ? steps.slice(-20) : undefined })
   }
 
   /** Claude Code opened a permission prompt in PM's window; it shows as a card you can answer here. */

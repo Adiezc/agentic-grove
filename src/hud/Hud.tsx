@@ -24,6 +24,9 @@ import { AnswerCard } from './Answer'
 import { healthOf } from '../../core/health.ts'
 import { useGrove } from '../store/grove'
 import { usePmPanel } from '../store/pm'
+import { Conversation } from './Conversation'
+import { ModelChip } from './ModelChip'
+import { classifyJob, pickModel } from '../../core/model-policy.ts'
 import { DEMO } from '../demo'
 import { HARNESS_MARK, kindOf, useTree } from '../agents/tree'
 import { headroomFrom, route } from '../../core/routing.ts'
@@ -204,6 +207,9 @@ export function RuneConsole({
   const [chosenTool, setChosenTool] = useState<'claude-code' | 'codex' | null>(null)
   /** A model for this one job, over the agent's own. Cleared with the text. */
   const [chosenModel, setChosenModel] = useState<string | null>(null)
+  /** For PM: the model and effort you chose on the chip, over the Grove's pick. Cleared with the text. */
+  const [pmChoice, setPmChoice] = useState<{ model: string; effort: string } | null>(null)
+  const settings = useGrove((state) => state.snapshot?.settings)
   const setup = useGrove((state) => state.snapshot?.setup)
   const usage = useGrove((state) => state.snapshot?.usage ?? null)
   const picker = useRef<HTMLInputElement>(null)
@@ -255,9 +261,18 @@ export function RuneConsole({
       setChosen(null)
       setChosenTool(null)
       setChosenModel(null)
+      setPmChoice(null)
       setToAgent(false)
     }
   }, [typed])
+
+  // PM's job: the Grove's pick for what you are typing, or the one you chose on the chip.
+  const toPm = agent?.id === 'manager'
+  const pmPick = useMemo(() => {
+    if (!toPm || !typed || !settings) return null
+    const base = pickModel({ tier: classifyJob(reading.task), tool: 'claude-code', usage, settings, now: Date.now() })
+    return pmChoice ? { ...base, ...pmChoice, needsOk: false, reason: 'Your choice for this message.' } : base
+  }, [toPm, typed, settings, usage, reading.task, pmChoice])
 
   // The same file twice is one attachment, not two chips with the same name.
   const attach = (incoming: FileList | null) => {
@@ -289,8 +304,9 @@ export function RuneConsole({
     // PM decides who does it, rather than starting a fresh PM run on the stone. PM starts if it
     // is not running. Naming another agent ("@builder ...") still sends that agent straight away.
     if (agent.id === 'manager' && window.grove && !DEMO) {
-      const where = stone ? `\n\n(About the stone "${stone.name}", ${stone.id}.)` : ''
-      void window.grove.pmSay(task + where).then((result) => {
+      const where = stone ? `(About the stone "${stone.name}", ${stone.id}.)` : ''
+      const choice = pmChoice ? `(Use ${modelLabel(pmChoice.model) || 'the default model'}${pmChoice.effort ? ` at ${pmChoice.effort} effort` : ''} for this.)` : ''
+      void window.grove.pmSay(task, [where, choice].filter(Boolean).join('\n')).then((result) => {
         if (!result.ok) return
         const pm = useGrove.getState().snapshot?.pm
         if (pm && !pm.connected && pm.window !== 'open' && !pm.blocked) void window.grove?.pmStart()
@@ -338,6 +354,7 @@ export function RuneConsole({
           ))}
         </ul>
       ) : null}
+      <Conversation />
       <AnswerCard />
       {/* The echo: who would take this, and where, before anything is sent. */}
       <div className={`console-echo${typed && agent ? ' is-open' : ''}`} aria-live="polite">
@@ -352,6 +369,26 @@ export function RuneConsole({
             <button type="button" className="echo-tool" onClick={() => setToAgent(true)} title="Send this to an agent instead">
               Ask an agent instead
             </button>
+          </>
+        ) : typed && agent && Glyph && toPm && pmPick ? (
+          <>
+            <button
+              type="button"
+              className="echo-agent"
+              onClick={nextAgent}
+              title="PM decides who does it. Click to send another agent yourself"
+              aria-label="PM will take this. Choose another agent"
+            >
+              <Glyph size={14} weight="thin" aria-hidden="true" />
+              PM
+            </button>
+            <ModelChip pick={pmPick} onChange={(model, effort) => setPmChoice({ model, effort })} />
+            {stone ? (
+              <>
+                <ArrowRight size={12} weight="thin" aria-hidden="true" />
+                <span className="echo-stone">{stone.name}</span>
+              </>
+            ) : null}
           </>
         ) : typed && agent && Glyph ? (
           <>

@@ -69,6 +69,11 @@ async function claudeHasSession(sessionId: string): Promise<boolean> {
   return false
 }
 
+/** PM's session id, or `null` before PM has ever started. */
+export async function pmSessionId(): Promise<string | null> {
+  return (await readState())?.sessionId ?? null
+}
+
 /** PM's window, as its process files say. */
 export async function pmWindow(): Promise<PmWindow> {
   const state = await readState()

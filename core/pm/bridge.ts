@@ -31,6 +31,8 @@ export interface PmBridgeOptions {
   chat: PmChat
   tools(): PmTool[] | Promise<PmTool[]>
   callTool(name: string, args: unknown): Promise<ToolAnswer>
+  /** PM's steps since your last message, kept with its reply. Optional; the checks leave it out. */
+  stepsForReply?(): Promise<string[]>
   /** Port 0 picks a free one, the normal case. */
   port?: number
 }
@@ -79,7 +81,8 @@ export async function startPmBridge(options: PmBridgeOptions): Promise<PmBridge>
         }
         case '/pm/reply': {
           const text = typeof body.text === 'string' ? body.text : ''
-          const shown = options.chat.reply(text, body.needsYou === true)
+          const steps = (await options.stepsForReply?.().catch(() => [])) ?? []
+          const shown = options.chat.reply(text, body.needsYou === true, steps)
           return answer(shown ? 200 : 400, { ok: Boolean(shown) })
         }
         case '/pm/permission': {

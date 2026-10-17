@@ -3602,101 +3602,114 @@
   }
 }
 
-/* ---- PM's chat (Chat.tsx). A tab on the right edge, and the conversation beside it. Same
-   panel material and 14px radius as the other cards; amber only when something needs you. ---- */
+/* ---- PM's conversation (Conversation.tsx), opening above the console. Same panel material and
+   14px radius as the other cards; amber only when something needs you. ---- */
 
-.pm-tab {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  z-index: 9;
+.convo {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.65rem 0.45rem 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--line) 72%, var(--live));
-  border-right: none;
-  border-radius: 14px 0 0 14px;
-  background: color-mix(in srgb, var(--ground) 86%, transparent);
-  color: var(--text-dim);
-  font: 500 0.66rem/1 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0.08em;
-  pointer-events: auto;
-  cursor: pointer;
-  transform: translateY(-50%);
-  transition: color 0.3s ease, border-color 0.3s ease;
-}
-
-.pm-tab:hover,
-.pm-tab[aria-expanded='true'] {
-  color: var(--text);
-}
-
-.pm-tab.is-live {
-  color: var(--glow);
-}
-
-.pm-tab.is-working {
-  color: var(--glow);
-  animation: pm-breathe 2.6s ease-in-out infinite;
-}
-
-.pm-tab.needs-you {
-  border-color: color-mix(in srgb, var(--wait) 55%, transparent);
-  color: var(--wait);
-}
-
-@keyframes pm-breathe {
-  50% {
-    border-color: color-mix(in srgb, var(--live) 60%, transparent);
-  }
-}
-
-.pm-panel {
-  position: absolute;
-  top: calc(8% + 7.5rem);
-  right: 2.6rem;
-  bottom: 5rem;
-  z-index: 9;
-  width: min(23rem, calc(100vw - 4rem));
-  display: flex;
-  flex-direction: column;
-  border: 1px solid rgb(46 111 72 / 0.38);
+  border: 1px solid rgb(46 111 72 / 0.32);
   border-radius: 14px;
-  background: rgb(2 9 4 / 0.86);
+  background: rgb(2 9 4 / 0.82);
   backdrop-filter: blur(10px);
   pointer-events: auto;
   animation: proposal-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.pm-head {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 0.75rem 0.55rem 0.9rem;
-  border-bottom: 1px solid rgb(46 111 72 / 0.22);
+.convo.needs-you {
+  border-color: color-mix(in srgb, var(--wait) 50%, transparent);
 }
 
-.pm-title {
-  font-size: 0.8rem;
+.convo-bar {
+  display: flex;
+  align-items: center;
+  padding: 0.3rem 0.45rem 0.3rem 0.35rem;
+}
+
+.convo-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.2rem 0.5rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.convo-toggle:hover {
+  color: var(--text);
+}
+
+.convo-title {
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--text);
 }
 
-.pm-status {
+.convo-status {
   font-size: 0.68rem;
-  color: var(--text-dim);
 }
 
-.pm-status.is-live {
+.convo-status.is-live {
   color: var(--live);
 }
 
-.pm-head-actions {
+.convo-status.is-working {
+  animation: pm-fade 1.8s ease-in-out infinite;
+}
+
+.convo.needs-you .convo-status {
+  color: var(--wait);
+}
+
+.convo-actions {
   display: flex;
   gap: 0.2rem;
   margin-left: auto;
+}
+
+.convo-messages {
+  max-height: min(44vh, 30rem);
+  overflow-y: auto;
+  padding: 0.35rem 0.8rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-top: 1px solid rgb(46 111 72 / 0.2);
+}
+
+.convo-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-left: 0.2rem;
+}
+
+.convo-step {
+  margin: 0;
+  font: 0.68rem/1.45 ui-monospace, SFMono-Regular, monospace;
+  color: #8fa197;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.convo-step::before {
+  content: '';
+  display: inline-block;
+  width: 0.35rem;
+  height: 0.35rem;
+  margin-right: 0.45rem;
+  border-radius: 999px;
+  background: var(--vein);
+  vertical-align: 0.08rem;
+}
+
+.convo-step:last-of-type::before {
+  background: var(--live);
 }
 
 .pm-icon {
@@ -3721,27 +3734,8 @@
   cursor: default;
 }
 
-.pm-messages {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 0.75rem 0.8rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
 
-.pm-empty {
-  margin: auto 0;
-  padding: 0 0.4rem;
-  font-size: 0.8rem;
-  line-height: 1.5;
-  color: var(--text);
-}
 
-.pm-empty p {
-  margin: 0 0 0.35rem;
-}
 
 .pm-dim {
   color: #8fa197;
@@ -3752,7 +3746,7 @@
   max-width: 88%;
 }
 
-.pm-message p {
+.pm-message > p {
   margin: 0;
   padding: 0.45rem 0.65rem;
   border-radius: 14px;
@@ -3762,7 +3756,7 @@
   overflow-wrap: anywhere;
 }
 
-.pm-message.is-pm p {
+.pm-message.is-pm > p {
   background: rgb(9 43 21 / 0.55);
   color: var(--text);
 }
@@ -3771,7 +3765,7 @@
   align-self: flex-end;
 }
 
-.pm-message.is-you p {
+.pm-message.is-you > p {
   border: 1px solid rgb(46 111 72 / 0.4);
   color: var(--text);
 }
@@ -3781,14 +3775,14 @@
   max-width: 94%;
 }
 
-.pm-message.is-grove p {
+.pm-message.is-grove > p {
   padding: 0.1rem 0.4rem;
   font-size: 0.68rem;
   color: #8fa197;
   text-align: center;
 }
 
-.pm-message.needs-you p {
+.pm-message.needs-you > p {
   box-shadow: inset 2px 0 0 var(--wait);
 }
 
@@ -3854,65 +3848,40 @@
   color: var(--wait);
 }
 
-.pm-compose {
-  padding: 0.55rem 0.65rem 0.6rem;
-  border-top: 1px solid rgb(46 111 72 / 0.22);
+
+
+
+
+
+
+
+
+@media (prefers-reduced-motion: reduce) {
+  .convo,
+  .convo-status.is-working,
+  .pm-working {
+    animation: none;
+  }
 }
 
-.pm-input {
-  width: 100%;
-  box-sizing: border-box;
-  resize: none;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid rgb(46 111 72 / 0.35);
-  border-radius: 10px;
-  background: rgb(1 5 2 / 0.7);
-  color: var(--text);
-  font: 0.78rem/1.45 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+.convo-steps.is-done {
+  margin-bottom: 0.3rem;
 }
 
-.pm-input:focus-visible {
-  border-color: var(--live);
-  outline: none;
+.convo-steps.is-done .convo-step::before {
+  background: var(--vein);
 }
 
-.pm-input::placeholder {
-  color: #7d8f84;
-}
-
-.pm-compose-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.45rem;
-}
-
-.pm-send {
-  display: grid;
-  place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
-  border: 1px solid color-mix(in srgb, var(--live) 55%, transparent);
-  border-radius: 999px;
-  background: rgb(9 43 21 / 0.7);
-  color: var(--glow);
+.convo-more {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font: 0.66rem/1.45 ui-monospace, SFMono-Regular, monospace;
   cursor: pointer;
 }
 
-.pm-send:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.pm-send:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pm-tab.is-working,
-  .pm-working,
-  .pm-panel {
-    animation: none;
-  }
+.convo-more:hover {
+  color: var(--text);
 }

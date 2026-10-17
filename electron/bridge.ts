@@ -92,6 +92,11 @@ export interface PmView extends PmChatState {
   window: 'open' | 'closed' | 'unknown'
   /** Why PM cannot start on this Mac (no Node.js, no Claude Code), or absent when it can. */
   blocked?: string
+  /**
+   * What PM has done since your last message, one short line per tool ("Read core/scan.ts"), from
+   * its own transcript: the way Claude Code shows its steps. Only while it is working.
+   */
+  steps: string[]
 }
 
 export interface HooksStatus {
@@ -290,7 +295,7 @@ export interface GroveApi {
    */
   decideProposal(id: string, verdict: 'yes' | 'no', reason?: string): Promise<{ ok: boolean; error?: string; result?: { ok: boolean; text: string } }>
   /** Say something to PM. It reaches PM's session through the Grove's channel. */
-  pmSay(text: string): Promise<{ ok: boolean; error?: string }>
+  pmSay(text: string, context?: string): Promise<{ ok: boolean; error?: string }>
   /** Open PM's Terminal window, resuming its conversation, or a new one with `fresh`. */
   pmStart(options?: { fresh?: boolean }): Promise<{ ok: boolean; error?: string }>
   /** Allow or Deny one of the permission prompts PM's session relayed. Only its five-letter id crosses. */
