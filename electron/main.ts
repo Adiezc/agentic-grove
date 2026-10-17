@@ -29,6 +29,7 @@ import { CHANNELS, type AgentResult, type GroveSnapshot, type HooksStatus, type 
 import { LiveState } from '../core/hooks/live.ts'
 import { startUsageLoop, usage as readUsage } from '../core/usage/index.ts'
 import { isProbeFolder, runProbe, type ClaudeReading } from '../core/usage/probe.ts'
+import { readUsageCommand } from '../core/usage/usage-command.ts'
 import { createShard, type Shard } from './tray.ts'
 import { installApplicationMenu, showAbout } from './about.ts'
 import type { UsageReport } from '../core/usage/types.ts'
@@ -1141,6 +1142,17 @@ void app.whenReady().then(async () => {
     quit: () => app.quit(),
   })
   stopUsage = startUsageLoop(showUsage, undefined, () => claudeReading)
+  // Claude's official limits from Claude Code's own `/usage`, which runs no model and so costs
+  // nothing (core/usage/usage-command.ts). Every five minutes, first shortly after start.
+  const readOfficialClaude = async () => {
+    const cli = await cliPath('claude-code')
+    const reading = cli ? await readUsageCommand(cli) : null
+    if (!reading) return
+    claudeReading = reading
+    await readUsage(Date.now(), claudeReading).then(showUsage, () => {})
+  }
+  setTimeout(() => void readOfficialClaude(), 15_000)
+  timers.push(setInterval(() => void readOfficialClaude(), 5 * 60_000))
   setup = await setupStatus()
   timers.push(
     setInterval(() => {

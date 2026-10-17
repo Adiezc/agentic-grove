@@ -1937,3 +1937,14 @@ real PM session in one Terminal window, with the Grove plugged in as a Claude Co
 Checked by `npm run verify:pm-channel` (the built helper against a real bridge, playing Claude
 Code's side of the protocol). Not checked: a real Claude Code session loading the channel, which
 needs the interactive confirmation in Terminal.
+
+## Claude's official limits come from `claude -p /usage`, every five minutes (18 October 2026)
+
+Claude Code's own `/usage` command prints the five-hour and weekly percentages and their reset
+times, and runs no model: it costs nothing against the limits it reports (checked with 2.1.301;
+the idea came from Codync, Apache-2.0, see CREDITS.md). So the Grove now reads it every five
+minutes (`core/usage/usage-command.ts`) and treats the figures as official. The crystal shows
+real percentages for Claude instead of counted tokens, and PM's allowance rules (`limits.ts`:
+ask before Opus above 70%, Haiku only above 90%) act on them. The press-to-check probe stays for
+older Claude Code versions without the command. The parser is strict: text it cannot read gives
+no figure. `npm run verify:usage-command`.

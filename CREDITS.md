@@ -234,6 +234,13 @@ with your reasons. The Grove's proposal card does the same: Yes or No, and an op
 back to PM. Read from its public description on 17 October 2026; its licence file was not read, so
 nothing from it may be copied until it is.
 
+### leepokai/Codync — Apache-2.0
+
+<https://github.com/leepokai/Codync> · Codync contributors
+
+Idea only, no code: reading Claude's limits from Claude Code's own `claude -p /usage`, which runs
+no model (`core/usage/usage-command.ts`).
+
 ### jarrodwatts/claude-hud — MIT
 
 <https://github.com/jarrodwatts/claude-hud> · Jarrod Watts and contributors
