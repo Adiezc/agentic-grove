@@ -3487,3 +3487,117 @@
   margin-top: 0.7rem;
   line-height: 1.45;
 }
+
+/* ---- PM's questions, top centre. Amber-edged: each one needs you. See Proposals.tsx. ---- */
+
+.proposal-card {
+  position: absolute;
+  top: 1.25rem;
+  left: 50%;
+  width: min(24rem, calc(100vw - 2rem));
+  padding: 0.75rem 0.9rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--wait) 45%, transparent);
+  border-radius: 14px;
+  background: rgb(2 9 4 / 0.82);
+  backdrop-filter: blur(8px);
+  transform: translateX(-50%);
+  animation: proposal-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.proposal-card.is-done {
+  border-color: rgb(46 111 72 / 0.4);
+}
+
+.proposal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--wait);
+}
+
+.proposal-more {
+  margin-left: auto;
+  color: var(--text-dim);
+}
+
+.proposal-summary {
+  margin: 0.45rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.proposal-line {
+  margin: 0.3rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #8fa197;
+}
+
+.proposal-reason {
+  width: 100%;
+  margin-top: 0.55rem;
+  height: 2rem;
+  padding: 0 0.6rem;
+  border: 1px solid rgb(46 111 72 / 0.35);
+  border-radius: 10px;
+  background: rgb(1 5 2 / 0.7);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+.proposal-reason:focus-visible {
+  border-color: var(--live);
+  outline: none;
+}
+
+.proposal-reason::placeholder {
+  color: #7d8f84;
+}
+
+.proposal-choices {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.proposal-choices .setting-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.9rem;
+  padding: 0 0.8rem;
+}
+
+.proposal-quiet {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.proposal-quiet:hover,
+.proposal-quiet:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+@keyframes proposal-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -0.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proposal-card {
+    animation: none;
+  }
+}

@@ -65,6 +65,7 @@
     "verify:models": "tsx test/verify-models.ts",
     "verify:model-policy": "tsx test/verify-model-policy.ts",
     "verify:suggest-runes": "tsx test/verify-suggest-runes.ts",
+    "verify:actions": "tsx test/verify-actions.ts",
     "dmg": "node scripts/package.mjs --dmg"
   },
   "devDependencies": {

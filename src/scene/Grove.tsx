@@ -384,6 +384,8 @@ export function GroveScene({
     () => new Set((notes ?? []).filter((note) => note.on === 'stone' && note.state === 'showing').map((note) => note.id)),
     [notes]
   )
+  // PM waiting on your yes or no lights the tree amber, where PM lives (`core/actions/proposals.ts`).
+  const asking = useGrove((state) => (state.snapshot?.proposals?.length ?? 0) > 0)
   const [hovered, setHovered] = useState<string | null>(null)
   const settings = QUALITY[quality]
   const view = useFlow((state) => state.view)
@@ -517,7 +519,7 @@ export function GroveScene({
       <Ground reflect={settings.reflect} reflectionResolution={settings.reflectionRes} />
       <Veil activity={activity} animate={animate && ambientMotion} />
       <Mycelium signals={myceliumSignals} network={network} arriving={arriving} active={active} attention={attention} failed={failed} activity={activity} animate={animate} />
-      <ReferenceTree signals={myceliumSignals} activity={activity} attention={attention.size > 0 || failed.size > 0} network={network} animate={animate} foliageMotion={animate && ambientMotion} />
+      <ReferenceTree signals={myceliumSignals} activity={activity} attention={asking || attention.size > 0 || failed.size > 0} network={network} animate={animate} foliageMotion={animate && ambientMotion} />
       {view === 'home' || view === 'stone' || view === 'run' ? <TreeHitbox onOpen={openAgents} /> : null}
 
       {stones.map((stone) => (

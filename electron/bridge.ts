@@ -26,6 +26,7 @@ import type { Run } from '../core/spawn/runs.ts'
 import type { NotePlace, NoteView } from '../core/state/notes.ts'
 import type { TranscriptLine } from '../core/spawn/transcript.ts'
 import type { ActivityResult } from '../core/activity-access.ts'
+import type { Proposal } from '../core/actions/proposals.ts'
 
 /**
  * One complete picture of the grove, sent after every scan.
@@ -71,6 +72,11 @@ export interface GroveSnapshot {
   runs: Run[]
   /** Notes to your future self, each waiting or showing. See `core/state/notes.ts`. */
   notes: NoteView[]
+  /**
+   * What PM is waiting for you to say yes or no to, oldest first. Each one needs you, like a stone
+   * that is waiting. See `core/actions/proposals.ts`.
+   */
+  proposals: Proposal[]
   /**
    * How many screens are connected. With one, a grove you have not looked at for a while steps its
    * graphics down; with several, it is probably on a screen of its own and stays at full detail.
@@ -268,6 +274,11 @@ export interface GroveApi {
    * for it; this only takes you to where you can.
    */
   focusTerminal(): Promise<void>
+  /**
+   * Answer one of PM's proposals. Takes the proposal's id and your answer only: what a yes runs is
+   * the action PM asked for, read back from the node side's own record, never from the page.
+   */
+  decideProposal(id: string, verdict: 'yes' | 'no', reason?: string): Promise<{ ok: boolean; error?: string; result?: { ok: boolean; text: string } }>
   /** What uninstalling would do on this Mac, so the confirmation can list it before anything happens. */
   planUninstall(): Promise<UninstallPlan>
   /**
@@ -373,4 +384,5 @@ export const CHANNELS = {
   readActivity: 'grove:read-activity',
   focusRun: 'grove:focus-run',
   focusTerminal: 'grove:focus-terminal',
+  decideProposal: 'grove:decide-proposal',
 } as const

@@ -52,6 +52,10 @@ import { noticeFor } from '../core/attention.ts'
 import { headroomFrom, route } from '../core/routing.ts'
 import { notify } from './notify.ts'
 import { execFile } from 'node:child_process'
+import { setActionHost } from '../core/actions/host.ts'
+import { startSweeping } from '../core/actions/temporary.ts'
+import { decide, onProposals, pendingProposals } from '../core/actions/proposals.ts'
+import '../core/actions/registry.ts'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 /** The built interface. In development the dev server's page is loaded instead. */
@@ -195,6 +199,7 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
     displays: screen.getAllDisplays().length,
     runs: runs.list().slice(0, RUNS_IN_SNAPSHOT),
     notes: noteViews(grove.notes, derived.stones, runs.list()),
+    proposals: await pendingProposals().catch(() => []),
   }
 }
 
@@ -701,6 +706,22 @@ function registerHandlers(): void {
   handle(CHANNELS.uninstall, async (_event, options: unknown) => {
     const removeGrove = typeof options === 'object' && options !== null && (options as { removeGrove?: unknown }).removeGrove === true
     return uninstall(removeGrove)
+  })
+
+  /* PM's actions (`core/actions/`): the app's live state and launcher, handed over once, and the
+   * answer to a proposal. The page sends an id and yes or no; what a yes runs is read back from
+   * the proposal the node side wrote, never from the page. */
+  setActionHost({
+    derived: () => latest?.grove ?? null,
+    runs: () => runs.list(),
+    launchRun: (request) => launchRun(request),
+    changed: () => restartScanning(),
+  })
+  startSweeping(() => runs.list(), () => restartScanning())
+  onProposals(() => redraw())
+  handle(CHANNELS.decideProposal, async (_event, id: unknown, verdict: unknown, reason: unknown) => {
+    const answered = await decide(id, verdict, reason)
+    return answered.ok ? { ok: true, result: answered.proposal?.result } : { ok: false, error: answered.error }
   })
 
   handle(CHANNELS.revealGroveFile, async () => {

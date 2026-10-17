@@ -1857,3 +1857,48 @@ and an effort level for each job instead of leaving every job on Default. Agreed
 This settles the "PM recommends models" idea in ROADMAP.md, with one change from that note: PM
 does not need to start on a separate model to assess the prompt, because PM is already a Claude
 Code session reading the job.
+
+## PM's hands: Grove actions, proposals and when to suggest (17 October 2026)
+
+PM is becoming the front door of the Grove as a day-to-day agentic OS. It is a real Claude Code
+session on the person's own plan; the app still never calls a model itself. What PM may *do* to
+the grove is one list, `PM_ACTIONS` in `core/actions/registry.ts`, which the channel server offers
+to PM as tools and calls through `callAction`.
+
+- **Free or ask.** Free: looking (`grove_status`, `list_agents`), sending an agent to a stone
+  (`send_agent`, through the app's own `launchRun` and all its checks), growing or removing a
+  *temporary* agent, and moving one stone into or out of a clearing (`join_clearing`,
+  `leave_clearing`). Ask: a *permanent* agent added or removed (Adrian, 16 October), a new
+  clearing, a sub-stone (`split_stone`) and a saved task (`carve_rune`). `make_clearing` asks even
+  though the brief listed it without a risk: Adrian's 17 October rule is that PM suggests groups
+  and always asks first, and a new clearing is exactly that suggestion. Moving one stone the person
+  named stays free, since they already said it in the chat and it is undone in one click.
+- **An ask is a proposal, not a promise.** `callAction` does not run an ask action. It writes a
+  proposal to `proposals.json` under the grove home (beside `runs.json`, history rather than
+  intent) and returns its id. The Grove shows it as an amber card, top centre, with Yes, No and an
+  optional reason; the tree turns amber and idle drift stops, as for any stone that needs you.
+  Yes re-checks the request against the grove as it is now and runs it; if the grove changed while
+  the card waited, it fails with a reason instead of half-running. No runs nothing and remembers a
+  turned-down suggestion (`declinedClearings`, `declinedRunes`, and the new `declinedSplits` on a
+  stone), so it is never offered again. Asking twice for the same thing makes one card.
+  `waitForDecision` and `onProposals` let the channel server tell PM the answer; a wait also reads
+  the file each second, so an answer given in another process is heard.
+- **Every argument is checked twice.** Against the action's JSON Schema (`core/actions/validate.ts`,
+  a page of code for the subset used rather than a library), then against the grove, so PM hears
+  "No stone called X. The stones are: …" rather than a stack trace, and no card is made for
+  something that cannot be done.
+- **Temporary agents** are ordinary definitions with `temporary: true`, `createdBy: "pm"` and an
+  `expiresAt`, so they hang on the tree, can be sent, and say "Temporary" in their card. They go
+  when their run ends, or when their time is up (default 4 hours, at most 24) if nothing is
+  working; never mid-job, and a run finished with its window still open counts as working. At most
+  four at once, the branches left after the built-in three. Swept every 30 seconds and whenever PM
+  looks at the grove.
+- **When PM suggests** is one object, `ADVICE_THRESHOLDS` in `core/actions/advice.ts`: shared
+  working hours for a clearing (3 in 7 days), sessions and share for a split (4 each, a fifth of
+  the stone, two parts), repeats for a saved task (3), and at most 2 of each kind at a time. Each
+  starts as the number the panels already use, and the existing rules (`suggestClearings`,
+  `splitsFor`, `suggestRunes`, `pairings`) now take these as arguments rather than being copied.
+  `groveAdvice` returns each suggestion with a one-line reason and the ready-made action call, and
+  leaves out anything turned down or already asked about.
+- **Ideas borrowed:** "you are the board" approvals from Paperclip, and agents bringing a written
+  proposal you approve or reject with your reasons, from bagidea-office. See CREDITS.md.
