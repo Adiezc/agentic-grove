@@ -804,7 +804,7 @@ async function startPmFromApp(fresh: boolean): Promise<{ ok: boolean; error?: st
   pmChat.note(
     result.resumed
       ? 'PM is coming back in its Terminal window, with your last conversation.'
-      : 'PM is starting in a Terminal window. The first time, choose "I am using this for local development" there; after that you can minimise it.'
+      : 'PM is starting in a Terminal window. The first time, answer its two questions there: trust PM\'s folder, then "I am using this for local development". After that you can minimise it.'
   )
   pmWindowState = 'open'
   redraw()
