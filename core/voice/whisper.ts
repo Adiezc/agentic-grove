@@ -207,7 +207,7 @@ export async function transcribe(bytes: unknown, options: { cli?: string; model?
     // -nt no timestamps, -np nothing but the result, -otxt -of: the text into speech.txt.
     const args = ['-m', model, '-f', audio, '-l', 'en', '-nt', '-np', '-otxt', '-of', base]
     await new Promise<void>((resolve, reject) => {
-      execFile(cli, args, { timeout: options.timeoutMs ?? 120_000, maxBuffer: 4 * 1024 * 1024 }, (error, _stdout, stderr) => {
+      execFile(cli, args, { timeout: options.timeoutMs ?? 240_000, maxBuffer: 4 * 1024 * 1024 }, (error, _stdout, stderr) => {
         if (error) reject(new Error(error.killed ? 'Listening took too long' : (String(stderr).trim().split('\n').pop() || error.message)))
         else resolve()
       })

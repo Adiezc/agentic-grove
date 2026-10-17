@@ -1,8 +1,10 @@
 /**
- * Hold to talk: the mic in the console, and the card that sets voice up the first time.
+ * Tap to talk: the mic in the console, and the card that sets voice up the first time.
  *
- * Hold the mic (or ⌥M) and speak; let go and what you said lands in the console as text, for you
- * to read and send with Enter as usual. Nothing is sent on its own. The listening happens on this
+ * Tap the mic (or ⌥M) and talk freely, for as long as five minutes; tap again, or stop talking for
+ * a few seconds, and what you said lands in the console as text, for you to read and send with
+ * Enter as usual (Adrian, 18 October 2026: talk to the grove the way you talk to a person).
+ * Nothing is sent on its own. The listening happens on this
  * Mac with whisper.cpp (`core/voice/whisper.ts`).
  *
  * Until whisper.cpp and its speech model are here, pressing the mic opens a short set-up card
@@ -35,11 +37,13 @@ async function refreshStatus(): Promise<VoiceStatusView | null> {
 
 const megabytes = (bytes: number) => Math.round(bytes / 1_000_000)
 
-/** The mic button, for inside the console's form. `onText` gets what was said. */
+/**
+ * The mic button, for inside the console's form. Tap and talk as long as you like; tap again, or
+ * just stop talking for a few seconds, and what you said lands in the console. `onText` gets it.
+ */
 export function MicButton({ onText }: { onText: (text: string) => void }) {
   const { status, phase } = useVoice()
   const recording = useRef<Recording | null>(null)
-  const held = useRef(false)
   const onTextRef = useRef(onText)
   onTextRef.current = onText
 
@@ -51,29 +55,18 @@ export function MicButton({ onText }: { onText: (text: string) => void }) {
   }, [])
 
   const begin = async () => {
-    if (held.current || useVoice.getState().phase !== 'idle') return
-    held.current = true
+    if (useVoice.getState().phase !== 'idle') return
     stopSpeaking()
     const fresh = await refreshStatus()
     if (!fresh?.ready || fresh.microphone === 'denied' || fresh.microphone === 'restricted') {
-      held.current = false
       useVoice.setState({ card: true, error: null })
       return
     }
     useVoice.setState({ phase: 'starting', error: null, card: false })
     try {
-      const next = await startRecording(() => void end())
-      recording.current = next
-      // Let go before the microphone was ready: nothing to listen to.
-      if (!held.current) {
-        next.cancel()
-        recording.current = null
-        useVoice.setState({ phase: 'idle' })
-        return
-      }
+      recording.current = await startRecording(() => void end())
       useVoice.setState({ phase: 'recording' })
     } catch (failure) {
-      held.current = false
       const blocked = failure instanceof DOMException && failure.name === 'NotAllowedError'
       useVoice.setState({
         phase: 'idle',
@@ -86,21 +79,20 @@ export function MicButton({ onText }: { onText: (text: string) => void }) {
   }
 
   const end = async () => {
-    held.current = false
     const current = recording.current
     recording.current = null
     if (!current) return
     useVoice.setState({ phase: 'listening' })
     try {
       const wav = await current.finish()
-      if (!wav) {
-        useVoice.setState({ phase: 'idle', card: true, error: 'Hold the mic while you speak, then let go.' })
-        return
-      }
+      // A tap with nothing said is not an error: just stop.
+      if (!wav) return useVoice.setState({ phase: 'idle' })
       const result = await window.grove!.voiceTranscribe(wav)
       if (result.ok && result.text) {
         onTextRef.current(result.text)
         useVoice.setState({ phase: 'idle', error: null })
+      } else if (result.ok) {
+        useVoice.setState({ phase: 'idle' })
       } else {
         if (result.missing) void refreshStatus()
         useVoice.setState({ phase: 'idle', card: true, error: result.error ?? 'That could not be heard' })
@@ -110,27 +102,26 @@ export function MicButton({ onText }: { onText: (text: string) => void }) {
     }
   }
 
-  // ⌥M, held, does the same as holding the button, from anywhere in the window.
+  const toggle = () => {
+    const now = useVoice.getState().phase
+    if (now === 'idle') void begin()
+    else if (now === 'recording') void end()
+  }
+
+  // ⌥M starts and stops it from anywhere in the window, like the button.
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
-      if (event.code !== 'KeyM' || !event.altKey || event.metaKey || event.ctrlKey) return
+      if (event.code !== 'KeyM' || !event.altKey || event.metaKey || event.ctrlKey || event.repeat) return
       event.preventDefault()
-      if (!event.repeat) void begin()
-    }
-    const up = (event: KeyboardEvent) => {
-      if ((event.code === 'KeyM' || event.key === 'Alt') && held.current) void end()
+      toggle()
     }
     window.addEventListener('keydown', down)
-    window.addEventListener('keyup', up)
-    return () => {
-      window.removeEventListener('keydown', down)
-      window.removeEventListener('keyup', up)
-    }
+    return () => window.removeEventListener('keydown', down)
   }, [])
 
   if (!window.grove) return null
   const ready = Boolean(status?.ready)
-  const label = phase === 'recording' ? 'Listening. Let go to stop' : phase === 'listening' ? 'Turning speech into text' : ready ? 'Hold to talk (or hold ⌥M)' : 'Set up talking to PM'
+  const label = phase === 'recording' ? 'Listening. Tap to stop' : phase === 'listening' ? 'Writing down what you said' : 'Talk'
   return (
     <button
       type="button"
@@ -138,23 +129,8 @@ export function MicButton({ onText }: { onText: (text: string) => void }) {
       aria-label={label}
       title={label}
       aria-pressed={phase === 'recording'}
-      disabled={phase === 'listening'}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return
-        event.currentTarget.setPointerCapture(event.pointerId)
-        void begin()
-      }}
-      onPointerUp={() => held.current && void end()}
-      onPointerCancel={() => held.current && void end()}
-      onKeyDown={(event) => {
-        if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) {
-          event.preventDefault()
-          void begin()
-        }
-      }}
-      onKeyUp={(event) => {
-        if ((event.key === ' ' || event.key === 'Enter') && held.current) void end()
-      }}
+      disabled={phase === 'listening' || phase === 'starting'}
+      onClick={toggle}
     >
       <Microphone size={20} weight={phase === 'recording' ? 'fill' : 'thin'} />
     </button>
@@ -184,7 +160,7 @@ export function VoiceCard() {
         <button type="button" className="panel-close" onClick={close} aria-label="Close">
           <X size={14} weight="thin" />
         </button>
-        <p className="answer-headline">{error ?? 'Voice is ready. Hold the mic, or ⌥M, and speak.'}</p>
+        <p className="answer-headline">{error ?? 'Voice is ready.'}</p>
       </div>
     )
   }
@@ -196,7 +172,7 @@ export function VoiceCard() {
         <X size={14} weight="thin" />
       </button>
       <p className="answer-headline">Talk to PM</p>
-      <p className="voice-line">Hold the mic and speak; your words appear in the console for you to check and send. It listens on this Mac only, free.</p>
+      <p className="voice-line">Once set up, tap the mic and talk; your words appear in the console. It listens on this Mac only, free.</p>
       {error ? <p className="panel-error voice-line">{error}</p> : null}
       {blocked ? (
         <p className="voice-line voice-warn">macOS has the microphone turned off for the Grove. Turn it on in System Settings › Privacy & Security › Microphone.</p>

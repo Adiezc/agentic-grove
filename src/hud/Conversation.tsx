@@ -13,7 +13,7 @@
  *
  * The speaker on the bar reads each new reply from PM aloud with one of the Mac's own voices
  * (`voice.ts`). Off until you switch it on; it never reads steps or permission prompts, and it
- * stops the moment you type or hold the mic.
+ * stops the moment you type or tap the mic.
  */
 import { useEffect, useRef, useState } from 'react'
 import { ArrowCounterClockwise, CaretDown, CaretUp, Check, Play, SpeakerHigh, SpeakerSlash, X } from '@phosphor-icons/react'

@@ -173,7 +173,7 @@ function Voice({ settings }: { settings: GroveSettings }) {
   const listening = !window.grove
     ? 'Needs the app.'
     : status?.ready
-      ? 'Ready. Hold the mic in the console, or ⌥M, and speak.'
+      ? 'Ready. Tap the mic in the console, or press ⌥M, and talk.'
       : 'Not set up yet. Press the mic in the console to set it up.'
   return (
     <Section icon={<Microphone size={14} weight="regular" />} name="Voice">

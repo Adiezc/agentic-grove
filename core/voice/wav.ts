@@ -8,8 +8,8 @@
 
 export const WAV_RATE = 16_000
 
-/** The longest recording the Grove takes: two minutes. Ten seconds of slack for the header and rounding. */
-export const MAX_SECONDS = 120
+/** The longest recording the Grove takes: five minutes, room to think out loud. Ten seconds of slack for the header and rounding. */
+export const MAX_SECONDS = 300
 export const MAX_WAV_BYTES = 44 + (MAX_SECONDS + 10) * WAV_RATE * 2
 
 /** Samples between -1 and 1, one channel, to a WAV file's bytes. */

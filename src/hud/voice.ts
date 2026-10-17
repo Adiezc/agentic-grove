@@ -59,12 +59,46 @@ export interface Recording {
   cancel(): void
 }
 
+/** How long a quiet stretch, after you have started speaking, ends the recording on its own. */
+export const SILENCE_MS = 2800
+/** Loudness (root mean square, 0 to 1) above which the microphone counts as hearing speech, and below which as quiet. */
+const SPEECH_LEVEL = 0.025
+const QUIET_LEVEL = 0.012
+
 /**
  * Start recording from the microphone. Rejects when macOS or the person refuses the microphone.
- * Stops on its own after two minutes; `finish` still returns what was heard.
+ * Calls `onEnd` on its own once you have spoken and then been quiet for `SILENCE_MS`, or after
+ * five minutes; `finish` still returns what was heard. Silence before you start never ends it, so
+ * a pause to gather your thoughts at the start is fine.
  */
-export async function startRecording(onLimit: () => void): Promise<Recording> {
+export async function startRecording(onEnd: () => void): Promise<Recording> {
+  const onLimit = onEnd
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } })
+  // Listening for the quiet after speech: a small analyser on the same stream, read ten times a second.
+  const listening = new AudioContext()
+  const analyser = listening.createAnalyser()
+  analyser.fftSize = 1024
+  listening.createMediaStreamSource(stream).connect(analyser)
+  const levels = new Float32Array(analyser.fftSize)
+  let heard = false
+  let quietSince = 0
+  const watch = window.setInterval(() => {
+    analyser.getFloatTimeDomainData(levels)
+    let sum = 0
+    for (const level of levels) sum += level * level
+    const loudness = Math.sqrt(sum / levels.length)
+    const now = Date.now()
+    if (loudness > SPEECH_LEVEL) {
+      heard = true
+      quietSince = 0
+    } else if (heard && loudness < QUIET_LEVEL) {
+      if (!quietSince) quietSince = now
+      else if (now - quietSince > SILENCE_MS) {
+        window.clearInterval(watch)
+        onEnd()
+      }
+    } else quietSince = 0
+  }, 100)
   const recorder = new MediaRecorder(stream)
   const chunks: Blob[] = []
   const started = Date.now()
@@ -74,7 +108,11 @@ export async function startRecording(onLimit: () => void): Promise<Recording> {
   const stopped = new Promise<void>((resolve) => {
     recorder.onstop = () => resolve()
   })
-  const release = () => stream.getTracks().forEach((track) => track.stop())
+  const release = () => {
+    window.clearInterval(watch)
+    void listening.close().catch(() => {})
+    stream.getTracks().forEach((track) => track.stop())
+  }
   const limit = window.setTimeout(onLimit, MAX_SECONDS * 1000)
   recorder.start()
 
