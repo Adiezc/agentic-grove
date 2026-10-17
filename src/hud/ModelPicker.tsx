@@ -4,9 +4,18 @@
  * Used in the agent card (saved on the agent) and the grow form. Chips rather than a dropdown, so
  * every choice is visible at once and one click is the whole job. Default comes first and means
  * "whatever you picked in Claude Code or Codex"; see `core/models.ts` for why that is the default.
+ * Codex's names are the ones Codex's own picker lists on this Mac, when it keeps that list.
  */
 import { useEffect, useState, type KeyboardEvent } from 'react'
-import { choicesFor, isModelName, MAX_MODEL_CHARS, type ModelTool } from '../../core/models.ts'
+import { choicesFor, isModelName, MAX_MODEL_CHARS, type ModelChoice, type ModelTool } from '../../core/models.ts'
+import { useGrove } from '../store/grove'
+
+const NO_MODELS: ModelChoice[] = []
+
+/** Codex's own model list, from the last setup check. Empty outside the app or before Codex is used. */
+export function useCodexModels(): ModelChoice[] {
+  return useGrove((state) => state.snapshot?.setup.codex.models) ?? NO_MODELS
+}
 
 export function ModelPicker({
   tool,
@@ -21,7 +30,7 @@ export function ModelPicker({
   disabled?: boolean
   label?: string
 }) {
-  const choices = choicesFor(tool)
+  const choices = choicesFor(tool, useCodexModels())
   const known = choices.some((choice) => choice.value === value.toLowerCase())
   const [otherOpen, setOtherOpen] = useState(!known)
   const [draft, setDraft] = useState(known ? '' : value)

@@ -25,7 +25,9 @@ useGrove.subscribe((state) => {
   if (!confirmed) return
   const { patch } = usePending.getState()
   const still = Object.fromEntries(
-    Object.entries(patch).filter(([key, value]) => confirmed[key as keyof GroveSettings] !== value)
+    // Compared as JSON because some settings are objects (PM's model settings), which are never
+    // the same object twice even when they say the same thing.
+    Object.entries(patch).filter(([key, value]) => JSON.stringify(confirmed[key as keyof GroveSettings]) !== JSON.stringify(value))
   ) as Partial<GroveSettings>
   if (Object.keys(still).length !== Object.keys(patch).length) usePending.setState({ patch: still })
 })

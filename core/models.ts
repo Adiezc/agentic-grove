@@ -10,8 +10,10 @@
  * `haiku`, `fable`), which always mean the newest of each, so a new release needs no change here.
  * "Other" takes any exact name, for the rare person who wants one.
  *
- * **Codex lists no choices**, only Default and Other: its model names change often and the Grove
- * has no reliable list of them, so it does not pretend to.
+ * **Codex lists what Codex itself lists** (17 October 2026). Its names change often, so none are
+ * written here. Codex keeps the list it shows in its own picker in `~/.codex/models_cache.json`,
+ * and `core/codex-models.ts` reads the visible ones from there. With no such file (Codex not used
+ * yet, or a version that keeps it elsewhere) Codex offers Default and Other, as before.
  *
  * **The Researcher defaults to Haiku on Claude Code.** It reads a great deal and changes nothing,
  * which is the work Anthropic's own docs suggest giving the fast, light model to save allowance.
@@ -42,9 +44,38 @@ export const CLAUDE_MODELS: ModelChoice[] = [
   { value: 'haiku', label: 'Haiku' },
 ]
 
-/** The choices offered for a tool, Default first. "Other" is offered by the picker on top. */
-export function choicesFor(tool: ModelTool): ModelChoice[] {
-  return tool === 'claude-code' ? [DEFAULT_MODEL, ...CLAUDE_MODELS] : [DEFAULT_MODEL]
+/**
+ * The choices offered for a tool, Default first. "Other" is offered by the picker on top. Codex's
+ * names come from Codex's own list on this Mac, when there is one; see `core/codex-models.ts`.
+ */
+export function choicesFor(tool: ModelTool, codexModels: ModelChoice[] = []): ModelChoice[] {
+  return tool === 'claude-code' ? [DEFAULT_MODEL, ...CLAUDE_MODELS] : [DEFAULT_MODEL, ...codexModels]
+}
+
+/**
+ * How hard the model thinks before answering. More effort is better work on hard problems, and
+ * slower, and uses more of your allowance. Empty means the tool's own default.
+ *
+ * Claude Code takes `--effort` with these five (its `--help`, 17 October 2026). Codex takes the
+ * same words through its `model_reasoning_effort` setting, plus `ultra` on some models.
+ */
+export const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
+export const CODEX_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const
+
+export function effortsFor(tool: ModelTool): readonly string[] {
+  return tool === 'claude-code' ? CLAUDE_EFFORTS : CODEX_EFFORTS
+}
+
+/** An effort the tool accepts, or empty for its default. Nothing else is ever handed over. */
+export function isEffort(tool: ModelTool, text: string): boolean {
+  return text === '' || effortsFor(tool).includes(text)
+}
+
+const EFFORT_LABEL: Record<string, string> = { low: 'low', medium: 'medium', high: 'high', xhigh: 'extra high', max: 'max', ultra: 'ultra' }
+
+/** How an effort reads in a sentence: "extra high" rather than "xhigh". */
+export function effortLabel(effort: string): string {
+  return effort ? (EFFORT_LABEL[effort] ?? effort) : 'default'
 }
 
 /** Longest name accepted; real model ids are well under this. */

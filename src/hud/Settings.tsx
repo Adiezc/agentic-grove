@@ -11,9 +11,10 @@
  * change too.
  */
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowsClockwise, Asterisk, Bell, Eye, Gauge, Leaf, Monitor, Plugs, Trash, X } from '@phosphor-icons/react'
+import { ArrowsClockwise, Asterisk, Bell, Cpu, Eye, Gauge, Leaf, Monitor, Plugs, Trash, X } from '@phosphor-icons/react'
 import { ToolSetup } from './Setup'
 import { CreditsReader } from './Credits'
+import { ModelSettings } from './ModelSettings'
 import type { HooksAction, HooksPlan } from '../../core/hooks/install.ts'
 import type { HooksStatus, UninstallPlan } from '../../electron/bridge.ts'
 import { GRAPHICS_MODES, type GraphicsMode, type GroveSettings } from '../../core/state/schema.ts'
@@ -315,6 +316,9 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       <Showing settings={settings} />
       <Notifications settings={settings} />
       <ClaudeLimits settings={settings} />
+      <Section icon={<Cpu size={14} weight="regular" />} name="Models">
+        <ModelSettings settings={settings} />
+      </Section>
       <Updates settings={settings} />
       <LiveUpdates open={open} />
       <Section icon={<Leaf size={14} weight="regular" />} name="Credits and acknowledgements">

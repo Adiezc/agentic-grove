@@ -165,7 +165,7 @@ Picked on 27 September 2026, after step 6. Ranked, most important first.
 
 ## Potential features
 
-- **PM recommends models from the prompt (8 October 2026). Proposed, not committed.** Add an
+- **PM recommends models from the prompt (8 October 2026). Rules and settings built 17 October 2026** (`core/model-policy.ts`, see DECISIONS.md); the chip still needs a place in the chat panel. Add an
   "Ask PM" option to model selection. PM reads the task, recommends a model for the work and
   its workers, explains why briefly and lets the person approve, change it or keep Default.
   Possible preferences: always ask, ask for demanding work, or choose automatically within

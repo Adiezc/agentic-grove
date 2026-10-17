@@ -31,6 +31,8 @@ import { execFile } from 'node:child_process'
 import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { readCodexModels } from './codex-models.ts'
+import type { ModelChoice } from './models.ts'
 
 export type SetupTool = 'claude-code' | 'codex'
 
@@ -46,6 +48,8 @@ export interface ToolPresence {
   app: boolean
   /** Whether the tool says it is signed in. Absent when it is not installed or did not answer. */
   signedIn?: boolean
+  /** Codex only: the models Codex's own picker lists, read from its cache. See `codex-models.ts`. */
+  models?: ModelChoice[]
 }
 
 export interface SetupStatus {
@@ -190,14 +194,15 @@ export async function setupStatus(): Promise<SetupStatus> {
     anyExists(['/opt/homebrew/bin/brew', '/usr/local/bin/brew']),
     anyExists(['/opt/homebrew/bin/npm', '/usr/local/bin/npm']),
   ])
-  const [claudeIn, codexIn] = await Promise.all([
+  const [claudeIn, codexIn, codexModels] = await Promise.all([
     claudeCli ? askSignedIn('claude-code', claudeCli.path) : undefined,
     codexCli ? askSignedIn('codex', codexCli.path) : undefined,
+    readCodexModels(),
   ])
   return {
     checked: true,
     'claude-code': { cli: Boolean(claudeCli), source: claudeCli?.source, app: claudeApp, signedIn: claudeIn },
-    codex: { cli: Boolean(codexCli), source: codexCli?.source, app: codexApp, signedIn: codexIn },
+    codex: { cli: Boolean(codexCli), source: codexCli?.source, app: codexApp, signedIn: codexIn, models: codexModels },
     brew,
     npm,
   }
