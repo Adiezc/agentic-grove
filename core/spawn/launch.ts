@@ -56,6 +56,11 @@ export interface LaunchSpec {
   permissionMode?: string
   /** Folders the session may read and edit besides its own: PM gets every stone's folder. */
   addDirs?: string[]
+  /**
+   * A worker on the team (`core/team/`): its team tools and its two hooks, both for this run only.
+   * Its tools may be used without asking, and a question may wait up to ten minutes for its answer.
+   */
+  team?: { mcpConfig: string; settings: string }
 }
 
 /** Claude Code's permission modes (`claude --help`, 2.1.301). Only these are passed on. */
@@ -124,6 +129,8 @@ function script(dir: string, cli: string, spec: LaunchSpec, markers: string): st
     `AGENTS="$(cat ${at('agents.txt')})"`,
     `MCP="$(cat ${at('mcp.txt')})"`,
     `MODE="$(cat ${at('mode.txt')})"`,
+    `TEAMMCP="$(cat ${at('team-mcp.txt')})"`,
+    `TEAMSET="$(cat ${at('team-settings.txt')})"`,
     // One folder per line; `(f)` splits on newlines only, so spaces in a path stay inside it.
     `DIRS=("\${(@f)$(cat ${at('dirs.txt')})}")`,
     `rm -rf -- ${quote(dir)}`,
@@ -169,7 +176,9 @@ function script(dir: string, cli: string, spec: LaunchSpec, markers: string): st
       '[[ -n "$MODE" ]] && ARGS+=(--permission-mode "$MODE")',
       'for D in "${DIRS[@]}"; do [[ -n "$D" ]] && ARGS+=(--add-dir "$D"); done',
       // `mcp__grove` allows every tool of the Grove's helper and nothing else.
-      '[[ -n "$MCP" ]] && ARGS+=(--mcp-config "$MCP" --dangerously-load-development-channels server:grove --allowedTools mcp__grove)'
+      '[[ -n "$MCP" ]] && ARGS+=(--mcp-config "$MCP" --dangerously-load-development-channels server:grove --allowedTools mcp__grove)',
+      // A teammate's question can take minutes to answer; the tool call waits that long.
+      '[[ -n "$TEAMMCP" ]] && ARGS+=(--mcp-config "$TEAMMCP" --settings "$TEAMSET" --allowedTools mcp__grove) && export MCP_TOOL_TIMEOUT=900000'
     )
   }
   // Not `exec`: the script stays to write the exit code once the tool stops. Ctrl-C and a closing
@@ -199,7 +208,7 @@ export async function launch(spec: LaunchSpec, open: Opener, findCli = cliPath, 
   if (spec.permissionMode && !(PERMISSION_MODES as readonly string[]).includes(spec.permissionMode)) {
     return { ok: false, error: `"${spec.permissionMode.slice(0, 20)}" is not a permission mode Claude Code accepts.` }
   }
-  if ((spec.channel || spec.addDirs?.length) && run.harness !== 'claude-code') {
+  if ((spec.channel || spec.addDirs?.length || spec.team) && run.harness !== 'claude-code') {
     return { ok: false, error: 'PM\'s channel works with Claude Code only.' }
   }
   const cli = await findCli(run.harness)
@@ -225,6 +234,8 @@ export async function launch(spec: LaunchSpec, open: Opener, findCli = cliPath, 
       // folder name would split it, so such a folder is left out rather than half-passed.
       'mcp.txt': spec.channel?.mcpConfig ?? '',
       'mode.txt': spec.permissionMode ?? '',
+      'team-mcp.txt': spec.team?.mcpConfig ?? '',
+      'team-settings.txt': spec.team?.settings ?? '',
       'dirs.txt': (spec.addDirs ?? []).filter((d) => d && !d.includes('\n')).map(notAnOption).join('\n'),
     }
     for (const [name, text] of Object.entries(files)) await fsp.writeFile(path.join(dir, name), text, { mode: 0o600 })

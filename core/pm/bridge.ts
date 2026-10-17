@@ -31,6 +31,11 @@ export interface PmBridgeOptions {
   chat: PmChat
   tools(): PmTool[] | Promise<PmTool[]>
   callTool(name: string, args: unknown): Promise<ToolAnswer>
+  /**
+   * Agents talking to each other (`core/team/`): every `/team/...` request is handed here with its
+   * body, and what comes back is the answer. Optional; without it those requests get a 404.
+   */
+  team?(route: string, body: Record<string, unknown>): Promise<unknown>
   /** PM's steps since your last message, kept with its reply. Optional; the checks leave it out. */
   stepsForReply?(): Promise<string[]>
   /** Port 0 picks a free one, the normal case. */
@@ -98,6 +103,7 @@ export async function startPmBridge(options: PmBridgeOptions): Promise<PmBridge>
           return answer(200, await options.callTool(body.name, body.args ?? {}))
         }
         default:
+          if (options.team && request.url?.startsWith('/team/')) return answer(200, await options.team(request.url, body))
           return answer(404)
       }
     } catch (error) {

@@ -254,6 +254,11 @@ export function pmChatBrief(team: Worker[], modelPolicy: string): string {
     '- Workers edit freely and run safe commands. Nothing is deleted, pushed, installed, sent, posted or paid without the person\'s yes.',
     '- Your own permission prompts are shown to the person in the Grove too, so a prompt is never a dead end.',
     '',
+    'Your team talks:',
+    '- Workers you send can ask you things while they work. Their questions arrive as "[Grove] <name> asks you (question <id>)": answer promptly with answer_agent; they are waiting. If only the person can answer, ask them with reply (needs_you), then pass their answer on.',
+    '- To check on a worker or change its course, use ask_agent or tell_agent (team_roster lists who is working). Your own questions never wait: the answer comes as a [Grove] message.',
+    '- Let workers ask each other when one needs what another found; do not relay what they can ask directly.',
+    '',
     modelPolicy,
   ].join('\n')
 }

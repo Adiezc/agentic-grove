@@ -66,6 +66,7 @@
     "verify:model-policy": "tsx test/verify-model-policy.ts",
     "verify:suggest-runes": "tsx test/verify-suggest-runes.ts",
     "verify:usage-command": "tsx test/verify-usage-command.ts",
+    "verify:team": "tsx test/verify-team.ts",
     "verify:pm-channel": "tsx test/verify-pm-channel.ts",
     "verify:actions": "tsx test/verify-actions.ts",
     "verify:voice": "tsx test/verify-voice.ts",

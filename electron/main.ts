@@ -57,6 +57,9 @@ import { startSweeping } from '../core/actions/temporary.ts'
 import { decide, onProposals, pendingProposals } from '../core/actions/proposals.ts'
 import '../core/actions/registry.ts'
 import { readTranscript } from '../core/spawn/transcript.ts'
+import { PM as PM_MEMBER, TeamBook, inboxText, type TeamRun } from '../core/team/book.ts'
+import { ASK_WAIT_MS, TEAM_TOOL_NAMES, callTeamTool, memberName, teamTools } from '../core/team/tools.ts'
+import { TEAM_BRIEF, writeTeamFiles } from '../core/team/session.ts'
 import { PmChat } from '../core/pm/chat.ts'
 import { VOICE_MODELS, downloadModel, transcribe, voiceStatus, whisperSetupScript } from '../core/voice/whisper.ts'
 import { startPmBridge, type PmBridge } from '../core/pm/bridge.ts'
@@ -94,6 +97,26 @@ const pmChat = new PmChat()
 let pmBridge: PmBridge | null = null
 let pmWindowState: PmWindow = 'unknown'
 let pmBlocked: string | undefined
+/* Agents talking to each other (`core/team/`): one book for every message between PM and workers. */
+const team = new TeamBook()
+
+/** The runs as the team sees them: who, on which stone, and whether a message can still reach them. */
+function teamRuns(): TeamRun[] {
+  const stones = latest?.grove.stones ?? []
+  return runs.list().map((run) => ({
+    id: run.id,
+    agentName: run.agentName,
+    stoneId: run.stoneId,
+    stoneName: stones.find((stone) => stone.id === run.stoneId)?.name ?? path.basename(run.stoneId),
+    live: ['starting', 'running', 'waiting'].includes(run.state) && run.process !== 'closed',
+  }))
+}
+
+/** The helper program, for PM's channel and for workers' team tools alike. */
+async function groveHelper() {
+  return helperCommand(path.join(dirname, 'grove-channel.js'), app.isPackaged ? null : process.execPath)
+}
+
 /** PM's steps since your last message, read from its transcript while it works. */
 let pmSteps: string[] = []
 
@@ -242,6 +265,7 @@ async function toSnapshot(result: ScanResult): Promise<GroveSnapshot> {
     notes: noteViews(grove.notes, derived.stones, runs.list()),
     proposals: await pendingProposals().catch(() => []),
     pm: { ...pmChat.state(), window: pmWindowState, blocked: pmBlocked, steps: pmChat.state().working ? pmSteps.slice(-8) : [] },
+    talk: team.pulses((member) => (member === PM_MEMBER ? null : (runs.list().find((run) => run.id === member)?.stoneId ?? null))),
   }
 }
 
@@ -815,8 +839,7 @@ function registerHandlers(): void {
  */
 async function startPmFromApp(fresh: boolean): Promise<{ ok: boolean; error?: string }> {
   if (!(await cliPath('claude-code'))) return { ok: false, error: 'PM needs Claude Code. Use Get ready to install it.' }
-  const script = path.join(dirname, 'grove-channel.js')
-  const helper = await helperCommand(script, app.isPackaged ? null : process.execPath)
+  const helper = await groveHelper()
   if (!helper) {
     pmBlocked = 'PM\'s chat needs Node.js 20 or newer. Install it from nodejs.org, or run "brew install node" in Terminal.'
     redraw()
@@ -996,7 +1019,17 @@ async function launchRun(request: unknown): Promise<RunResult> {
   // Workers edit freely and ask before anything riskier (Adrian, 17 October 2026). A job PM sends
   // carries the effort the Grove picked for it; `launch` refuses one the tool would not accept.
   const effort = typeof askedEffort === 'string' ? askedEffort : undefined
-  const result = await launch({ run, folder: stoneId, brief, model, effort, agents, permissionMode: 'acceptEdits' }, shell.openPath)
+  // Every Claude Code worker joins the team: it can ask PM or a teammate and be asked (core/team/).
+  // Without Node.js to run the helper it simply works alone, as before.
+  let teamFiles: { mcpConfig: string; settings: string } | undefined
+  if (harness === 'claude-code' && agentId !== PM_ID) {
+    const helper = await groveHelper()
+    if (helper) {
+      teamFiles = await writeTeamFiles(run.id, helper).catch(() => undefined)
+      if (teamFiles) brief = brief ? `${brief}\n\n${TEAM_BRIEF}` : TEAM_BRIEF
+    }
+  }
+  const result = await launch({ run, folder: stoneId, brief, model, effort, agents, permissionMode: 'acceptEdits', team: teamFiles }, shell.openPath)
   if (!result.ok) runs.fail(run.id, result.error)
   redraw()
   return result.ok ? { ok: true, runId: run.id } : { ok: false, runId: run.id, error: result.error, missing: result.missing }
@@ -1133,15 +1166,54 @@ void app.whenReady().then(async () => {
   registerHandlers()
   await pmChat.load()
   pmChat.onChange(() => redraw())
+  // Each message between agents: PM hears the ones for it at once through its channel; every one
+  // shows as a short line in the conversation and a pulse in the scene.
+  team.onMessage((message) => {
+    const all = teamRuns()
+    const from = memberName(message.from, all)
+    const to = memberName(message.to, all)
+    const verb = message.kind === 'ask' ? 'asks' : message.kind === 'answer' ? 'answers' : 'tells'
+    if (message.to === PM_MEMBER) {
+      const id = message.kind === 'ask' ? ` (question ${message.id}; reply with answer_agent)` : ''
+      pmChat.tellPm(`${from} ${verb} you${id}: ${message.text}`, false)
+    }
+    pmChat.note(`${from} ${verb} ${message.to === PM_MEMBER ? 'PM' : to}: ${message.text}`)
+    redraw()
+    // A pulse lasts a few seconds; redraw once more so it leaves the snapshot when done.
+    setTimeout(() => redraw(), 8500)
+  })
   pmBridge = await startPmBridge({
     chat: pmChat,
+    team: async (route, body) => {
+      if (route === '/team/tools') return { tools: teamTools(false) }
+      if (route === '/team/tool') {
+        const runId = typeof body.runId === 'string' ? body.runId : ''
+        if (!runs.list().some((run) => run.id === runId)) return { ok: false, text: 'This session is not one the Grove started.' }
+        return callTeamTool(runId, String(body.name ?? ''), body.args, team, { runs: teamRuns })
+      }
+      if (route === '/team/wait') {
+        const askId = typeof body.askId === 'string' ? body.askId : ''
+        const wait = typeof body.waitMs === 'number' ? Math.min(Math.max(body.waitMs, 0), 25_000) : 25_000
+        const answer = askId ? await team.waitForAnswer(askId, Math.min(wait, ASK_WAIT_MS)) : null
+        return answer ? { answer: answer.text } : {}
+      }
+      if (route === '/team/inbox') {
+        const runId = typeof body.runId === 'string' ? body.runId : ''
+        const waiting = runId ? team.takeInbox(runId) : []
+        const all = teamRuns()
+        return { text: waiting.length ? inboxText(waiting, (member) => memberName(member, all)) : '' }
+      }
+      return {}
+    },
     stepsForReply: async () => {
       await readPmSteps()
       return pmSteps
     },
-    tools: pmTools,
-    callTool: (name, args) =>
-      callPmTool(name, args, {
+    tools: () => [...pmTools(), ...teamTools(true)],
+    callTool: async (name, args) =>
+      TEAM_TOOL_NAMES.has(name)
+        ? callTeamTool(PM_MEMBER, name, args, team, { runs: teamRuns })
+        : callPmTool(name, args, {
         settings: async () => (await loadGrove()).grove.settings,
         usage: () => usage,
         toolFor: async (agent) => {

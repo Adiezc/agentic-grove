@@ -19,7 +19,19 @@
  */
 import fsp from 'node:fs/promises'
 import readline from 'node:readline'
-import { CHANNEL_INSTRUCTIONS, POLL_WAIT_MS, TOKEN_HEADER, bridgeFile, type BridgeAddress, type PmInbound, type PmTool } from '../core/pm/protocol.ts'
+import { CHANNEL_INSTRUCTIONS, POLL_WAIT_MS, TEAM_RUN_ENV, TOKEN_HEADER, bridgeFile, type BridgeAddress, type PmInbound, type PmTool } from '../core/pm/protocol.ts'
+
+/**
+ * Three jobs, picked at start (`core/team/book.ts` explains the last two):
+ *
+ *   pm     PM's channel, as described above.
+ *   team   a worker's team tools (ask, tell, answer, roster): `GROVE_TEAM_RUN` names its run.
+ *   hook   `--hook post|stop`: a worker's per-run hook, handing over waiting team messages.
+ */
+const TEAM_RUN = process.env[TEAM_RUN_ENV] ?? ''
+const HOOK = process.argv.includes('--hook') ? (process.argv[process.argv.indexOf('--hook') + 1] ?? '') : ''
+/** How long a worker's question waits for its answer, as `core/team/tools.ts` says. */
+const ASK_WAIT_MS = 10 * 60_000
 
 /**
  * Protocol revisions this helper answers with. Claude Code does not register a channel that
@@ -92,21 +104,25 @@ async function handle(message: { id?: string | number; method?: string; params?:
   switch (method) {
     case 'initialize': {
       const asked = typeof params.protocolVersion === 'string' ? params.protocolVersion : ''
+      // A worker's helper is not a channel: nothing is pushed into a worker's session this way.
       return void respond({
         protocolVersion: SUPPORTED_VERSIONS.includes(asked) ? asked : SUPPORTED_VERSIONS[0],
-        capabilities: {
-          experimental: { 'claude/channel': {}, 'claude/channel/permission': {} },
-          tools: {},
-        },
+        capabilities: TEAM_RUN ? { tools: {} } : { experimental: { 'claude/channel': {}, 'claude/channel/permission': {} }, tools: {} },
         serverInfo: { name: 'grove', version: '0.1.0' },
-        instructions: CHANNEL_INSTRUCTIONS,
+        instructions: TEAM_RUN
+          ? 'You are on an Agentic Grove team. ask_agent asks PM or a teammate and waits; tell_agent tells without waiting; answer_agent answers a question you were asked. Teammates\' messages reach you as "Message from your Agentic Grove team".'
+          : CHANNEL_INSTRUCTIONS,
       })
     }
     case 'notifications/initialized':
-      return void startPolling()
+      return void (TEAM_RUN ? undefined : startPolling())
     case 'ping':
       return void respond({})
     case 'tools/list': {
+      if (TEAM_RUN) {
+        const team = await grove('/team/tools', {})
+        return void respond({ tools: Array.isArray(team?.tools) ? team.tools : [] })
+      }
       const answer = await grove('/pm/tools', {})
       const tools = Array.isArray(answer?.tools) ? (answer.tools as PmTool[]) : []
       return void respond({ tools: [REPLY_TOOL, ...tools] })
@@ -116,7 +132,15 @@ async function handle(message: { id?: string | number; method?: string; params?:
       const args = (params.arguments ?? {}) as Record<string, unknown>
       let ok = false
       let text = GROVE_CLOSED
-      if (name === 'reply') {
+      if (TEAM_RUN) {
+        const answer = await grove('/team/tool', { runId: TEAM_RUN, name, args })
+        if (answer) {
+          ok = answer.ok === true
+          text = typeof answer.text === 'string' ? answer.text : ok ? 'done' : 'failed'
+          // A question: wait here for the answer, asking the Grove again every 25 seconds.
+          if (ok && typeof answer.askId === 'string') text = await waitForAnswer(answer.askId)
+        }
+      } else if (name === 'reply') {
         const answer = await grove('/pm/reply', { text: args.text, needsYou: args.needs_you === true })
         if (answer) {
           ok = answer.ok === true
@@ -140,6 +164,45 @@ async function handle(message: { id?: string | number; method?: string; params?:
       // Notifications need no answer; an unknown request gets the standard "no such method".
       if (id !== undefined && method && !method.startsWith('notifications/')) fail(-32601, `Unknown method ${method}`)
   }
+}
+
+async function waitForAnswer(askId: string): Promise<string> {
+  const until = Date.now() + ASK_WAIT_MS
+  while (Date.now() < until) {
+    const answer = await grove('/team/wait', { askId, waitMs: POLL_WAIT_MS }, AbortSignal.timeout(POLL_WAIT_MS + 10_000))
+    if (answer && typeof answer.answer === 'string') return `Answer: ${answer.answer}`
+    if (!answer) await new Promise((resolve) => setTimeout(resolve, 3000))
+  }
+  return 'No answer came within ten minutes. Carry on with your best judgement and say what you assumed.'
+}
+
+/* ---- A worker's hooks: handing over team messages ------------------------------------------ */
+
+/**
+ * Claude Code runs this after each tool a worker uses (`post`) and when it is about to stop
+ * (`stop`), with the event as JSON on stdin. With messages waiting, `post` adds them to what the
+ * worker reads next, and `stop` holds it back with them as its reason to carry on. With none, it
+ * prints nothing and Claude Code carries on as if there were no hook. Quick by design: two seconds.
+ */
+async function runHook(kind: string): Promise<void> {
+  const chunks: Buffer[] = []
+  for await (const chunk of process.stdin) chunks.push(chunk as Buffer)
+  let sessionId = ''
+  try {
+    const event = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { session_id?: unknown; stop_hook_active?: unknown }
+    sessionId = typeof event.session_id === 'string' ? event.session_id : ''
+  } catch {
+    return
+  }
+  if (!sessionId) return
+  const answer = await grove('/team/inbox', { runId: sessionId }, AbortSignal.timeout(2000))
+  const text = typeof answer?.text === 'string' ? answer.text : ''
+  if (!text) return
+  const out =
+    kind === 'stop'
+      ? { decision: 'block', reason: text }
+      : { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: text } }
+  process.stdout.write(JSON.stringify(out))
 }
 
 /* ---- Bringing your messages to PM ---------------------------------------------------------- */
@@ -168,6 +231,14 @@ async function startPolling(): Promise<void> {
   }
 }
 
+if (HOOK) {
+  runHook(HOOK).then(
+    () => process.exit(0),
+    () => process.exit(0)
+  )
+} else startMcp()
+
+function startMcp(): void {
 const input = readline.createInterface({ input: process.stdin })
 input.on('line', (line) => {
   if (!line.trim()) return
@@ -180,3 +251,4 @@ input.on('line', (line) => {
   handle(message as Parameters<typeof handle>[0]).catch((error) => log('error', error instanceof Error ? error.message : String(error)))
 })
 input.on('close', () => process.exit(0))
+}

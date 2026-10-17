@@ -38,6 +38,7 @@ import { Mushrooms } from './Mushrooms'
 import { Clearings } from './Clearings'
 import type { ClearingSpec } from './layout'
 import { AttentionMotes } from './AttentionMotes'
+import { TalkPulses } from './TalkPulses'
 import { TwinBase } from './TwinBase'
 import { Veil } from './Veil'
 import { useGrove } from '../store/grove'
@@ -380,6 +381,8 @@ export function GroveScene({
   const { alwaysShowNames, ambientMotion } = useSettings()
   // Stones with a note waiting to be read keep their name up, the quietest way to say "look here".
   const notes = useGrove((state) => state.snapshot?.notes)
+  const talk = useGrove((state) => state.snapshot?.talk)
+  const snapshotAt = useGrove((state) => state.snapshot?.at ?? 0)
   const noted = useMemo(
     () => new Set((notes ?? []).filter((note) => note.on === 'stone' && note.state === 'showing').map((note) => note.id)),
     [notes]
@@ -564,6 +567,7 @@ export function GroveScene({
       <Clearings clearings={clearings} stones={stones} animate={animate} />
       <Mushrooms pairs={pairs} stones={stones} animate={animate} />
       <AttentionMotes stones={stones} animate={animate} />
+      <TalkPulses pulses={talk ?? []} stones={stones} animate={animate} at={snapshotAt} />
 
       {view === 'agents' ? <Canopy animate={animate} /> : null}
       {deployment?.phase === 'flight' && deployFrom && deployTo ? (

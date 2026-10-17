@@ -56,6 +56,13 @@ export interface PermissionRequest {
   input_preview: string
 }
 
+/**
+ * The helper's other two jobs. With `GROVE_TEAM_RUN` set it serves a worker's team tools (no
+ * channel); run as `grove-channel.js --hook post|stop` it is the worker's per-run hook that hands
+ * over waiting team messages. See `core/team/book.ts`.
+ */
+export const TEAM_RUN_ENV = 'GROVE_TEAM_RUN'
+
 /** Claude Code's request ids: five lowercase letters, never `l`. Anything else is not one of its ids. */
 export const isRequestId = (text: unknown): text is string => typeof text === 'string' && /^[a-km-z]{5}$/.test(text)
 

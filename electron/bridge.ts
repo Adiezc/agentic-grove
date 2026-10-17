@@ -28,6 +28,7 @@ import type { TranscriptLine } from '../core/spawn/transcript.ts'
 import type { ActivityResult } from '../core/activity-access.ts'
 import type { Proposal } from '../core/actions/proposals.ts'
 import type { PmChatState } from '../core/pm/chat.ts'
+import type { TalkPulse } from '../core/team/book.ts'
 import type { Transcript, VoiceModelId, VoiceStatus } from '../core/voice/whisper.ts'
 
 /**
@@ -81,6 +82,8 @@ export interface GroveSnapshot {
   proposals: Proposal[]
   /** The conversation with PM, and whether PM's window is open. See `core/pm/`. */
   pm: PmView
+  /** Messages between agents in the last few seconds, for the scene's pulses. See `core/team/`. */
+  talk: TalkPulse[]
   /**
    * How many screens are connected. With one, a grove you have not looked at for a while steps its
    * graphics down; with several, it is probably on a screen of its own and stays at full detail.

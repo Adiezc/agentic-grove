@@ -239,7 +239,8 @@ nothing from it may be copied until it is.
 <https://github.com/leepokai/Codync> · Codync contributors
 
 Idea only, no code: reading Claude's limits from Claude Code's own `claude -p /usage`, which runs
-no model (`core/usage/usage-command.ts`).
+no model (`core/usage/usage-command.ts`). Also the idea of a `team` tool through which one agent asks
+another and waits for the answer (`core/team/`).
 
 ### jarrodwatts/claude-hud — MIT
 

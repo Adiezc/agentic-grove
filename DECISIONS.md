@@ -1989,3 +1989,30 @@ card, typing stopping it, the voice picker saving, and camera/screen/location re
 checked:** real microphone audio and a real whisper.cpp transcription (whisper.cpp is not
 installed on this Mac and holding the mic would raise the macOS permission prompt), and actual
 sound from the speaker (speech was intercepted in the test so nothing played aloud).
+
+## The team talks: PM and workers ask, tell and answer each other (18 October 2026)
+
+Stage B of the agent plan, asked for by Adrian. Every Claude Code worker the Grove sends joins the
+team (`core/team/`): it can ask PM or another worker a question and wait for the answer (up to ten
+minutes), tell them something without waiting, and answer what it is asked. PM gets the same tools
+but never waits, so it stays free to talk to you; answers reach it as `[Grove]` messages through
+its channel. Each message is a pulse of light between the two in the scene (tree for PM, stones
+for workers; `src/scene/TalkPulses.tsx`) and a short line in the conversation.
+
+- **How a message reaches a busy worker, with Claude Code's own features and nothing global.**
+  Each worker starts with an MCP config and a settings file for that run only (`--mcp-config`,
+  `--settings`): the team tools, plus two hooks. After each tool it uses, waiting messages are
+  added to what it reads next (`PostToolUse` `additionalContext`); when it is about to stop, a
+  waiting message holds it back and is given to it as the reason to carry on (`Stop` `block`).
+  Your own Claude Code settings are untouched. A worker that has already finished reads its
+  messages when it is resumed.
+- **Not a channel for workers.** Channels need the "local development" confirmation in each
+  window, which would stop every worker until you pressed Enter; tools plus hooks need nothing.
+- **Same helper, three jobs.** `electron/grove-channel.ts` is PM's channel, a worker's team tools
+  (`GROVE_TEAM_RUN`) or a worker's hook (`--hook post|stop`), all through the same loopback
+  bridge and token.
+- **Codex workers** work alone for now (no hooks of this kind); noted for later.
+
+Borrowed idea: Codync's `team` tool (Apache-2.0), see CREDITS.md. Checked by `npm run
+verify:team` and with a real Claude Code worker (Haiku): it asked PM and waited for the answer,
+and a message PM sent while it worked reached it through the hook and changed its final answer.
