@@ -222,16 +222,30 @@ the font and Electron/Chromium. Research candidates are credited when actually a
 **Start here.** Each of these is an issue with the files to open, what done looks like and a
 rough time. Comment on one to take it, so two people don't build the same thing.
 
+**Good first issues**
+
 | Issue | Time | Needs |
 | --- | --- | --- |
-| [#13 Run the checks on a Windows runner in CI](https://github.com/Adiezc/agentic-grove/issues/13) · good first issue | 1 to 2 hours | Nothing but GitHub |
-| [#14 Find Claude Code sessions on Windows](https://github.com/Adiezc/agentic-grove/issues/14) · good first issue | 1 to 2 hours | Windows, the Claude app |
-| [#17 The hook command without a Unix shell](https://github.com/Adiezc/agentic-grove/issues/17) · good first issue | 1 to 2 hours | Windows, Claude Code |
-| [#20 Detect a running Ollama or LM Studio](https://github.com/Adiezc/agentic-grove/issues/20) · good first issue | 2 hours | A Mac with Ollama or LM Studio |
+| [#13 Run the checks on a Windows runner in CI](https://github.com/Adiezc/agentic-grove/issues/13) | 1 to 2 hours | Nothing but GitHub |
+| [#14 Find Claude Code sessions on Windows](https://github.com/Adiezc/agentic-grove/issues/14) | 1 to 2 hours | Windows, the Claude app |
+| [#17 The hook command without a Unix shell](https://github.com/Adiezc/agentic-grove/issues/17) | 1 to 2 hours | Windows, Claude Code |
+| [#20 Detect a running Ollama or LM Studio](https://github.com/Adiezc/agentic-grove/issues/20) | 2 hours | A Mac with Ollama or LM Studio |
+| [#22 Test the Cursor adapter on real sessions](https://github.com/Adiezc/agentic-grove/issues/22) | 1 to 2 hours | A Mac with Cursor |
+| [#24 A short "how it works now" note for the hooks](https://github.com/Adiezc/agentic-grove/issues/24) | 1 to 2 hours | No code; reading the source |
+| [#25 Check the interface with a screen reader](https://github.com/Adiezc/agentic-grove/issues/25) | 1 to 2 hours | A Mac with VoiceOver |
+| [#23 Write a one-page threat model](https://github.com/Adiezc/agentic-grove/issues/23) | 2 to 3 hours | No code; reading the source |
+
+**Bigger pieces**
+
+| Issue | Time | Needs |
+| --- | --- | --- |
 | [#15 Find `claude` and `codex` on Windows](https://github.com/Adiezc/agentic-grove/issues/15) | 2 hours | Windows |
 | [#18 A Windows installer](https://github.com/Adiezc/agentic-grove/issues/18) | 2 to 3 hours | Windows |
+| [#26 Runs that always end in a word to you](https://github.com/Adiezc/agentic-grove/issues/26) | 2 to 4 hours | A Mac |
 | [#16 Start agents in Windows Terminal](https://github.com/Adiezc/agentic-grove/issues/16) | 3 to 5 hours | Windows; agree the approach first |
 | [#19 A Linux version](https://github.com/Adiezc/agentic-grove/issues/19) | Half a day to a day | Linux with a desktop |
+| [#27 An adapter for opencode](https://github.com/Adiezc/agentic-grove/issues/27) | About a day | A Mac with opencode |
+| [#28 A landing page with a short clip per feature](https://github.com/Adiezc/agentic-grove/issues/28) | About a day | A Mac |
 
 **Questions, or an idea that isn't an issue yet?** Ask in
 [Discussions](https://github.com/Adiezc/agentic-grove/discussions).
@@ -242,16 +256,13 @@ offline on local models**, for people who want everything on their own machine.
 
 **Everyone whose work is merged is named** in the release notes and in a contributors list here.
 
-**Other features open to anyone who wants one**, each described in CONTRIBUTING.md with the
-files to start from:
+**Two more ideas, not yet issues**, each described in CONTRIBUTING.md with the files to start
+from:
 
-- Runs that always end in a word to you, even when Terminal closes mid-job
 - A second try on a stronger model when a run shows signs of struggling
 - A look before PM hands work that read the web to an agent that changes files
-- An adapter for [opencode](https://github.com/anomalyco/opencode)
-- A one-page threat model, a short map of how each part works, and a landing page
 
-Several came from reading [Odysseus](https://github.com/odysseus-dev/odysseus) by PewDiePie
+Several of these ideas came from reading [Odysseus](https://github.com/odysseus-dev/odysseus) by PewDiePie
 (ideas only; see [CREDITS.md](CREDITS.md)).
 
 ## Principles
