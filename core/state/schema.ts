@@ -78,6 +78,11 @@ export interface StoneConfig {
   /** Repeatable tasks bound to this project. */
   runes?: Rune[]
   /**
+   * Suggested sub-stones you said no to, as folder paths (see `splitsFor` in `stones.ts`). Kept so
+   * the same part is never offered again. Delete a line to be asked again.
+   */
+  declinedSplits?: string[]
+  /**
    * Suggested runes you said no to, as matching keys (see `core/state/suggest-runes.ts`). Kept so
    * the same suggestion is never offered twice. Delete a line to be asked again.
    */
@@ -168,6 +173,16 @@ export interface AgentDefinition {
   model?: string
   /** Prepended to every prompt this agent runs. Optional. */
   systemPrompt?: string
+  /**
+   * Set on an agent PM grew for one job. A temporary agent goes by itself: when the run it was sent
+   * on ends, or at `expiresAt` if it is not working then (see `core/actions/temporary.ts`). PM may
+   * grow and remove these without asking; a permanent agent needs your yes.
+   */
+  temporary?: true
+  /** Who grew a temporary agent. Only PM does, for now. */
+  createdBy?: 'pm'
+  /** When a temporary agent goes if nothing is keeping it, as an ISO date. */
+  expiresAt?: string
 }
 
 /** Long enough for a page of instructions; a limit so a pasted file does not end up in `grove.json`. */
@@ -443,6 +458,10 @@ export function parseGrove(raw: unknown): { grove: GroveFile; problems: GrovePro
           const declined = entry.declinedRunes.map(asString).filter(Boolean)
           if (declined.length) stone.declinedRunes = declined
         }
+        if (Array.isArray(entry.declinedSplits)) {
+          const declined = entry.declinedSplits.map(asString).filter((each) => each.startsWith('/'))
+          if (declined.length) stone.declinedSplits = declined
+        }
         if (entry.runes !== undefined) {
           if (!Array.isArray(entry.runes)) {
             problems.push({ where: `${at}.runes`, message: 'Should be a list, like [ ].' })
@@ -638,6 +657,20 @@ export function parseAgent(entry: unknown, at: string, problems: GroveProblem[])
   }
   const systemPrompt = asString(entry.systemPrompt)
   if (systemPrompt) agent.systemPrompt = systemPrompt
+
+  if (entry.temporary === true) {
+    // Temporary means "goes by itself", so it needs a time to go and a tool the Grove can run.
+    const expires = Date.parse(asString(entry.expiresAt))
+    if (isLinkOnly(agent.harness)) {
+      problems.push({ where: `${at}.temporary`, message: 'Only an agent the Grove runs can be temporary.' })
+    } else if (!Number.isFinite(expires)) {
+      problems.push({ where: `${at}.expiresAt`, message: 'A temporary agent needs "expiresAt", a date like "2026-10-17T18:00:00Z".' })
+    } else {
+      agent.temporary = true
+      agent.createdBy = 'pm'
+      agent.expiresAt = new Date(expires).toISOString()
+    }
+  }
   return agent
 }
 

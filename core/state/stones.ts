@@ -219,10 +219,23 @@ const placesOf = (session: Session): string[] => [session.cwd, session.projectPa
  *
  * One busy subfolder alone is not a split; it is just where the work is.
  */
-const SPLIT_MIN_SESSIONS = 4
-const SPLIT_MIN_SHARE = 0.2
+export const SPLIT_MIN_SESSIONS = 4
+export const SPLIT_MIN_SHARE = 0.2
+/** How many busy parts it takes. One busy subfolder alone is just where the work is. */
+export const SPLIT_MIN_PARTS = 2
 
-export function splitsFor(stonePath: string, group: Session[], taken: Set<string>): SplitSuggestion[] {
+export interface SplitRules {
+  minSessions: number
+  minShare: number
+  minParts: number
+}
+
+export function splitsFor(
+  stonePath: string,
+  group: Session[],
+  taken: Set<string>,
+  rules: SplitRules = { minSessions: SPLIT_MIN_SESSIONS, minShare: SPLIT_MIN_SHARE, minParts: SPLIT_MIN_PARTS }
+): SplitSuggestion[] {
   const parts = new Map<string, SplitSuggestion>()
   for (const session of group) {
     let part: { path: string; name: string; kind: SplitSuggestion['kind'] } | null = null
@@ -241,9 +254,9 @@ export function splitsFor(stonePath: string, group: Session[], taken: Set<string
     parts.set(part.path, entry)
   }
   const big = [...parts.values()].filter(
-    (part) => part.sessionCount >= SPLIT_MIN_SESSIONS && part.sessionCount >= group.length * SPLIT_MIN_SHARE
+    (part) => part.sessionCount >= rules.minSessions && part.sessionCount >= group.length * rules.minShare
   )
-  return big.length >= 2 ? big.sort((a, b) => b.sessionCount - a.sessionCount).slice(0, 4) : []
+  return big.length >= Math.max(1, rules.minParts) ? big.sort((a, b) => b.sessionCount - a.sessionCount).slice(0, 4) : []
 }
 
 function buildStone(
@@ -288,7 +301,8 @@ function buildStone(
     clearing: parent ? undefined : config.clearing,
     branch: repo?.branch,
     place: twinOf ? undefined : config.place,
-    splits: splitsFor(config.path, ordered, new Set(configs.map((other) => other.path))),
+    // A part you said no to is counted as taken, so it is never offered again.
+    splits: splitsFor(config.path, ordered, new Set([...configs.map((other) => other.path), ...(config.declinedSplits ?? [])])),
   }
 }
 

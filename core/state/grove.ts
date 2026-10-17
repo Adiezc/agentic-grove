@@ -442,7 +442,7 @@ function entryFrom(draft: AgentDraft, id: string, name: string, harness: string)
  * something the loader would refuse. Re-reads the file first, for the same reason `addProject`
  * does: an edit made by hand a moment ago is kept, not overwritten.
  */
-export async function addAgent(draft: AgentDraft): Promise<{ ok: boolean; id?: string; error?: string }> {
+export async function addAgent(draft: AgentDraft, options: { temporaryUntil?: number } = {}): Promise<{ ok: boolean; id?: string; error?: string }> {
   const name = typeof draft.name === 'string' ? draft.name.trim() : ''
   if (!name) return { ok: false, error: 'Give it a name' }
   if (name.length > 40) return { ok: false, error: 'Keep the name under 40 characters' }
@@ -454,7 +454,9 @@ export async function addAgent(draft: AgentDraft): Promise<{ ok: boolean; id?: s
       const taken = new Set<string>([...BUILT_IN_AGENT_IDS, ...grove.agents.map((agent) => agent.id)])
       const id = uniqueId(slugify(name) || 'agent', taken)
       const problems: GroveProblem[] = []
-      const agent = parseAgent(entryFrom(draft, id, name, draft.harness), 'new agent', problems)
+      // A temporary agent (PM's, for one job) goes through the same rules, with its time to go.
+      const temporary = options.temporaryUntil === undefined ? {} : { temporary: true, expiresAt: new Date(options.temporaryUntil).toISOString() }
+      const agent = parseAgent({ ...entryFrom(draft, id, name, draft.harness), ...temporary }, 'new agent', problems)
       if (!agent || problems.length) {
         return { result: { ok: false, error: problems[0]?.message ?? 'That agent could not be made' }, write: false }
       }
@@ -480,7 +482,9 @@ export async function updateAgent(id: string, draft: AgentDraft): Promise<{ ok: 
       const current = grove.agents[index]
       if (!current) return { result: { ok: false, error: 'No agent with that id' }, write: false }
       const problems: GroveProblem[] = []
-      const agent = parseAgent(entryFrom(draft, id, name, current.harness), name, problems)
+      // A temporary agent stays temporary when changed: only removing it, or its time, ends it.
+      const kept = current.temporary ? { temporary: true, expiresAt: current.expiresAt } : {}
+      const agent = parseAgent({ ...entryFrom(draft, id, name, current.harness), ...kept }, name, problems)
       if (!agent || problems.length) {
         return { result: { ok: false, error: problems[0]?.message ?? 'That change could not be made' }, write: false }
       }
@@ -586,6 +590,22 @@ export async function declineRune(stonePath: unknown, key: unknown): Promise<{ o
       const declined = stone.declinedRunes ?? []
       if (declined.includes(matching)) return { result: { ok: true }, write: false }
       stone.declinedRunes = [...declined, matching]
+      return { result: { ok: true }, write: true }
+    },
+    { ok: false, error: 'grove.json has an error; fix it first' }
+  )
+}
+
+/** "No" to a suggested sub-stone: remembered on its stone, so that part is not offered again. */
+export async function declineSplit(stonePath: unknown, part: unknown): Promise<{ ok: boolean; error?: string }> {
+  if (typeof part !== 'string' || !part.startsWith('/')) return { ok: false, error: 'Nothing to decline' }
+  return updateGrove<{ ok: boolean; error?: string }>(
+    (grove) => {
+      const stone = grove.stones.find((each) => each.path === stonePath)
+      if (!stone) return { result: { ok: false, error: 'Not one of your stones' }, write: false }
+      const declined = stone.declinedSplits ?? []
+      if (declined.includes(part)) return { result: { ok: true }, write: false }
+      stone.declinedSplits = [...declined, part]
       return { result: { ok: true }, write: true }
     },
     { ok: false, error: 'grove.json has an error; fix it first' }

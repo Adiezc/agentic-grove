@@ -207,6 +207,25 @@ documents never taken as instructions) are adapted from Trilogue's researcher an
 protocols, read on 16 October 2026. Same author and the same licence as the Grove, so no separate
 notice is needed. No Trilogue code is used.
 
+### paperclipai/paperclip — MIT
+
+<https://github.com/paperclipai/paperclip> · Paperclip contributors
+
+**What we took: an idea, not code.** Paperclip runs a "company" of agents in which the person is the
+board: structural changes, such as hiring a new agent, wait for the board's approval. PM's proposals
+(`core/actions/proposals.ts`) follow that rule: PM may do small, undoable things itself, and a
+permanent agent, a new clearing, a sub-stone or a saved task waits for your yes. Read from its public
+description on 17 October 2026; the licence is reported as MIT, and no Paperclip code is used.
+
+### bagidea/bagidea-office — licence not checked
+
+bagidea-office, a Claude Code agent "office" on the desktop wallpaper, by bagidea.
+
+**What we took: an idea, not code.** Its agents bring you a written proposal to approve or reject,
+with your reasons. The Grove's proposal card does the same: Yes or No, and an optional reason passed
+back to PM. Read from its public description on 17 October 2026; its licence file was not read, so
+nothing from it may be copied until it is.
+
 ### jarrodwatts/claude-hud — MIT
 
 <https://github.com/jarrodwatts/claude-hud> · Jarrod Watts and contributors
