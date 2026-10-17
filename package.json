@@ -63,6 +63,7 @@
     "verify:attribution": "node test/verify-attribution.mjs",
     "verify:notes": "tsx test/verify-notes.ts",
     "verify:models": "tsx test/verify-models.ts",
+    "verify:model-policy": "tsx test/verify-model-policy.ts",
     "verify:suggest-runes": "tsx test/verify-suggest-runes.ts",
     "dmg": "node scripts/package.mjs --dmg"
   },

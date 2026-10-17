@@ -21,6 +21,7 @@
 import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { isEffort } from '../models.ts'
 import { cliPath } from '../setup.ts'
 import { clearRunProcess, exitFile, pidFile, processFolder } from './process.ts'
 import type { Run } from './runs.ts'
@@ -33,6 +34,11 @@ export interface LaunchSpec {
   brief: string
   /** Empty means the tool's own default. */
   model: string
+  /**
+   * How hard the model thinks: low, medium, high, xhigh, max (Codex also ultra). Empty or missing
+   * means the tool's own default. See `core/models.ts` and `core/model-policy.ts`.
+   */
+  effort?: string
   /**
    * PM's team, as the JSON Claude Code's `--agents` takes (see `briefs.ts`). Only PM runs on
    * Claude Code have one; with it, the workers are also stopped from starting workers of their own.
@@ -98,6 +104,7 @@ function script(dir: string, cli: string, spec: LaunchSpec, markers: string): st
     `TASK="$(cat ${at('task.txt')})"`,
     `NAME="$(cat ${at('name.txt')})"`,
     `MODEL="$(cat ${at('model.txt')})"`,
+    `EFFORT="$(cat ${at('effort.txt')})"`,
     // The brief has to outlive the folder for Claude Code, which reads it after starting, so it is
     // copied into a variable too and handed over as text rather than as a file.
     `BRIEF="$(cat ${at('brief.txt')})"`,
@@ -113,6 +120,7 @@ function script(dir: string, cli: string, spec: LaunchSpec, markers: string): st
       `ARGS=(--session-id ${run.id} --name "$NAME")`,
       '[[ -n "$BRIEF" ]] && ARGS+=(--append-system-prompt "$BRIEF")',
       '[[ -n "$MODEL" ]] && ARGS+=(--model "$MODEL")',
+      '[[ -n "$EFFORT" ]] && ARGS+=(--effort "$EFFORT")',
       // One level of delegation: PM may start workers, workers may not start their own.
       '[[ -n "$AGENTS" ]] && ARGS+=(--agents "$AGENTS") && export CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1',
       '[[ -n "$TASK" ]] && ARGS+=("$TASK")'
@@ -122,6 +130,8 @@ function script(dir: string, cli: string, spec: LaunchSpec, markers: string): st
     lines.push(
       'ARGS=()',
       '[[ -n "$MODEL" ]] && ARGS+=(-m "$MODEL")',
+      // Codex has no effort option of its own; its setting is overridden for this session only.
+      '[[ -n "$EFFORT" ]] && ARGS+=(-c "model_reasoning_effort=\\"$EFFORT\\"")',
       'PROMPT="$TASK"',
       '[[ -n "$BRIEF" ]] && PROMPT="$BRIEF"$\'\\n\\n\'"$TASK"',
       '[[ -n "$PROMPT" ]] && ARGS+=("$PROMPT")'
@@ -147,6 +157,10 @@ export async function launch(spec: LaunchSpec, open: Opener, findCli = cliPath, 
   if (spec.resume && run.harness !== 'claude-code') {
     return { ok: false, error: 'Resuming from the Grove works for Claude Code only. Open Codex to carry on.' }
   }
+  // Only a word the tool knows is handed over, the same care `isModelName` takes with models.
+  if (spec.effort && !isEffort(run.harness === 'codex' ? 'codex' : 'claude-code', spec.effort)) {
+    return { ok: false, error: `"${spec.effort.slice(0, 20)}" is not an effort ${run.harness === 'codex' ? 'Codex' : 'Claude Code'} accepts.` }
+  }
   const cli = await findCli(run.harness)
   if (!cli) {
     const tool = run.harness === 'claude-code' ? 'Claude Code' : 'Codex'
@@ -162,6 +176,7 @@ export async function launch(spec: LaunchSpec, open: Opener, findCli = cliPath, 
       'task.txt': notAnOption(run.task),
       'name.txt': notAnOption(sessionName(run)),
       'model.txt': notAnOption(spec.model),
+      'effort.txt': spec.effort ?? '',
       'brief.txt': notAnOption(spec.brief),
       // JSON always starts with a brace, never a dash, so it cannot be read as an option.
       'agents.txt': spec.run.harness === 'claude-code' ? (spec.agents ?? '') : '',

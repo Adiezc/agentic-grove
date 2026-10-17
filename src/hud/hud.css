@@ -3374,3 +3374,116 @@
 .clearing-icon.is-confirming {
   color: var(--wait);
 }
+
+/* ---- Settings: how PM picks models (ModelSettings.tsx). Reuses the chips and fields above. ---- */
+
+.policy-tools {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.policy-tiers,
+.policy-thresholds {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+.policy-tier {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.policy-select {
+  height: 1.85rem;
+  min-width: 0;
+  padding: 0 0.4rem;
+  border: 1px solid rgb(46 111 72 / 0.3);
+  border-radius: 10px;
+  background: #06120b;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+}
+
+.policy-select:focus-visible {
+  outline: 1px solid var(--live);
+  outline-offset: 2px;
+}
+
+.policy-threshold {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.policy-percent {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.policy-percent .model-other {
+  width: 4rem;
+  height: 1.85rem;
+  padding: 0 0.5rem;
+}
+
+/* ---- PM's model choice for one job (ModelChip.tsx): a chip, and a small card under it. ---- */
+
+.model-chip-box {
+  position: relative;
+  display: inline-block;
+}
+
+.model-chip {
+  height: 1.6rem;
+  padding: 0 0.7rem;
+  border: 1px solid rgb(46 111 72 / 0.35);
+  border-radius: 999px;
+  background: rgb(2 9 4 / 0.55);
+  color: var(--glow);
+  font: inherit;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.model-chip:hover,
+.model-chip:focus-visible,
+.model-chip.is-open {
+  border-color: var(--live);
+  outline: none;
+}
+
+.model-chip:active {
+  transform: translateY(1px);
+}
+
+.model-chip.needs-ok {
+  border-color: rgb(242 180 76 / 0.55);
+  color: var(--wait);
+}
+
+.model-chip-pop {
+  position: absolute;
+  z-index: 5;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+  width: 17rem;
+  padding: 0.2rem 0.85rem 0.85rem;
+  border: 1px solid rgb(46 111 72 / 0.35);
+  border-radius: 12px;
+  background: rgb(2 9 4 / 0.94);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+}
+
+.model-chip-reason {
+  margin-top: 0.7rem;
+  line-height: 1.45;
+}

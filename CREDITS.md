@@ -207,6 +207,14 @@ documents never taken as instructions) are adapted from Trilogue's researcher an
 protocols, read on 16 October 2026. Same author and the same licence as the Grove, so no separate
 notice is needed. No Trilogue code is used.
 
+### Anthropic and OpenAI's own model guidance
+
+PM's three kinds of job (`core/model-policy.ts`) follow the makers' own advice rather than any
+other project: Anthropic's documentation suggests the light, fast model for quick and high-volume
+work and the largest one for complex reasoning, and both Claude Code and Codex expose effort levels
+for the same trade. The Codex model list is read from the cache Codex itself keeps for its picker.
+No code or text is copied from either.
+
 ### jarrodwatts/claude-hud — MIT
 
 <https://github.com/jarrodwatts/claude-hud> · Jarrod Watts and contributors

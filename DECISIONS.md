@@ -1821,3 +1821,39 @@ in `core/spawn/briefs.ts`, used both when PM sends the Researcher and when it is
 
 The Researcher still defaults to Haiku. Exact quotation from long documents is harder for a small
 model; anyone who relies on quotes can switch the Researcher's model in its card.
+
+## PM proposes a model and effort for each job, and the person decides (17 October 2026)
+
+Adrian wants the Grove as his day-to-day place to work, talking only to PM. PM now suggests a model
+and an effort level for each job instead of leaving every job on Default. Agreed with Adrian:
+
+- **Three kinds of job.** A quick question gets Haiku at low effort. Day-to-day building gets Opus
+  at medium effort, or high for a bigger build if PM judges it needs it. Planning the day, the
+  roadmap or the architecture gets Opus at extra-high effort. Codex follows the same shape on
+  effort and keeps whatever model you chose in Codex, because its model names change too often to
+  build rules on.
+- **The person has the final say.** Settings hold the model mode (ask only for costly picks, the
+  default; never ask; always ask), the models PM may use, your own model and effort for each kind
+  of job, and the three allowance thresholds. Every pick comes with one sentence of reasoning and
+  shows as a chip (`src/hud/ModelChip.tsx`) that changes it in one click.
+- **Allowance rules sit on top and cannot be switched off by the mode.** Above 70% of the Claude
+  five-hour window, Opus or Fable needs a yes. Above 90%, Haiku only, at low effort, and new jobs
+  queue for the reset. Above 80% of the week, PM warns and sends less at once. The same rules
+  apply to Codex against Codex's own figures. Unknown or out-of-date figures never hold work back
+  (`core/usage/limits.ts`): stopping work on a guess would be inventing a number.
+- **Rules, not a model call.** "Sending an agent opens Terminal with your own Claude Code" still
+  stands: the app never spends the subscription itself. So which kind of job a line of text is,
+  and which model it gets, are plain rules in `core/model-policy.ts`, tested by
+  `npm run verify:model-policy`. PM, a real Claude Code session, reads the job properly and can
+  call the rules; the classifier is the fallback when nobody has read the job.
+- **Effort reaches the tools as they expect it.** Claude Code takes `--effort` (low, medium, high,
+  xhigh, max). Codex has no effort option, so its `model_reasoning_effort` setting is overridden
+  for that one session with `-c`, which also accepts `ultra`. An effort a tool does not know is
+  refused before Terminal opens.
+- **Codex lists the models Codex lists.** Codex keeps the list its own picker shows in
+  `~/.codex/models_cache.json`. The Grove reads the visible entries from there (read-only) and
+  offers them; without that file Codex still offers Default and Other.
+
+This settles the "PM recommends models" idea in ROADMAP.md, with one change from that note: PM
+does not need to start on a separate model to assess the prompt, because PM is already a Claude
+Code session reading the job.
