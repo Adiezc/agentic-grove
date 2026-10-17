@@ -42,7 +42,7 @@ const bridge = await startPmBridge({
     if (route === '/team/tools') return { tools: teamTools(false) }
     if (route === '/team/tool') return callTeamTool(String(body.runId), String(body.name), body.args, book, host)
     if (route === '/team/wait') {
-      const answer = await book.waitForAnswer(String(body.askId), Math.min(Number(body.waitMs) || 0, 25_000))
+      const answer = await book.waitForAnswer(String(body.askId), 25_000)
       return answer ? { answer: answer.text } : {}
     }
     if (route === '/team/inbox') {

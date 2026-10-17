@@ -73,11 +73,11 @@ export async function startPmBridge(options: PmBridgeOptions): Promise<PmBridge>
     try {
       switch (request.url) {
         case '/pm/next': {
-          const wait = typeof body.waitMs === 'number' ? Math.min(Math.max(body.waitMs, 0), POLL_WAIT_MS) : POLL_WAIT_MS
+          // The wait is the Grove's own, never taken from the request.
           // A helper that hangs up while waiting must not take a message with it.
           let gone = false
           response.on('close', () => (gone = true))
-          const items = await options.chat.poll(wait)
+          const items = await options.chat.poll(POLL_WAIT_MS)
           if (gone && items.length) {
             for (const item of items) if (item.kind === 'chat') options.chat.tellPm(item.text, false)
             return

@@ -58,7 +58,7 @@ import { decide, onProposals, pendingProposals } from '../core/actions/proposals
 import '../core/actions/registry.ts'
 import { readTranscript } from '../core/spawn/transcript.ts'
 import { PM as PM_MEMBER, TeamBook, inboxText, type TeamRun } from '../core/team/book.ts'
-import { ASK_WAIT_MS, TEAM_TOOL_NAMES, callTeamTool, memberName, teamTools } from '../core/team/tools.ts'
+import { TEAM_TOOL_NAMES, callTeamTool, memberName, teamTools } from '../core/team/tools.ts'
 import { TEAM_BRIEF, writeTeamFiles } from '../core/team/session.ts'
 import { PmChat } from '../core/pm/chat.ts'
 import { VOICE_MODELS, downloadModel, transcribe, voiceStatus, whisperSetupScript } from '../core/voice/whisper.ts'
@@ -1193,8 +1193,8 @@ void app.whenReady().then(async () => {
       }
       if (route === '/team/wait') {
         const askId = typeof body.askId === 'string' ? body.askId : ''
-        const wait = typeof body.waitMs === 'number' ? Math.min(Math.max(body.waitMs, 0), 25_000) : 25_000
-        const answer = askId ? await team.waitForAnswer(askId, Math.min(wait, ASK_WAIT_MS)) : null
+        // A fixed wait, never taken from the request; the helper simply asks again.
+        const answer = askId ? await team.waitForAnswer(askId, 25_000) : null
         return answer ? { answer: answer.text } : {}
       }
       if (route === '/team/inbox') {
