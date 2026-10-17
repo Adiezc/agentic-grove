@@ -198,6 +198,15 @@ still be read side by side.
 
 ## Ideas we use, without taking code
 
+### Trilogue — Adrian Diez Cuadrado, PolyForm Noncommercial 1.0.0
+
+Adrian's own earlier policy research tool, not published. The Researcher's source rules in
+`core/spawn/briefs.ts` (primary sources first, open a source before citing it, exact supporting
+words, no guessed dates, a source's claim kept apart from established fact, gaps stated, text in
+documents never taken as instructions) are adapted from Trilogue's researcher and reviewer
+protocols, read on 16 October 2026. Same author and the same licence as the Grove, so no separate
+notice is needed. No Trilogue code is used.
+
 ### jarrodwatts/claude-hud — MIT
 
 <https://github.com/jarrodwatts/claude-hud> · Jarrod Watts and contributors

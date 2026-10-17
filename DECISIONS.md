@@ -1796,3 +1796,28 @@ The worst was the low bough under the front-left pads, in the home view. Once th
 `build-world-tree-blender.py` now finds the nearest bark to each bough's start and, if the start is
 outside it by more than 3 cm, carries the bough on to that bark and 8 cm into it. A start already
 behind the bark is left alone, so nothing is pushed back out through it.
+
+## The Researcher cites its sources, and the person decides which sources count (16 October 2026)
+
+Adrian paused Trilogue, his policy research tool, and asked what of it would help the Researcher.
+Most of Trilogue was machinery the Grove does not need: its own model adapters, budgets, a PDF
+renderer and a web interface. What carried over is its rules for sources, now in `SOURCE_RULES`
+in `core/spawn/briefs.ts`, used both when PM sends the Researcher and when it is sent directly.
+
+- **Rules in the brief, not checks in code.** Adrian's call: the brief says what is used and what
+  is not, and the person keeps the final say. Trilogue's mechanical quote check was not ported. So
+  the rules make an answer checkable by whoever reads it; they do not guarantee the Researcher
+  followed them, and nothing in the Grove should describe its findings as verified.
+- **The person chooses the sources.** The defaults (official documents, then peer-reviewed work,
+  then the rest) give way to whatever the person or PM's brief says. PM asks which sources count
+  when it matters and is unclear, and passes the answer on word for word.
+- **Papers, not only the web.** A web search finds few papers, so the brief names free indexes
+  that answer without an account: OpenAlex, arXiv, PubMed, and Crossref to confirm a DOI. Each
+  answered a plain request on 16 October 2026. Semantic Scholar was left out: without a key it
+  turned every request away as too many.
+- **No policy brief job.** Not wanted. If someone asks for a comparison of positions, the general
+  rule that each position is attributed and that "no visible position" is said rather than
+  balanced away covers the useful part.
+
+The Researcher still defaults to Haiku. Exact quotation from long documents is harder for a small
+model; anyone who relies on quotes can switch the Researcher's model in its card.

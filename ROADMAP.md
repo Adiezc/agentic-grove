@@ -163,6 +163,16 @@ Picked on 27 September 2026, after step 6. Ranked, most important first.
     misty and clears as it loads. Stones with overnight activity break through the mist first. Delight
     more than information, so last; fits the polish steps (12 and 13).
 
+## Potential features
+
+- **PM recommends models from the prompt (8 October 2026). Proposed, not committed.** Add an
+  "Ask PM" option to model selection. PM reads the task, recommends a model for the work and
+  its workers, explains why briefly and lets the person approve, change it or keep Default.
+  Possible preferences: always ask, ask for demanding work, or choose automatically within
+  models the person has approved. PM starts on the configured default to assess the prompt;
+  recommendations must respect available models and allowance. Current routing chooses the
+  tool by availability and headroom; model selection uses saved choices or a per-job override.
+
 ## Not for v1
 
 Recorded so they are not lost. Ranked the same way.
