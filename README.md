@@ -227,9 +227,11 @@ rough time. Comment on one to take it, so two people don't build the same thing.
 
 | Issue | Time | Needs |
 | --- | --- | --- |
-| [#13 Run the checks on a Windows runner in CI](https://github.com/Adiezc/agentic-grove/issues/13) | 1 to 2 hours | Nothing but GitHub |
-| [#14 Find Claude Code sessions on Windows](https://github.com/Adiezc/agentic-grove/issues/14) | 1 to 2 hours | Windows, the Claude app |
-| [#17 The hook command without a Unix shell](https://github.com/Adiezc/agentic-grove/issues/17) | 1 to 2 hours | Windows, Claude Code |
+| [#35 Token counts just under a million read "1000k"](https://github.com/Adiezc/agentic-grove/issues/35) | Under an hour | Any OS with Node 22 |
+| [#36 Usage figures show "NaN% used"](https://github.com/Adiezc/agentic-grove/issues/36) | About an hour | Any OS with Node 22 |
+| [#37 A NaN usage reading routes jobs with "NaN% left"](https://github.com/Adiezc/agentic-grove/issues/37) | About an hour | Any OS with Node 22 |
+| [#38 Agents whose names end in a symbol can't be called](https://github.com/Adiezc/agentic-grove/issues/38) | About an hour | Any OS with Node 22 |
+| [#34 Tests for the usage wording](https://github.com/Adiezc/agentic-grove/issues/34) | 1 to 2 hours | Any OS with Node 22 |
 | [#20 Detect a running local model server](https://github.com/Adiezc/agentic-grove/issues/20) | 2 to 3 hours | A Mac with Ollama, LM Studio, llama.cpp, MLX or similar |
 | [#22 Test the Cursor adapter on real sessions](https://github.com/Adiezc/agentic-grove/issues/22) | 1 to 2 hours | A Mac with Cursor |
 | [#24 A short "how it works now" note for the hooks](https://github.com/Adiezc/agentic-grove/issues/24) | 1 to 2 hours | No code; reading the source |
@@ -240,6 +242,9 @@ rough time. Comment on one to take it, so two people don't build the same thing.
 
 | Issue | Time | Needs |
 | --- | --- | --- |
+| [#13 Run the checks on a Windows runner in CI](https://github.com/Adiezc/agentic-grove/issues/13) | 1 to 2 hours | Nothing but GitHub |
+| [#14 Find Claude Code sessions on Windows](https://github.com/Adiezc/agentic-grove/issues/14) | 1 to 2 hours | Windows, the Claude app |
+| [#17 The hook command without a Unix shell](https://github.com/Adiezc/agentic-grove/issues/17) | 1 to 2 hours | Windows, Claude Code |
 | [#30 Run the Grove fully locally](https://github.com/Adiezc/agentic-grove/issues/30) (tracking issue, 7 steps) | Several pieces; take one | A Mac with a local model server |
 | [#15 Find `claude` and `codex` on Windows](https://github.com/Adiezc/agentic-grove/issues/15) | 2 hours | Windows |
 | [#18 A Windows installer](https://github.com/Adiezc/agentic-grove/issues/18) | 2 to 3 hours | Windows |
