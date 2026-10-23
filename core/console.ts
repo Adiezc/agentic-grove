@@ -47,7 +47,7 @@ function namedAgent(text: string, agents: ConsoleAgent[]): { agent: ConsoleAgent
   for (const agent of byLength) {
     const name = escape(agent.name)
     const forms = [
-      new RegExp(`^@${name}\\b[:,]?\\s*`, 'i'),
+      new RegExp(`^@${name}(?![\\p{L}\\p{N}])[:,]?\\s*`, 'iu'),
       new RegExp(`^(?:the\\s+)?${name}\\s*[:,]\\s*`, 'i'),
       new RegExp(`^ask\\s+(?:the\\s+)?${name}\\s+(?:to\\s+)?`, 'i'),
     ]
