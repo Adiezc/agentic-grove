@@ -263,6 +263,12 @@ offline on local models**, for people who want everything on their own machine.
 
 **Everyone whose work is merged is named** in the release notes and in a contributors list here.
 
+**Contributors so far**
+
+- [@Golden007-prog](https://github.com/Golden007-prog) (Oikantik Basu): agent mentions that end
+  in a symbol, such as `@C++`, reach that agent instead of PM
+  ([#40](https://github.com/Adiezc/agentic-grove/pull/40)).
+
 **Two more ideas, not yet issues**, each described in CONTRIBUTING.md with the files to start
 from:
 
