@@ -12,6 +12,7 @@ const agents = [
   { id: 'builder', name: 'Builder' },
   { id: 'manager', name: 'PM' },
   { id: 'builder-two', name: 'Builder Two' },
+  { id: 'cpp', name: 'C++' },
 ]
 const stones = [
   { id: '/p/grove', name: 'Grove' },
@@ -29,6 +30,19 @@ const cases: [string, () => void][] = [
   }],
   ['the longest agent name is matched first', () => {
     assert.equal(read('@builder two add tests').agentId, 'builder-two')
+  }],
+  ['agent mentions can end in symbols, including before punctuation or the end of input', () => {
+    for (const text of ['@C++ fix it', '@C++: fix it', '@C++, fix it']) {
+      const reading = read(text)
+      assert.deepEqual([reading.agentId, reading.agentBy, reading.task], ['cpp', 'named', 'fix it'], text)
+    }
+    assert.deepEqual([read('@C++').agentId, read('@C++').task], ['cpp', ''])
+  }],
+  ['an agent mention cannot be a prefix of a longer letter or number name', () => {
+    for (const text of ['@builderbot fix it', '@builder7 fix it', '@builderé fix it', '@C++bot fix it', '@C++7 fix it', '@C++界 fix it']) {
+      const reading = read(text)
+      assert.deepEqual([reading.agentId, reading.agentBy, reading.task], ['manager', 'kind', text], text)
+    }
   }],
   ['anything not naming an agent goes to PM, whatever kind of job it is', () => {
     for (const job of ['plan the release', 'why does the scan take 600ms', 'review the diff', 'fix the failing test', 'can you add dark mode', 'the tests pass on CI but not here?']) {
