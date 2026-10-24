@@ -63,7 +63,7 @@ const FIVE_HOURS_MS = 5 * 60 * 60_000
 export function headroomFrom(usage: UsageReport | null, now: number): Headroom {
   const left = (provider: 'claude-code' | 'codex'): number | null => {
     const window = usage?.providers.find((each) => each.provider === provider)?.windows.find((each) => each.key === 'five_hour')
-    if (!window || window.usedPercent === null) return null
+    if (!window || window.usedPercent === null || !Number.isFinite(window.usedPercent)) return null
     if (window.resetsAt !== null && window.resetsAt <= now) return null
     if (window.observedAt !== null && now - window.observedAt > FIVE_HOURS_MS) return null
     return Math.max(0, Math.min(100, Math.round(100 - window.usedPercent)))
