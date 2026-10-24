@@ -54,6 +54,9 @@ const cases: [string, () => void][] = [
     assert.equal(headroomFrom(report(100, now + 60_000, now - 60_000), now).claudeCode, 0)
     assert.equal(headroomFrom(report(100, now - 1, now - 60_000), now).claudeCode, null)
     assert.equal(headroomFrom(report(40, null, now - 6 * 60 * 60_000), now).claudeCode, null)
+    const nonFinite = headroomFrom(report(Number.NaN, now + 60_000, now - 60_000), now)
+    assert.equal(nonFinite.claudeCode, null)
+    assert.doesNotMatch(route('project', all, { ...nonFinite, codex: 60 }).reason, /NaN/)
     assert.equal(headroomFrom(null, now).codex, null)
   }],
 ]
