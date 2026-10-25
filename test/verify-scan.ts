@@ -18,6 +18,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { DatabaseSync } from 'node:sqlite'
 import { scan } from '../core/scan.ts'
 import { deriveStones, wantsYou, ERROR_ALARM_MS } from '../core/state/stones.ts'
 import { defaultGrove, parseGrove } from '../core/state/schema.ts'
@@ -133,8 +134,14 @@ const liveRecords = walk(liveDir)
   })
 
 // This is the strongest check in the file. These sessions demonstrably exist — there is a
-// process answering for each one — so every one of them must appear in the scan, and must not
-// be sitting there marked idle.
+// process answering for each one — so every one of them must appear in the scan.
+//
+// A live process is not the same as a busy one, though. The desktop app keeps sessions open for
+// days, sitting at the prompt, and calling those idle is right. So the "not idle" check asks the
+// process's own record instead: Claude Code writes `status: "busy"` or `"idle"` there itself
+// (seen 25 October 2026, version 2.1.308). Only a session that says it is busy must not be
+// shown idle. An older Claude Code that writes no status gets no idle check at all, rather than
+// a guess.
 for (const live of liveRecords) {
   const sessionId = String(live.sessionId)
   const found = result.sessions.find((s) => s.id === `claude-code:${sessionId}`)
@@ -145,12 +152,14 @@ for (const live of liveRecords) {
       ? `${found.project} — ${found.status}, last activity ${Math.round((Date.now() - found.lastActivityAt) / 1000)}s ago`
       : `session ${sessionId} in ${String(live.cwd)} is running right now and the scan missed it`
   )
-  if (found) {
+  if (found && live.status === 'busy') {
     check(
-      `live process ${live.pid} is not reported as idle`,
+      `busy process ${live.pid} is not reported as idle`,
       found.status !== 'idle',
-      `reported as "${found.status}" (${found.statusProvenance})`
+      `the process says busy, the scan says "${found.status}" (${found.statusProvenance})`
     )
+  }
+  if (found) {
     check(
       `live process ${live.pid} is attributed to the right folder`,
       found.cwd === String(live.cwd),
@@ -182,10 +191,68 @@ const rollouts = walk(path.join(codexHome, 'sessions')).filter(
   (f) => path.basename(f).startsWith('rollout-') && f.endsWith('.jsonl')
 )
 
-// Counted from each rollout's own header, with this file's own reading of what machinery looks
-// like. Kept separate from the adapter's `isSubagent` on purpose.
-let codexReal = 0
-let codexMachinery = 0
+/**
+ * Every thread in Codex's newest `state_<n>.sqlite`, and whether it is machinery.
+ *
+ * Three signals, any one of which marks a subagent: a spawn edge pointing at it,
+ * `thread_source = 'subagent'`, or the word "subagent" in `source` (where review passes keep
+ * `{"subagent":{…}}` as a string). A database that is missing or will not open leaves the rows
+ * empty and says so, and the count check then rests on the rollouts alone.
+ */
+function readCodexDatabase(): { rows: { id: string; machinery: boolean }[]; note: string } {
+  const newest = (() => {
+    try {
+      return fs
+        .readdirSync(codexHome)
+        .map((name) => ({ name, version: Number(/^state_(\d+)\.sqlite$/.exec(name)?.[1] ?? NaN) }))
+        .filter((each) => Number.isFinite(each.version))
+        .sort((a, b) => b.version - a.version)[0]?.name
+    } catch {
+      return undefined
+    }
+  })()
+  if (!newest) return { rows: [], note: 'no database found' }
+
+  let db: DatabaseSync | undefined
+  try {
+    db = new DatabaseSync(path.join(codexHome, newest), { readOnly: true })
+    const tables = new Set(
+      db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((r) => String(r.name))
+    )
+    const columns = new Set(db.prepare('PRAGMA table_info(threads)').all().map((r) => String(r.name)))
+    const spawned = new Set(
+      tables.has('thread_spawn_edges')
+        ? db.prepare('SELECT child_thread_id FROM thread_spawn_edges').all().map((r) => String(r.child_thread_id))
+        : []
+    )
+    const rows = db
+      .prepare(
+        `SELECT id,
+           ${columns.has('source') ? 'source' : "''"} AS source,
+           ${columns.has('thread_source') ? 'thread_source' : "''"} AS thread_source
+         FROM threads`
+      )
+      .all()
+      .map((r) => ({
+        id: String(r.id),
+        machinery:
+          spawned.has(String(r.id)) || r.thread_source === 'subagent' || String(r.source ?? '').includes('subagent'),
+      }))
+    return { rows, note: '' }
+  } catch (error) {
+    return { rows: [], note: `${newest} could not be read: ${(error as Error).message}` }
+  } finally {
+    db?.close()
+  }
+}
+
+// Every Codex session id, sorted into real and machinery, from two places: each rollout's own
+// header, and the database. Both readings are this file's own, kept separate from the adapter's
+// `isSubagent` and `isSubagentRow` on purpose.
+const codexReal = new Set<string>()
+const codexMachinery = new Set<string>()
+let rolloutReal = 0
+
 for (const file of rollouts) {
   const record = firstRecord(file)
   const payload =
@@ -196,20 +263,40 @@ for (const file of rollouts) {
     Boolean(payload.parent_thread_id) ||
     (typeof payload.source === 'object' && payload.source !== null && 'subagent' in payload.source) ||
     payload.thread_source === 'subagent'
-  if (machinery) codexMachinery += 1
-  else codexReal += 1
+  if (!machinery) rolloutReal += 1
+  if (typeof payload.id === 'string') (machinery ? codexMachinery : codexReal).add(payload.id)
 }
 
-// The database can also hold sessions whose transcript has since been cleared, so the scan is
-// allowed to report *more* than the transcripts alone account for — but never fewer, and never
-// so many that the machinery is plainly getting through.
-const codexCount = byHarness('codex').length
+// The database is the fuller list. Codex now keeps older conversations' history in its own
+// database and clears their rollout files (92 of 103 on this Mac, 25 October 2026), so counting
+// files alone can never add up to what the grove rightly shows.
+const codexDatabase = readCodexDatabase()
+for (const row of codexDatabase.rows) {
+  // Machinery wins: a session either reading calls a subagent is one.
+  if (row.machinery) {
+    codexMachinery.add(row.id)
+    codexReal.delete(row.id)
+  } else if (!codexMachinery.has(row.id)) {
+    codexReal.add(row.id)
+  }
+}
+
+const codexIds = byHarness('codex').map((s) => s.id.replace(/^codex:/, ''))
+const leaked = codexIds.filter((id) => codexMachinery.has(id))
 check(
   'Codex subagent passes are excluded',
-  codexCount >= codexReal && codexCount < codexReal + codexMachinery,
-  `${rollouts.length} rollouts on disk: ${codexReal} real, ${codexMachinery} machinery — ` +
-    `the scan reports ${codexCount} session${codexCount === 1 ? '' : 's'}` +
-    (codexCount > codexReal ? ` (${codexCount - codexReal} from the database with no transcript on disk)` : '')
+  leaked.length === 0,
+  leaked.length
+    ? `${leaked.length} subagent pass(es) shown as sessions, for example ${leaked[0]}`
+    : `${codexMachinery.size} subagent passes on this machine, none in the scan`
+)
+
+const codexCount = codexIds.length
+check(
+  'every real Codex session is in the scan',
+  codexCount === codexReal.size,
+  `${codexReal.size} real sessions (${rolloutReal} with a rollout on disk, the rest from the ` +
+    `database${codexDatabase.note ? `; ${codexDatabase.note}` : ''}) — the scan reports ${codexCount}`
 )
 
 // A blunter version of the same thing, and the one that would have caught the bug this file was
