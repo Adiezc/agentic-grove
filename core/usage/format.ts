@@ -14,7 +14,7 @@ export const WINDOW_NAME = { five_hour: '5 hours', seven_day: '7 days' } as cons
 export const LOW_HEADROOM = 10
 
 export function compactTokens(tokens: number): string {
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M tokens`
+  if (tokens >= 999_500) return `${(tokens / 1_000_000).toFixed(1)}M tokens`
   if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}k tokens`
   return `${tokens} tokens`
 }
